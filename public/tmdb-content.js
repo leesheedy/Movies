@@ -16,14 +16,14 @@ const TMDBContentModule = {
         }
     },
 
-    // Fetch popular movies in India
-    async getPopularMoviesIndia() {
+    // Fetch popular movies
+    async getPopularMovies() {
         try {
-            const response = await fetch(`${this.BASE_URL}/movie/popular?api_key=${this.API_KEY}&region=IN&page=1`);
+            const response = await fetch(`${this.BASE_URL}/movie/popular?api_key=${this.API_KEY}&page=1`);
             const data = await response.json();
             return data.results || [];
         } catch (error) {
-            console.error('Failed to fetch popular movies in India:', error);
+            console.error('Failed to fetch popular movies:', error);
             return [];
         }
     },
@@ -31,7 +31,7 @@ const TMDBContentModule = {
     // Fetch top rated movies
     async getTopRatedMovies() {
         try {
-            const response = await fetch(`${this.BASE_URL}/movie/top_rated?api_key=${this.API_KEY}&region=IN&page=1`);
+            const response = await fetch(`${this.BASE_URL}/movie/top_rated?api_key=${this.API_KEY}&page=1`);
             const data = await response.json();
             return data.results || [];
         } catch (error) {
@@ -40,10 +40,10 @@ const TMDBContentModule = {
         }
     },
 
-    // Fetch now playing in India
-    async getNowPlayingIndia() {
+    // Fetch now playing movies
+    async getNowPlayingMovies() {
         try {
-            const response = await fetch(`${this.BASE_URL}/movie/now_playing?api_key=${this.API_KEY}&region=IN&page=1`);
+            const response = await fetch(`${this.BASE_URL}/movie/now_playing?api_key=${this.API_KEY}&page=1`);
             const data = await response.json();
             return data.results || [];
         } catch (error) {
@@ -52,10 +52,10 @@ const TMDBContentModule = {
         }
     },
 
-    // Fetch upcoming movies in India
-    async getUpcomingIndia() {
+    // Fetch upcoming movies
+    async getUpcomingMovies() {
         try {
-            const response = await fetch(`${this.BASE_URL}/movie/upcoming?api_key=${this.API_KEY}&region=IN&page=1`);
+            const response = await fetch(`${this.BASE_URL}/movie/upcoming?api_key=${this.API_KEY}&page=1`);
             const data = await response.json();
             return data.results || [];
         } catch (error) {
@@ -497,7 +497,7 @@ const TMDBContentModule = {
             // Fetch all data in parallel
             const [
                 trendingMovies,
-                popularIndia,
+                popularMovies,
                 topRated,
                 nowPlaying,
                 upcoming,
@@ -505,10 +505,10 @@ const TMDBContentModule = {
                 topRatedTV
             ] = await Promise.all([
                 this.getTrendingMovies(),
-                this.getPopularMoviesIndia(),
+                this.getPopularMovies(),
                 this.getTopRatedMovies(),
-                this.getNowPlayingIndia(),
-                this.getUpcomingIndia(),
+                this.getNowPlayingMovies(),
+                this.getUpcomingMovies(),
                 this.getPopularTVShows(),
                 this.getTopRatedTVShows()
             ]);
@@ -516,9 +516,9 @@ const TMDBContentModule = {
             // Render sections with endpoint info for pagination (removed Coming Soon)
             const sections = [
                 { title: '🔥 Trending Today', items: trendingMovies, type: 'movie', endpoint: 'trending', region: '' },
-                { title: '🇮🇳 Popular in India', items: popularIndia, type: 'movie', endpoint: 'popular', region: 'IN' },
-                { title: '⭐ Top Rated Movies', items: topRated, type: 'movie', endpoint: 'top_rated', region: 'IN' },
-                { title: '🎬 Now Playing in Theatres', items: nowPlaying, type: 'movie', endpoint: 'now_playing', region: 'IN' },
+                { title: '✨ Popular Movies', items: popularMovies, type: 'movie', endpoint: 'popular', region: '' },
+                { title: '⭐ Top Rated Movies', items: topRated, type: 'movie', endpoint: 'top_rated', region: '' },
+                { title: '🎬 Now Playing', items: nowPlaying, type: 'movie', endpoint: 'now_playing', region: '' },
                 { title: '📺 Popular TV Shows', items: popularTV, type: 'tv', endpoint: 'popular', region: '' },
                 { title: '🏆 Top Rated TV Shows', items: topRatedTV, type: 'tv', endpoint: 'top_rated', region: '' }
             ];
