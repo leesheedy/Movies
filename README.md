@@ -1,99 +1,70 @@
-<img width="1919" height="1079" alt="Screenshot 2025-10-07 051951" src="https://github.com/user-attachments/assets/d191a49a-46a3-47fc-abaf-7993cb06ef2a" /># PolyMovies Desktop
+# PolyMovies Desktop
 
-PolyMovies Desktop is a hybrid Electron application that packages the Vega providers ecosystem together with a local Express API and Chromium front-end. It delivers a self-contained streaming content explorer for Windows without requiring a system-wide Node.js installation..
-![Uploading Screenshot 2025-10-07 <img width="1869" height="1079" alt="Screenshot 2025-10-07 052031" src="https://github.com/user-attachments/assets/61731376-8c35-4199-98c7-fafeba8cabcf" />
+PolyMovies Desktop is a hybrid Electron app that bundles the Vega provider ecosystem with a local Express API and a Chromium front-end. It delivers a self-contained streaming content explorer for Windows without requiring a system-wide Node.js install.
 
-<img width="1919" height="1079" alt="Screenshot 2025-10-07 052018" src="https://github.com/user-attachments/assets/df4aba8b-39f7-4471-86ec-30dca8331d5f" />
+## What this app includes
 
-<img width="1919" height="1079" alt="Screenshot 2025-10-07 052129" src="https://github.com/user-attachments/assets/9e78b5f5-9d0d-4739-a183-ed6bb7b854d4" />
-<img width="1861" height="997" alt="Screenshot 2025-10-07 052102" src="https://github.com/user-attachments/assets/7721c010-1a6b-4508-8980-468da1fc0162" />
+- **Electron shell**: launches the local API, waits for `/health`, and opens a maximized window with standard controls.
+- **Provider engine**: TypeScript providers in `providers/` compile to `dist/` and power catalogs, metadata, and streams.
+- **Local API**: `dev-server.js` exposes `/api/:provider/catalog`, `/posts`, `/search`, `/meta`, `/episodes`, `/stream`, and proxy helpers.
+- **Streaming UI**: home dashboard, search, watch history, discovery, and TMDB-driven collections.
 
-## Features
+## Designed for TV remotes & Xbox controllers
 
-- **Electron Shell** — `electron/main.js` boots the Express server from `dev-server.js`, waits for `/health`, maximizes the window with a standard title bar, hides the menu bar when entering fullscreen, and restores it afterward.
-- **Provider Engine** — `providers/` supplies source integrations compiled by `build-simple.js` into `dist/`. The `manifest.json` and provider modules expose catalogs, posts, metadata, episodes, and stream functions.
-- **Local API** — `dev-server.js` serves REST endpoints such as `/api/:provider/catalog`, `/posts`, `/search`, `/meta`, `/episodes`, and `/stream`. It also forwards extraction helpers via `/api/proxy/...` routes.
-- **Home Dashboard** — `public/app.js` orchestrates navigation between views (`home`, `movies`, `tvshows`, `explore`, `history`, `bollywood`, etc.), renders provider catalogs, and auto-mixes TMDB content (`TMDBContentModule.renderAllSections()`), watch history resumes, and provider-specific sections.
-- **Universal Search** — `performSearch()` fans out queries across every provider and merges results, while `loadFullCatalog()` paginates provider-specific filters.
-- **Player Experience** — `loadPlayer()` and `playStream()` handle auto-play, HLS (via `hls.js`), custom headers, fallback extraction, subtitle tracks, MKV download prompts, and watch-progress tracking with `HistoryModule`.
-- **Watch History & Continue Watching** — `public/history.js` persists viewing data in `localStorage`, surfaces continue-watching rows, modals, and allows clearing/removing entries.
-- **Genre & Explore Browsing** — `ExploreModule`, `GenreBrowserModule`, and `loadFullCatalog()` aggregate genres, shuffle multi-provider content, and expose TMDB-backed discovery pages (including pagination and load-more). `top-stars.js` and `popular-stars.js` highlight Bollywood stars and TMDB popular actors.
-- **Special Collections** — `bollywood.js` renders Bollywood and Indian content with TMDB filters and tabbed movies/TV, `new-updates.js` shows upcoming/now-playing items, and `movies.js`/`tvshows.js` aggregate titles across all providers with load-more flows.
-- **TMDB Content** — `TMDBContentModule` orchestrates TMDB-backed discovery pages, including pagination and load-more.
-- **Bollywood Content** — `bollywood.js` renders Bollywood and Indian content with TMDB filters and tabbed movies/TV, `new-updates.js` shows upcoming/now-playing items, and `movies.js`/`tvshows.js` aggregate titles across all providers with load-more flows.
-- **Popular Bollywood Stars** — `popular-stars.js` highlights Bollywood stars and TMDB popular actors.
-- **Top Bollywood Stars** — `top-stars.js` highlights Bollywood stars and TMDB popular actors.
+The UI follows a “10-foot” layout and keyboard-first navigation so it works smoothly with:
 
-- **Responsive UI Theme** — `public/styles.css` provides sticky navigation, reduced margins, thin scrollbars, Netflix-style sections, modals, genre cards, and detailed view layouts. Global spacing updates keep the logo/back button separation consistent across views.
-- **Assets & Branding** — `icons/cropped_circle_image (1).ico` serves as the Windows icon, while `public/assets/` adds genre imagery used by `GenreBrowserModule.getGenreImage()`.
+- **D-pad / arrow keys** to move between cards, buttons, and sections.
+- **A / Enter** to select.
+- **B / Backspace** to go back or close modals.
+- **Menu / Esc** to exit overlays.
 
-## Getting Started
+If you’re using a TV remote, make sure it’s paired as a keyboard or gamepad; the interface uses focus states and large targets for quick left-right movement across rows.
+
+## Run locally
 
 ### Prerequisites
 
-- Node.js 18+
-- npm 9+
+- **Node.js 18+**
+- **npm 9+**
 
-### Installation
+### 1) Install dependencies
 
 ```bash
 npm install
 ```
 
-### Build the provider bundle
+### 2) Build provider bundle
 
 ```bash
 npm run build
 ```
 
-This compiles TypeScript providers, organizes outputs under `dist/`, and minifies JavaScript.
-
-### Run the Express API (optional)
+### 3) Start the local web server
 
 ```bash
 npm run dev
 ```
 
-Launches the standalone development server at `http://localhost:3001` for browser testing.
+Open `http://localhost:3001` in your browser. The UI calls the local API on the same origin, so catalogs and metadata load as soon as the server is running.
 
-### Local hosting (web UI + full data fetch)
-
-To run the UI locally while still fetching provider data, keep the Express API running and open it in your browser:
-
-1. Install dependencies: `npm install`
-2. Build providers: `npm run build`
-3. Start the local server: `npm run dev`
-4. Open `http://localhost:3001` in your browser.
-
-The UI calls the local API on the same origin, so provider catalogs, metadata, and streams continue to load as long as you have internet access.
-
-## Electron Development Workflow
+### 4) Run the Electron desktop app
 
 ```bash
 npm run electron:dev
 ```
 
-- Executes `npm run build` to refresh providers.
-- Starts the Express server inside Electron.
-- Opens the PolyMovies desktop app in a maximized window with standard title bar controls.
+This builds providers, starts the API inside Electron, and launches the desktop window.
 
-## Packaging for Distribution
-
-Portable executable:
+## Build installers
 
 ```bash
 npm run electron:build:portable
-```
-
-NSIS installer:
-
-```bash
 npm run electron:build:installer
 ```
 
-Outputs are written to the `release/` directory. Both formats embed Chromium and Node.js, so end users only need the generated `.exe`.
+Outputs land in the `release/` directory.
 
-## Project Structure
+## Project structure
 
 ```
 public/            # Front-end assets (HTML/CSS/JS)
@@ -108,5 +79,5 @@ package.json       # Scripts, dependencies, electron-builder config
 
 ## Credits
 
-- Built with  provider modules from [`Zenda-Cross/vega-providers`](https://github.com/Zenda-Cross/vega-providers.git)
-- Special thanks to [Zenda-Cross](https://github.com/Zenda-Cross) for the provider
+- Built with provider modules from [`Zenda-Cross/vega-providers`](https://github.com/Zenda-Cross/vega-providers.git)
+- Special thanks to [Zenda-Cross](https://github.com/Zenda-Cross)
