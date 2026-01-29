@@ -31,6 +31,88 @@ function showLoading(show = true, message = 'Loading...') {
     }
 }
 
+const blockedTitlePattern = /\b(hindi|dubbed|dual audio)\b/i;
+
+function isBlockedTitle(title = '') {
+    return blockedTitlePattern.test(title);
+}
+
+function filterBlockedPosts(posts) {
+    if (!Array.isArray(posts)) return [];
+    return posts.filter(post => !isBlockedTitle(post?.title || post?.name || ''));
+}
+
+function ensureSearchModal() {
+    let modal = document.getElementById('searchModal');
+    if (modal) return modal;
+    
+    modal = document.createElement('div');
+    modal.id = 'searchModal';
+    modal.className = 'history-modal search-modal';
+    modal.innerHTML = `
+        <div class="history-modal-content search-modal-content" role="dialog" aria-modal="true">
+            <div class="history-modal-header search-modal-header">
+                <div class="search-modal-title">
+                    <h2 id="searchModalTitle">Search Results</h2>
+                    <p class="search-modal-subtitle">Search across all providers (excluding Hindi or dubbed results)</p>
+                </div>
+                <button class="history-close-btn" id="searchModalClose" aria-label="Close search">✕</button>
+            </div>
+            <div class="search-modal-controls">
+                <input type="text" id="searchModalInput" placeholder="Search for movies or shows..." />
+                <button id="searchModalSubmit">Search</button>
+            </div>
+            <div class="history-modal-body search-modal-body">
+                <div id="searchModalResults" class="search-provider-lanes"></div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    const closeBtn = modal.querySelector('#searchModalClose');
+    closeBtn?.addEventListener('click', closeSearchModal);
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            closeSearchModal();
+        }
+    });
+    
+    const input = modal.querySelector('#searchModalInput');
+    const submit = modal.querySelector('#searchModalSubmit');
+    input?.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+            performSearch(input.value);
+        }
+    });
+    submit?.addEventListener('click', () => {
+        if (input) {
+            performSearch(input.value);
+        }
+    });
+    
+    return modal;
+}
+
+function openSearchModal(query = '') {
+    const modal = ensureSearchModal();
+    const input = modal.querySelector('#searchModalInput');
+    if (input) {
+        input.value = query;
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+    }
+    modal.classList.add('is-open');
+    return modal;
+}
+
+function closeSearchModal() {
+    const modal = document.getElementById('searchModal');
+    if (modal) {
+        modal.classList.remove('is-open');
+    }
+}
+
 function createSearchProviderSection(provider) {
     const section = document.createElement('div');
     section.className = 'search-provider-section horizontal';
@@ -1260,17 +1342,20 @@ async function performSearch(queryOverride = '') {
         return;
     }
     
+    openSearchModal(query);
     showLoading();
     try {
         // Search across ALL providers instead of just the selected one
         const allProviders = state.providers;
-        const resultsContainer = document.getElementById('searchResults');
+        const resultsContainer = document.getElementById('searchModalResults');
         const paginationEl = document.getElementById('searchPagination');
         if (resultsContainer) resultsContainer.innerHTML = '';
         if (paginationEl) paginationEl.innerHTML = '';
         
-        document.getElementById('searchTitle').textContent = `Search Results for "${query}"`;
-        showView('search');
+        const searchTitle = document.getElementById('searchModalTitle');
+        if (searchTitle) {
+            searchTitle.textContent = `Search Results for "${query}"`;
+        }
         
         state.searchQuery = query;
         state.currentPage = 1;
@@ -1293,7 +1378,8 @@ async function performSearch(queryOverride = '') {
                         : Array.isArray(result?.posts)
                             ? result.posts
                             : [];
-                    updateSearchProviderSection(provider.value, posts, provider.display_name);
+                    const filteredPosts = filterBlockedPosts(posts);
+                    updateSearchProviderSection(provider.value, filteredPosts, provider.display_name);
                 })
                 .catch(err => {
                     console.warn(`Search failed for provider ${provider.value}:`, err);
@@ -1589,7 +1675,7 @@ async function init() {
         searchToggle.addEventListener('click', () => {
             const query = searchInputHeader.value.trim();
             if (!query) {
-                searchInputHeader.focus();
+                openSearchModal();
                 return;
             }
             performSearch(query);
@@ -1745,12 +1831,13 @@ async function searchInAllProviders(title) {
             
             const data = await response.json();
             const posts = Array.isArray(data) ? data : (data.posts || []);
+            const filteredPosts = filterBlockedPosts(posts);
             
-            if (posts.length > 0) {
+            if (filteredPosts.length > 0) {
                 return {
                     provider: providerValue,
                     displayName: providerName,
-                    posts: posts
+                    posts: filteredPosts
                 };
             }
             return null;
