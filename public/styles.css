@@ -268,9 +268,95 @@ body {
     background: #ff1f2a;
 }
 
+.search-modal-summary {
+    padding: 0 28px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.search-summary-text {
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.search-provider-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.provider-filter-btn {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-color);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.provider-filter-btn.is-active,
+.provider-filter-btn:hover {
+    background: rgba(229, 9, 20, 0.2);
+    border-color: rgba(229, 9, 20, 0.6);
+    color: #fff;
+}
+
 .search-modal-body {
     padding: 0 28px 28px;
     overflow-y: auto;
+}
+
+.search-results-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 20px;
+}
+
+.search-empty-state {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 40px 0;
+    grid-column: 1 / -1;
+}
+
+.search-result-card .post-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.search-result-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.search-result-meta .provider-badge.subtle {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.provider-choice-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.provider-choice-btn {
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(0, 0, 0, 0.4);
+    color: #fff;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.provider-choice-btn:hover {
+    border-color: rgba(229, 9, 20, 0.6);
+    background: rgba(229, 9, 20, 0.2);
 }
 
 .search-modal .search-provider-header h3 {
