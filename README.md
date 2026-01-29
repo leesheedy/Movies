@@ -1,6 +1,6 @@
-# PolyMovies Desktop
+# MittaMedia Streaming
 
-PolyMovies Desktop is a hybrid Electron app that bundles the Vega provider ecosystem with a local Express API and a Chromium front-end. It delivers a self-contained streaming content explorer for Windows without requiring a system-wide Node.js install.
+MittaMedia Desktop is a hybrid Electron app that bundles the Vega provider ecosystem with a local Express API and a Chromium front-end. It delivers a self-contained streaming content explorer for Windows without requiring a system-wide Node.js install.
 
 ## What this app includes
 
