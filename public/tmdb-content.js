@@ -173,9 +173,13 @@ const TMDBContentModule = {
                 throw new Error('Search function unavailable');
             }
 
-            const searchInput = document.getElementById('searchInput');
+            const searchInput = document.getElementById('searchInputHeader');
             if (searchInput) {
                 searchInput.value = title;
+            }
+            const modalInput = document.getElementById('searchModalInput');
+            if (modalInput) {
+                modalInput.value = title;
             }
 
             const originalShowLoading = window.showLoading;
