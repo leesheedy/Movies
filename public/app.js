@@ -185,13 +185,7 @@ function showView(viewName) {
         explore: 'exploreView',
         movies: 'moviesView',
         tvshows: 'tvShowsView',
-        newUpdates: 'newUpdatesView',
         history: 'historyView',
-        bollywood: 'bollywoodView',
-        genre: 'genreView',
-        topStar: 'topStarView',
-        popularStar: 'popularStarView',
-        popularStarsAll: 'popularStarsAllView',
     };
     const viewId = viewMap[viewName];
     if (viewId) {
@@ -1205,11 +1199,6 @@ async function loadHomePage() {
             if (section) catalogContainer.appendChild(section);
         }
         
-        // Render Popular Stars section at the end
-        if (window.PopularStarsModule) {
-            await window.PopularStarsModule.init();
-        }
-        
         // Render genres at the bottom if available
         if (catalogData.genres && catalogData.genres.length > 0) {
             const genresSection = document.createElement('div');
@@ -1262,8 +1251,9 @@ async function loadFullCatalog(provider, filter, title) {
     }
 }
 
-async function performSearch() {
-    const query = document.getElementById('searchInput').value.trim();
+async function performSearch(queryOverride = '') {
+    const searchInput = document.getElementById('searchInputHeader');
+    const query = (queryOverride || searchInput?.value || '').trim();
     
     if (!query) {
         showError('Please enter a search query.');
@@ -1468,14 +1458,6 @@ async function init() {
         }
     });
     
-    document.getElementById('searchBtn').addEventListener('click', performSearch);
-    
-    document.getElementById('searchInput').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            performSearch();
-        }
-    });
-    
     // Logo click handler
     const logoContainer = document.querySelector('.logo-container');
     if (logoContainer) {
@@ -1571,26 +1553,6 @@ async function init() {
         });
     }
     
-    // New & Updates button
-    const newUpdatesBtn = document.getElementById('newUpdatesBtn');
-    if (newUpdatesBtn) {
-        newUpdatesBtn.addEventListener('click', () => {
-            if (window.loadNewUpdatesPage) {
-                loadNewUpdatesPage();
-            }
-        });
-    }
-    
-    const newUpdatesBackBtn = document.getElementById('newUpdatesBackBtn');
-    if (newUpdatesBackBtn) {
-        newUpdatesBackBtn.addEventListener('click', () => {
-            if (state.selectedProvider) {
-                loadHomePage();
-                updateNavLinks('home');
-            }
-        });
-    }
-    
     // History button
     const historyBtn = document.getElementById('historyBtn');
     if (historyBtn) {
@@ -1611,78 +1573,12 @@ async function init() {
         });
     }
     
-    // Bollywood button
-    const bollywoodBtn = document.getElementById('bollywoodBtn');
-    if (bollywoodBtn) {
-        bollywoodBtn.addEventListener('click', () => {
-            if (window.BollywoodModule) {
-                BollywoodModule.loadBollywoodPage();
-            }
-        });
-    }
-    
-    const bollywoodBackBtn = document.getElementById('bollywoodBackBtn');
-    if (bollywoodBackBtn) {
-        bollywoodBackBtn.addEventListener('click', () => {
-            if (state.selectedProvider) {
-                loadHomePage();
-                updateNavLinks('home');
-            }
-        });
-    }
-    
-    // Genre back button
-    const genreBackBtn = document.getElementById('genreBackBtn');
-    if (genreBackBtn) {
-        genreBackBtn.addEventListener('click', () => {
-            if (state.selectedProvider) {
-                loadHomePage();
-                updateNavLinks('home');
-            }
-        });
-    }
-    
-    // Top Star back button
-    const topStarBackBtn = document.getElementById('topStarBackBtn');
-    if (topStarBackBtn) {
-        topStarBackBtn.addEventListener('click', () => {
-            if (window.BollywoodModule) {
-                BollywoodModule.loadBollywoodPage();
-            }
-        });
-    }
-    
-    // Popular Star back button
-    const popularStarBackBtn = document.getElementById('popularStarBackBtn');
-    if (popularStarBackBtn) {
-        popularStarBackBtn.addEventListener('click', () => {
-            if (window.PopularStarsModule) {
-                PopularStarsModule.openViewAllPage();
-            }
-        });
-    }
-    
-    // Popular Stars All back button
-    const popularStarsAllBackBtn = document.getElementById('popularStarsAllBackBtn');
-    if (popularStarsAllBackBtn) {
-        popularStarsAllBackBtn.addEventListener('click', () => {
-            if (state.selectedProvider) {
-                loadHomePage();
-                updateNavLinks('home');
-            }
-        });
-    }
-    
     // Header search input
     const searchInputHeader = document.getElementById('searchInputHeader');
     if (searchInputHeader) {
         searchInputHeader.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                const query = searchInputHeader.value.trim();
-                if (query) {
-                    document.getElementById('searchInput').value = query;
-                    performSearch();
-                }
+                performSearch();
             }
         });
     }
@@ -1692,22 +1588,11 @@ async function init() {
     if (searchToggle) {
         searchToggle.addEventListener('click', () => {
             const query = searchInputHeader.value.trim();
-            if (query) {
-                document.getElementById('searchInput').value = query;
-                performSearch();
-            } else {
+            if (!query) {
                 searchInputHeader.focus();
+                return;
             }
-        });
-    }
-    
-    const searchClose = document.getElementById('searchClose');
-    if (searchClose) {
-        searchClose.addEventListener('click', () => {
-            const searchBar = document.getElementById('searchBar');
-            if (searchBar) {
-                searchBar.style.display = 'none';
-            }
+            performSearch(query);
         });
     }
 }
@@ -1723,9 +1608,7 @@ function updateNavLinks(active) {
         explore: 'exploreBtn',
         movies: 'moviesBtn',
         tvshows: 'tvShowsBtn',
-        newUpdates: 'newUpdatesBtn',
-        history: 'historyBtn',
-        bollywood: 'bollywoodBtn'
+        history: 'historyBtn'
     };
     
     if (navMap[active]) {
@@ -2157,9 +2040,6 @@ async function renderHeroBanner(provider, catalogData) {
             container.appendChild(heroBanner);
             
             // Add Genre Browser Section right after banner
-            if (window.GenreBrowserModule) {
-                await window.GenreBrowserModule.init();
-            }
             
             // Fetch TMDB image asynchronously
             (async () => {

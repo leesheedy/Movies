@@ -20,11 +20,9 @@
                     </div>
                     <nav class="main-nav">
                         <button id="homeBtn" class="nav-link active">Home</button>
-                        <button id="bollywoodBtn" class="nav-link">🇮🇳 Bollywood</button>
-                        <button id="tvShowsBtn" class="nav-link">TV Shows</button>
                         <button id="moviesBtn" class="nav-link">Movies</button>
+                        <button id="tvShowsBtn" class="nav-link">TV Shows</button>
                         <button id="exploreBtn" class="nav-link">Explore</button>
-                        <button id="newUpdatesBtn" class="nav-link">News & Updates</button>
                         <button id="historyBtn" class="nav-link">History</button>
                     </nav>
                 </div>
@@ -39,15 +37,8 @@
                         </button>
                     </div>
                     <select id="providerSelect" class="provider-select-compact">
-                        <option value="">Provider</option>
+                        <option value="">All Providers</option>
                     </select>
-                </div>
-            </div>
-            <div id="searchBar" class="search-bar" style="display: none;">
-                <div class="container">
-                    <input type="text" id="searchInput" placeholder="Search movies, shows..." />
-                    <button id="searchBtn">Search</button>
-                    <button id="searchClose" class="search-close">✕</button>
                 </div>
             </div>
         </header>
@@ -110,46 +101,10 @@
                     <div id="tvShowsContent"></div>
                 </div>
 
-                <!-- New & Updates View -->
-                <div id="newUpdatesView" class="view" style="display: none;">
-                    <button id="newUpdatesBackBtn" class="back-btn">← Back</button>
-                    <div id="newUpdatesContent"></div>
-                </div>
-
                 <!-- History View -->
                 <div id="historyView" class="view" style="display: none;">
                     <button id="historyBackBtn" class="back-btn">← Back</button>
                     <div id="historyContent"></div>
-                </div>
-
-                <!-- Bollywood View -->
-                <div id="bollywoodView" class="view" style="display: none;">
-                    <button id="bollywoodBackBtn" class="back-btn">← Back</button>
-                    <div id="bollywoodContent"></div>
-                </div>
-
-                <!-- Genre View -->
-                <div id="genreView" class="view" style="display: none;">
-                    <button id="genreBackBtn" class="back-btn">← Back</button>
-                    <div id="genreContent"></div>
-                </div>
-
-                <!-- Top Star View -->
-                <div id="topStarView" class="view" style="display: none;">
-                    <button id="topStarBackBtn" class="back-btn">← Back</button>
-                    <div id="topStarContent"></div>
-                </div>
-
-                <!-- Popular Star View -->
-                <div id="popularStarView" class="view" style="display: none;">
-                    <button id="popularStarBackBtn" class="back-btn">← Back</button>
-                    <div id="popularStarContent"></div>
-                </div>
-
-                <!-- Popular Stars All View -->
-                <div id="popularStarsAllView" class="view" style="display: none;">
-                    <button id="popularStarsAllBackBtn" class="back-btn">← Back</button>
-                    <div id="popularStarsAllContent"></div>
                 </div>
             </div>
         </main>
@@ -175,10 +130,6 @@
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="history.js"></script>
     <script src="tmdb-content.js"></script>
-    <script src="new-updates.js"></script>
-    <script src="bollywood.js"></script>
-    <script src="genre-browser.js"></script>
-    <script src="popular-stars.js"></script>
     <script src="app.js"></script>
     <script src="explore.js"></script>
     <script src="movies.js"></script>

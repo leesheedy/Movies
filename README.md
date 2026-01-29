@@ -56,6 +56,17 @@ npm run dev
 
 Launches the standalone development server at `http://localhost:3001` for browser testing.
 
+### Local hosting (web UI + full data fetch)
+
+To run the UI locally while still fetching provider data, keep the Express API running and open it in your browser:
+
+1. Install dependencies: `npm install`
+2. Build providers: `npm run build`
+3. Start the local server: `npm run dev`
+4. Open `http://localhost:3001` in your browser.
+
+The UI calls the local API on the same origin, so provider catalogs, metadata, and streams continue to load as long as you have internet access.
+
 ## Electron Development Workflow
 
 ```bash
@@ -99,4 +110,3 @@ package.json       # Scripts, dependencies, electron-builder config
 
 - Built with  provider modules from [`Zenda-Cross/vega-providers`](https://github.com/Zenda-Cross/vega-providers.git)
 - Special thanks to [Zenda-Cross](https://github.com/Zenda-Cross) for the provider
-
