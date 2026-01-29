@@ -6,6 +6,8 @@ const state = {
     currentMeta: null,
     currentStreams: [],
     searchQuery: '',
+    searchResults: [],
+    searchProviderFilter: 'all',
     currentPage: 1,
     currentFilter: '', // Track current filter for pagination
     retryCount: 0,
@@ -42,6 +44,124 @@ function filterBlockedPosts(posts) {
     return posts.filter(post => !isBlockedTitle(post?.title || post?.name || ''));
 }
 
+function normalizeSearchTitle(title = '') {
+    return title
+        .toLowerCase()
+        .replace(/&/g, 'and')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function applySearchProviderFilter(results, providerFilter) {
+    if (!providerFilter || providerFilter === 'all') return results;
+    return results.filter(result => result.providers.some(provider => provider.provider === providerFilter));
+}
+
+function renderSearchProviderFilters(providerCounts, providerLabelMap) {
+    const filtersEl = document.getElementById('searchProviderFilters');
+    if (!filtersEl) return;
+    filtersEl.innerHTML = '';
+
+    const entries = Object.entries(providerCounts || {});
+    if (entries.length === 0) return;
+
+    const allBtn = document.createElement('button');
+    allBtn.type = 'button';
+    allBtn.className = `provider-filter-btn ${state.searchProviderFilter === 'all' ? 'is-active' : ''}`;
+    const totalCount = entries.reduce((sum, [, count]) => sum + count, 0);
+    allBtn.textContent = `All (${totalCount})`;
+    allBtn.addEventListener('click', () => {
+        state.searchProviderFilter = 'all';
+        renderSearchProviderFilters(providerCounts, providerLabelMap);
+        renderSearchResults(state.searchResults, providerLabelMap);
+    });
+    filtersEl.appendChild(allBtn);
+
+    entries
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .forEach(([providerValue, count]) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `provider-filter-btn ${state.searchProviderFilter === providerValue ? 'is-active' : ''}`;
+            btn.textContent = `${providerLabelMap[providerValue] || providerValue} (${count})`;
+            btn.addEventListener('click', () => {
+                state.searchProviderFilter = providerValue;
+                renderSearchProviderFilters(providerCounts, providerLabelMap);
+                renderSearchResults(state.searchResults, providerLabelMap);
+            });
+            filtersEl.appendChild(btn);
+        });
+}
+
+function renderSearchResults(results, providerLabelMap) {
+    const resultsContainer = document.getElementById('searchModalResults');
+    if (!resultsContainer) return;
+
+    resultsContainer.innerHTML = '';
+    resultsContainer.className = 'posts-grid search-results-grid';
+
+    const filteredResults = applySearchProviderFilter(results, state.searchProviderFilter);
+    if (!filteredResults || filteredResults.length === 0) {
+        resultsContainer.innerHTML = '<p class="search-empty-state">No results found. Try another search or provider filter.</p>';
+        return;
+    }
+
+    filteredResults.forEach(result => {
+        resultsContainer.appendChild(renderSearchResultCard(result, providerLabelMap));
+    });
+}
+
+function renderSearchResultCard(result, providerLabelMap) {
+    const card = document.createElement('div');
+    card.className = 'post-card search-result-card';
+
+    const primaryProvider = result.providers[0];
+    const providerCount = result.providers.length;
+    const providerButtons = result.providers
+        .map(providerEntry => {
+            const displayName = providerLabelMap[providerEntry.provider] || providerEntry.provider;
+            return `
+                <button class="provider-choice-btn" data-provider="${providerEntry.provider}" data-link="${encodeURIComponent(providerEntry.link)}" type="button">
+                    ${displayName}
+                </button>
+            `;
+        })
+        .join('');
+
+    card.innerHTML = `
+        <img src="${result.image}" alt="${result.title}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
+        <div class="post-card-content">
+            <h3>${result.title}</h3>
+            <div class="search-result-meta">
+                <span class="provider-badge">${providerCount} provider${providerCount === 1 ? '' : 's'}</span>
+                ${providerCount === 1 ? `<span class="provider-badge subtle">${providerLabelMap[primaryProvider.provider] || primaryProvider.provider}</span>` : ''}
+            </div>
+            <div class="provider-choice-group">
+                ${providerButtons}
+            </div>
+        </div>
+    `;
+
+    card.addEventListener('click', () => {
+        if (primaryProvider) {
+            loadDetails(primaryProvider.provider, primaryProvider.link);
+        }
+    });
+
+    card.querySelectorAll('.provider-choice-btn').forEach(button => {
+        button.addEventListener('click', event => {
+            event.stopPropagation();
+            const provider = button.getAttribute('data-provider');
+            const link = decodeURIComponent(button.getAttribute('data-link') || '');
+            if (provider && link) {
+                loadDetails(provider, link);
+            }
+        });
+    });
+
+    return card;
+}
+
 function ensureSearchModal() {
     let modal = document.getElementById('searchModal');
     if (modal) return modal;
@@ -62,8 +182,12 @@ function ensureSearchModal() {
                 <input type="text" id="searchModalInput" placeholder="Search for movies or shows..." />
                 <button id="searchModalSubmit">Search</button>
             </div>
+            <div class="search-modal-summary">
+                <div id="searchSummary" class="search-summary-text"></div>
+                <div id="searchProviderFilters" class="search-provider-filters"></div>
+            </div>
             <div class="history-modal-body search-modal-body">
-                <div id="searchModalResults" class="search-provider-lanes"></div>
+                <div id="searchModalResults" class="posts-grid search-results-grid"></div>
             </div>
         </div>
     `;
@@ -1345,12 +1469,13 @@ async function performSearch(queryOverride = '') {
     openSearchModal(query);
     showLoading();
     try {
-        // Search across ALL providers instead of just the selected one
         const allProviders = state.providers;
         const resultsContainer = document.getElementById('searchModalResults');
         const paginationEl = document.getElementById('searchPagination');
+        const summaryEl = document.getElementById('searchSummary');
         if (resultsContainer) resultsContainer.innerHTML = '';
         if (paginationEl) paginationEl.innerHTML = '';
+        if (summaryEl) summaryEl.textContent = 'Searching across providers...';
         
         const searchTitle = document.getElementById('searchModalTitle');
         if (searchTitle) {
@@ -1360,36 +1485,73 @@ async function performSearch(queryOverride = '') {
         state.searchQuery = query;
         state.currentPage = 1;
         state.currentFilter = '';
+        state.searchProviderFilter = 'all';
 
-        if (resultsContainer) {
-            resultsContainer.className = 'search-provider-lanes';
-            resultsContainer.classList.remove('search-provider-slot-container');
+        const providerLabelMap = allProviders.reduce((acc, provider) => {
+            acc[provider.value] = provider.display_name || provider.value;
+            return acc;
+        }, {});
+
+        const providerResults = await Promise.allSettled(
+            allProviders.map(provider => searchPosts(provider.value, query, 1).then(result => ({
+                provider,
+                result
+            })))
+        );
+
+        const providerCounts = {};
+        const aggregatedMap = new Map();
+
+        providerResults.forEach(outcome => {
+            if (outcome.status !== 'fulfilled') return;
+            const { provider, result } = outcome.value;
+            const posts = Array.isArray(result)
+                ? result
+                : Array.isArray(result?.posts)
+                    ? result.posts
+                    : [];
+            const filteredPosts = filterBlockedPosts(posts);
+
+            if (filteredPosts.length === 0) return;
+            providerCounts[provider.value] = filteredPosts.length;
+
+            filteredPosts.forEach(post => {
+                const title = post.title || post.name || 'Untitled';
+                const key = normalizeSearchTitle(title);
+                const existing = aggregatedMap.get(key);
+                if (!existing) {
+                    aggregatedMap.set(key, {
+                        title,
+                        image: post.image,
+                        providers: [{ provider: provider.value, link: post.link }]
+                    });
+                } else {
+                    const hasProvider = existing.providers.some(item => item.provider === provider.value);
+                    if (!hasProvider) {
+                        existing.providers.push({ provider: provider.value, link: post.link });
+                    }
+                    if (!existing.image && post.image) {
+                        existing.image = post.image;
+                    }
+                }
+            });
+        });
+
+        const aggregatedResults = Array.from(aggregatedMap.values()).sort((a, b) => {
+            if (b.providers.length !== a.providers.length) {
+                return b.providers.length - a.providers.length;
+            }
+            return a.title.localeCompare(b.title);
+        });
+
+        state.searchResults = aggregatedResults;
+
+        if (summaryEl) {
+            summaryEl.textContent = `${aggregatedResults.length} title${aggregatedResults.length === 1 ? '' : 's'} found across ${Object.keys(providerCounts).length} provider${Object.keys(providerCounts).length === 1 ? '' : 's'}.`;
         }
 
-        const providerPromises = allProviders.map(provider => {
-            if (!resultsContainer) return Promise.resolve();
-            const section = createSearchProviderSection(provider);
-            resultsContainer.appendChild(section);
-
-            return searchPosts(provider.value, query, 1)
-                .then(result => {
-                    const posts = Array.isArray(result)
-                        ? result
-                        : Array.isArray(result?.posts)
-                            ? result.posts
-                            : [];
-                    const filteredPosts = filterBlockedPosts(posts);
-                    updateSearchProviderSection(provider.value, filteredPosts, provider.display_name);
-                })
-                .catch(err => {
-                    console.warn(`Search failed for provider ${provider.value}:`, err);
-                    showSearchProviderError(provider.value, 'Failed to fetch results.');
-                });
-        });
-        
-        await Promise.allSettled(providerPromises);
-        // Hide pagination for search results since we're showing a mixed set
-        if (paginationEl) paginationEl.innerHTML = '';
+        renderSearchProviderFilters(providerCounts, providerLabelMap);
+        renderSearchResults(aggregatedResults, providerLabelMap);
     } catch (error) {
         showError('Search failed: ' + error.message);
     } finally {
