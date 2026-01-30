@@ -269,7 +269,10 @@ function handleSearchSelection({ provider, link, source = 'modal', card }) {
 
 function ensureSearchModal() {
     let modal = document.getElementById('searchModal');
-    if (modal) return modal;
+    if (modal) {
+        bindSearchModalEvents(modal);
+        return modal;
+    }
     
     modal = document.createElement('div');
     modal.id = 'searchModal';
@@ -302,6 +305,15 @@ function ensureSearchModal() {
     
     document.body.appendChild(modal);
     
+    bindSearchModalEvents(modal);
+    
+    return modal;
+}
+
+function bindSearchModalEvents(modal) {
+    if (modal.dataset.bound === 'true') return;
+    modal.dataset.bound = 'true';
+
     const closeBtn = modal.querySelector('#searchModalClose');
     closeBtn?.addEventListener('click', closeSearchModal);
     modal.addEventListener('click', (event) => {
@@ -309,7 +321,7 @@ function ensureSearchModal() {
             closeSearchModal();
         }
     });
-    
+
     const input = modal.querySelector('#searchModalInput');
     const submit = modal.querySelector('#searchModalSubmit');
     const clearBtn = modal.querySelector('#searchModalClear');
@@ -340,8 +352,6 @@ function ensureSearchModal() {
         input.focus();
         resetSearchModal();
     });
-    
-    return modal;
 }
 
 function openSearchModal(query = '') {
