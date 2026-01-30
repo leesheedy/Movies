@@ -207,7 +207,12 @@ function renderSearchResultCard(result, providerLabelMap) {
 
     card.addEventListener('click', () => {
         if (primaryProvider) {
-            loadDetails(primaryProvider.provider, primaryProvider.link);
+            handleSearchSelection({
+                provider: primaryProvider.provider,
+                link: primaryProvider.link,
+                source: 'modal',
+                card
+            });
         }
     });
 
@@ -217,12 +222,48 @@ function renderSearchResultCard(result, providerLabelMap) {
             const provider = button.getAttribute('data-provider');
             const link = decodeURIComponent(button.getAttribute('data-link') || '');
             if (provider && link) {
-                loadDetails(provider, link);
+                handleSearchSelection({
+                    provider,
+                    link,
+                    source: 'modal',
+                    card
+                });
             }
         });
     });
 
     return card;
+}
+
+function handleSearchSelection({ provider, link, source = 'modal', card }) {
+    const transitionDuration = 300;
+    const modal = document.getElementById('searchModal');
+    const searchView = document.getElementById('searchView');
+
+    if (card) {
+        card.classList.add('is-selected');
+    }
+
+    if (source === 'modal' && modal) {
+        modal.classList.add('is-transitioning');
+    }
+
+    if (source === 'page' && searchView) {
+        searchView.classList.add('is-transitioning');
+    }
+
+    setTimeout(() => {
+        if (modal) {
+            closeSearchModal();
+            modal.classList.remove('is-transitioning');
+        }
+
+        if (searchView) {
+            searchView.classList.remove('is-transitioning');
+        }
+
+        loadDetails(provider, link, { autoPlay: true });
+    }, transitionDuration);
 }
 
 function ensureSearchModal() {
@@ -239,7 +280,7 @@ function ensureSearchModal() {
                     <h2 id="searchModalTitle">Search Results</h2>
                     <p class="search-modal-subtitle">Search across all providers (excluding Hindi or dubbed results)</p>
                 </div>
-                <button class="history-close-btn" id="searchModalClose" aria-label="Close search">✕</button>
+                <button class="history-close-btn" id="searchModalClose" type="button" aria-label="Close search">✕</button>
             </div>
             <div class="search-modal-controls">
                 <div class="search-input-wrap">
@@ -322,6 +363,7 @@ function closeSearchModal() {
     const modal = document.getElementById('searchModal');
     if (modal) {
         modal.classList.remove('is-open');
+        modal.classList.remove('is-transitioning');
     }
 }
 
@@ -716,7 +758,7 @@ function renderProviderSelect(providers) {
     });
 }
 
-function renderPostCard(post, provider) {
+function renderPostCard(post, provider, options = {}) {
     const card = document.createElement('div');
     card.className = 'post-card';
     
@@ -734,6 +776,15 @@ function renderPostCard(post, provider) {
     card.addEventListener('click', () => {
         // Use the provider from the post object if available (for search results)
         const targetProvider = post.provider || provider;
+        if (options.animateOnSelect) {
+            handleSearchSelection({
+                provider: targetProvider,
+                link: post.link,
+                source: 'page',
+                card
+            });
+            return;
+        }
         loadDetails(targetProvider, post.link);
     });
     
@@ -757,8 +808,9 @@ function renderPosts(posts, containerId, provider, options = {}) {
     const { groupByProvider = false, providerLabelMap = {} } = options;
     
     if (!groupByProvider) {
+        const animateOnSelect = containerId === 'searchResults';
         posts.forEach(post => {
-            container.appendChild(renderPostCard(post, provider));
+            container.appendChild(renderPostCard(post, provider, { animateOnSelect }));
         });
         return;
     }
@@ -785,7 +837,7 @@ function renderPosts(posts, containerId, provider, options = {}) {
         const grid = document.createElement('div');
         grid.className = 'posts-grid';
         providerPosts.forEach(post => {
-            grid.appendChild(renderPostCard(post, providerKey));
+            grid.appendChild(renderPostCard(post, providerKey, { animateOnSelect: containerId === 'searchResults' }));
         });
         section.appendChild(grid);
         
@@ -852,7 +904,7 @@ async function renderCatalogSection(provider, catalogItem, page = 1) {
         } else {
             // Show more posts (increased from 12 to 20)
             posts.slice(0, 20).forEach(post => {
-                grid.appendChild(renderPostCard(post, provider));
+                grid.appendChild(renderPostCard(post, provider, { animateOnSelect: containerId === 'searchResults' }));
             });
         }
         
@@ -1664,7 +1716,9 @@ async function performSearch(queryOverride = '', options = {}) {
         const resultsContainer = document.getElementById('searchModalResults');
         const paginationEl = document.getElementById('searchPagination');
         const summaryEl = document.getElementById('searchSummary');
-        if (resultsContainer) resultsContainer.innerHTML = '';
+        if (resultsContainer) {
+            resultsContainer.innerHTML = '<p class="search-empty-state search-loading-state">Loading...</p>';
+        }
         if (paginationEl) paginationEl.innerHTML = '';
         if (summaryEl) summaryEl.textContent = 'Searching across providers...';
         
@@ -1809,7 +1863,8 @@ async function changeCatalogPage(newPage) {
     }
 }
 
-async function loadDetails(provider, link) {
+async function loadDetails(provider, link, options = {}) {
+    const { autoPlay = false } = options;
     showLoading();
     try {
         const meta = await fetchMeta(provider, link);
@@ -1827,10 +1882,53 @@ async function loadDetails(provider, link) {
         
         renderDetails(meta, provider);
         showView('details');
+        if (autoPlay) {
+            setTimeout(() => {
+                attemptAutoPlay(meta, provider);
+            }, 200);
+        }
     } catch (error) {
         showError('Failed to load details: ' + error.message);
     } finally {
         showLoading(false);
+    }
+}
+
+async function attemptAutoPlay(meta, provider) {
+    if (!meta || state.isVideoPlaying) return;
+
+    try {
+        const linkList = Array.isArray(meta.linkList) ? meta.linkList : [];
+        if (linkList.length > 0) {
+            const firstLinkItem = linkList[0];
+
+            if (Array.isArray(firstLinkItem?.directLinks) && firstLinkItem.directLinks.length > 0) {
+                const firstDirect = firstLinkItem.directLinks[0];
+                await loadPlayer(provider, firstDirect.link, firstDirect.type || meta.type);
+                return;
+            }
+
+            if (firstLinkItem?.link) {
+                await loadPlayer(provider, firstLinkItem.link, firstLinkItem.type || meta.type);
+                return;
+            }
+
+            if (firstLinkItem?.episodesLink) {
+                const episodes = await fetchEpisodes(provider, firstLinkItem.episodesLink);
+                const firstEpisode = Array.isArray(episodes) ? episodes[0] : null;
+                if (firstEpisode?.link) {
+                    await loadPlayer(provider, firstEpisode.link, firstEpisode.type || meta.type);
+                    return;
+                }
+            }
+        }
+
+        if (meta.link) {
+            await loadPlayer(provider, meta.link, meta.type);
+        }
+    } catch (error) {
+        console.warn('Autoplay attempt failed:', error);
+        showToast('Autoplay unavailable. Select a stream to play.', 'info', 1500);
     }
 }
 
