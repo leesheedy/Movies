@@ -532,15 +532,58 @@ function initAdBlocker() {
     `;
     document.head.appendChild(style);
 
+    const guardNavigation = (url, context) => {
+        const normalizedUrl = typeof url === 'string' ? url.trim() : '';
+        if (!normalizedUrl) return { allowed: false, normalizedUrl };
+        if (normalizedUrl === 'about:blank' || isAdUrl(normalizedUrl)) {
+            console.warn(`🛑 Adblock: blocked ${context}`, normalizedUrl);
+            return { allowed: false, normalizedUrl };
+        }
+        return { allowed: true, normalizedUrl };
+    };
+
     const originalOpen = window.open;
     window.open = function (url, target, features) {
-        const normalizedUrl = typeof url === 'string' ? url.trim() : '';
-        if (!normalizedUrl || normalizedUrl === 'about:blank' || isAdUrl(normalizedUrl)) {
-            console.warn('🛑 Adblock: blocked popup', normalizedUrl || '[empty]');
-            return null;
-        }
+        const { allowed, normalizedUrl } = guardNavigation(url, 'popup');
+        if (!allowed) return null;
         return originalOpen.call(window, normalizedUrl, target, features);
     };
+
+    const originalAssign = window.location.assign.bind(window.location);
+    window.location.assign = (url) => {
+        const { allowed, normalizedUrl } = guardNavigation(url, 'redirect');
+        if (!allowed) return;
+        originalAssign(normalizedUrl);
+    };
+
+    const originalReplace = window.location.replace.bind(window.location);
+    window.location.replace = (url) => {
+        const { allowed, normalizedUrl } = guardNavigation(url, 'redirect');
+        if (!allowed) return;
+        originalReplace(normalizedUrl);
+    };
+
+    document.addEventListener('click', (event) => {
+        const anchor = event.target?.closest?.('a');
+        if (!anchor) return;
+        const href = anchor.getAttribute('href');
+        const { allowed } = guardNavigation(href, 'link');
+        if (!allowed) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    }, true);
+
+    document.addEventListener('submit', (event) => {
+        const form = event.target;
+        if (!form || !form.getAttribute) return;
+        const action = form.getAttribute('action');
+        const { allowed } = guardNavigation(action, 'form redirect');
+        if (!allowed) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    }, true);
 
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
@@ -1253,17 +1296,30 @@ async function selectPlaybackProvider(providerValue) {
     await attemptProviderPlaybackQueue(queue);
 }
 
+function getPostTitle(post) {
+    if (!post) return 'Untitled';
+    return (
+        post.title ||
+        post.name ||
+        post.displayName ||
+        post.display_name ||
+        post.label ||
+        'Untitled'
+    );
+}
+
 function renderPostCard(post, provider, options = {}) {
     const card = document.createElement('div');
     card.className = 'post-card';
     
     // Use the provider from the post object if available (for search results)
     const displayProvider = post.provider || provider;
+    const postTitle = getPostTitle(post);
     
     card.innerHTML = `
-        <img src="${post.image}" alt="${post.title}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
+        <img src="${post.image}" alt="${postTitle}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
         <div class="post-card-content">
-            <h3>${post.title}</h3>
+            <h3>${postTitle}</h3>
             <span class="provider-badge">${displayProvider}</span>
         </div>
     `;
@@ -1278,7 +1334,7 @@ function renderPostCard(post, provider, options = {}) {
                 link: post.link,
                 tmdbItem: isTmdb ? {
                     tmdb_id: post.tmdbId || post.link,
-                    title: post.title,
+                    title: postTitle,
                     poster_path: post.poster_path || null,
                     release_date: post.release_date || null
                 } : null,
@@ -1291,7 +1347,7 @@ function renderPostCard(post, provider, options = {}) {
             queueFullscreenRequest();
             openTMDBMovie({
                 tmdb_id: post.tmdbId || post.link,
-                title: post.title,
+                title: postTitle,
                 poster_path: post.poster_path || null,
                 release_date: post.release_date || null
             });
@@ -3204,7 +3260,8 @@ async function renderHeroBanner(provider, catalogData) {
             heroBanner.className = 'hero-banner';
             heroBanner.style.backgroundColor = '#1a1a1a'; // Loading background
             
-            console.log('🎬 Original title:', featuredPost.title);
+            const featuredTitle = getPostTitle(featuredPost);
+            console.log('🎬 Original title:', featuredTitle);
             console.log('📦 Post data:', featuredPost);
             
             // Check if we have IMDB ID in the post data
@@ -3219,7 +3276,7 @@ async function renderHeroBanner(provider, catalogData) {
             }
             
             // Smart title extraction
-            let cleanTitle = featuredPost.title;
+            let cleanTitle = featuredTitle;
             
             // Method 1: Extract title before year (most reliable)
             const yearMatch = cleanTitle.match(/^(.*?)\s*[\(\[]?\s*(19\d{2}|20\d{2})\s*[\)\]]?/);
@@ -3252,7 +3309,7 @@ async function renderHeroBanner(provider, catalogData) {
             
             // If still too short or has garbage, take first 3-5 words
             if (cleanTitle.length < 3 || cleanTitle.split(/\s+/).length > 8) {
-                const words = featuredPost.title.split(/\s+/);
+                const words = featuredTitle.split(/\s+/);
                 cleanTitle = words.slice(0, Math.min(5, words.length)).join(' ')
                     .replace(/\[.*?\]/g, '')
                     .replace(/\(.*?\)/g, '')
@@ -3265,7 +3322,7 @@ async function renderHeroBanner(provider, catalogData) {
             // Add content immediately
             heroBanner.innerHTML = `
                 <div class="hero-content">
-                    <h1 class="hero-title">${featuredPost.title}</h1>
+                    <h1 class="hero-title">${featuredTitle}</h1>
                     <div class="hero-buttons">
                         <button class="hero-btn hero-btn-play" onclick="openPlaybackTab('${provider}', '${featuredPost.link.replace(/'/g, "\\'")}')">▶ Play</button>
                         <button class="hero-btn hero-btn-info" onclick="openPlaybackTab('${provider}', '${featuredPost.link.replace(/'/g, "\\'")}')">ℹ More Info</button>
@@ -3415,12 +3472,13 @@ async function renderNetflixSection(provider, catalogItem) {
         const previewPosts = posts.slice(0, 20);
         prefetchMetaForPosts(provider, previewPosts, 6);
         previewPosts.forEach(post => {
+            const postTitle = getPostTitle(post);
             const card = document.createElement('div');
             card.className = 'netflix-card';
             card.innerHTML = `
-                <img src="${post.image}" alt="${post.title}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
+                <img src="${post.image}" alt="${postTitle}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
                 <div class="netflix-card-overlay">
-                    <h4>${post.title}</h4>
+                    <h4>${postTitle}</h4>
                 </div>
             `;
             card.addEventListener('click', () => {
