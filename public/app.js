@@ -2551,6 +2551,37 @@ async function searchInAllProviders(title) {
     return results.filter(r => r !== null);
 }
 
+async function openBestMatchForTitle(title, options = {}) {
+    const { fallbackToSearch = true } = options;
+    const query = (title || '').trim();
+    if (!query) return false;
+
+    showLoading(true, `Searching providers for "${query}"...`);
+    try {
+        const results = await searchInAllProviders(query);
+        const match = results.find(result => Array.isArray(result.posts) && result.posts.length > 0);
+        if (match) {
+            const post = match.posts[0];
+            if (post?.link) {
+                openPlaybackTab(match.provider, post.link);
+                return true;
+            }
+        }
+        showToast(`No providers found for "${query}".`, 'info', 3000);
+        if (fallbackToSearch) {
+            openSearchModal(query);
+            performSearch(query, { source: 'header' });
+        }
+        return false;
+    } catch (error) {
+        console.error('Failed to find provider match:', error);
+        showToast('Search failed. Try again.', 'error', 3000);
+        return false;
+    } finally {
+        showLoading(false);
+    }
+}
+
 // Render TMDB section with pagination support
 function renderTMDBSectionWithPagination(title, items, type, sectionId, currentPage, totalPages) {
     if (!items || items.length === 0) return '';
@@ -2994,3 +3025,4 @@ window.loadExplorePage = loadExplorePage;
 window.reloadCatalogSection = reloadCatalogSection;
 window.renderHeroBanner = renderHeroBanner;
 window.renderNetflixSection = renderNetflixSection;
+window.openBestMatchForTitle = openBestMatchForTitle;
