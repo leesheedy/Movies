@@ -14,7 +14,10 @@ const GenreBrowserModule = {
 
     async loadGenres() {
         try {
-            const TMDB_API_KEY = 'be880dc5b7df8623008f6cc66c0c7396';
+            const TMDB_API_KEY = window.TMDBConfig?.getApiKey?.() || '';
+            if (!TMDB_API_KEY) {
+                throw new Error('TMDB API key missing');
+            }
             const response = await fetch(`https://api.themoviedb.org/3/genre/movie/list?api_key=${TMDB_API_KEY}&language=en`);
             
             if (!response.ok) {
@@ -201,7 +204,10 @@ const GenreBrowserModule = {
         }
         
         try {
-            const TMDB_API_KEY = 'be880dc5b7df8623008f6cc66c0c7396';
+            const TMDB_API_KEY = window.TMDBConfig?.getApiKey?.() || '';
+            if (!TMDB_API_KEY) {
+                throw new Error('TMDB API key missing');
+            }
             const BASE_URL = 'https://api.themoviedb.org/3';
             
             // Build URL with genre filter

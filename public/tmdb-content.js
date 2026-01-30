@@ -1,91 +1,48 @@
 // TMDB Content Module - Fetches trending and popular content from TMDB
 const TMDBContentModule = {
-    API_KEY: 'be880dc5b7df8623008f6cc66c0c7396',
     BASE_URL: 'https://api.themoviedb.org/3',
     IMAGE_BASE: 'https://image.tmdb.org/t/p',
 
-    // Fetch trending movies (day)
-    async getTrendingMovies() {
-        try {
-            const response = await fetch(`${this.BASE_URL}/trending/movie/day?api_key=${this.API_KEY}`);
-            const data = await response.json();
-            return data.results || [];
-        } catch (error) {
-            console.error('Failed to fetch trending movies:', error);
-            return [];
+    getApiKey() {
+        return window.TMDBConfig?.ensureApiKey?.() || '';
+    },
+
+    normalizeMovie(item) {
+        return {
+            tmdb_id: item.id,
+            title: item.title,
+            poster_path: item.poster_path,
+            release_date: item.release_date,
+            vote_average: item.vote_average
+        };
+    },
+
+    async fetchMovies(path) {
+        const apiKey = this.getApiKey();
+        if (!apiKey) {
+            throw new Error('TMDB API key missing');
         }
+        const response = await fetch(`${this.BASE_URL}${path}?api_key=${apiKey}&page=1`);
+        if (!response.ok) {
+            throw new Error(`TMDB request failed: ${response.status}`);
+        }
+        const data = await response.json();
+        return (data.results || []).slice(0, 20).map(item => this.normalizeMovie(item));
+    },
+
+    // Fetch trending movies (week)
+    async getTrendingMovies() {
+        return this.fetchMovies('/trending/movie/week');
     },
 
     // Fetch popular movies
     async getPopularMovies() {
-        try {
-            const response = await fetch(`${this.BASE_URL}/movie/popular?api_key=${this.API_KEY}&page=1`);
-            const data = await response.json();
-            return data.results || [];
-        } catch (error) {
-            console.error('Failed to fetch popular movies:', error);
-            return [];
-        }
-    },
-
-    // Fetch top rated movies
-    async getTopRatedMovies() {
-        try {
-            const response = await fetch(`${this.BASE_URL}/movie/top_rated?api_key=${this.API_KEY}&page=1`);
-            const data = await response.json();
-            return data.results || [];
-        } catch (error) {
-            console.error('Failed to fetch top rated movies:', error);
-            return [];
-        }
+        return this.fetchMovies('/movie/popular');
     },
 
     // Fetch now playing movies
     async getNowPlayingMovies() {
-        try {
-            const response = await fetch(`${this.BASE_URL}/movie/now_playing?api_key=${this.API_KEY}&page=1`);
-            const data = await response.json();
-            return data.results || [];
-        } catch (error) {
-            console.error('Failed to fetch now playing:', error);
-            return [];
-        }
-    },
-
-    // Fetch upcoming movies
-    async getUpcomingMovies() {
-        try {
-            const response = await fetch(`${this.BASE_URL}/movie/upcoming?api_key=${this.API_KEY}&page=1`);
-            const data = await response.json();
-            return data.results || [];
-        } catch (error) {
-            console.error('Failed to fetch upcoming movies:', error);
-            return [];
-        }
-    },
-
-    // Fetch popular TV shows
-    async getPopularTVShows() {
-        try {
-            const response = await fetch(`${this.BASE_URL}/tv/popular?api_key=${this.API_KEY}&page=1`);
-            const data = await response.json();
-            return data.results || [];
-        } catch (error) {
-            console.error('Failed to fetch popular TV shows:', error);
-            return [];
-        }
-    },
-
-    // Fetch top rated TV shows
-    async getTopRatedTVShows() {
-        try {
-            const response = await fetch(`${this.BASE_URL}/tv/top_rated?api_key=${this.API_KEY}&page=1`);
-            const data = await response.json();
-            return data.results || [];
-        } catch (error) {
-            console.error('Failed to fetch top rated TV shows:', error);
-            return [];
-        }
+        return this.fetchMovies('/movie/now_playing');
     },
 
     // Get poster URL
@@ -98,6 +55,21 @@ const TMDBContentModule = {
     getBackdropUrl(path, size = 'original') {
         if (!path) return null;
         return `${this.IMAGE_BASE}/${size}${path}`;
+    },
+
+    renderRetrySection() {
+        const section = document.createElement('div');
+        section.className = 'netflix-section';
+        section.innerHTML = `
+            <div class="netflix-section-header">
+                <h3 class="netflix-section-title">TMDB unavailable</h3>
+            </div>
+            <div style="padding: 12px 0; color: var(--text-muted);">
+                Failed to load TMDB data.
+                <button class="netflix-view-all" style="margin-left: 12px;" onclick="TMDBContentModule.renderAllSections(document.getElementById('catalogSections'))">Retry</button>
+            </div>
+        `;
+        return section;
     },
 
     // Render a TMDB section
@@ -156,53 +128,8 @@ const TMDBContentModule = {
 
     // Show TMDB item details and search in all providers
     async showTMDBDetails(item, type, skipSearch = false) {
-        const title = item.title || item.name;
-        const tmdbId = item.id;
-        
-        // If skipSearch, just open TMDB page
-        if (skipSearch) {
-            const tmdbUrl = type === 'movie' 
-                ? `https://www.themoviedb.org/movie/${tmdbId}`
-                : `https://www.themoviedb.org/tv/${tmdbId}`;
-            window.open(tmdbUrl, '_blank');
-            return;
-        }
-        
-        try {
-            if (typeof window.openBestMatchForTitle === 'function') {
-                const found = await window.openBestMatchForTitle(title, { fallbackToSearch: false });
-                if (found) {
-                    return;
-                }
-            }
-
-            if (typeof window.performSearch !== 'function') {
-                throw new Error('Search function unavailable');
-            }
-
-            const searchInput = document.getElementById('searchInputHeader');
-            if (searchInput) {
-                searchInput.value = title;
-            }
-            const modalInput = document.getElementById('searchModalInput');
-            if (modalInput) {
-                modalInput.value = title;
-            }
-
-            const originalShowLoading = window.showLoading;
-            try {
-                if (typeof originalShowLoading === 'function') {
-                    window.showLoading = () => {};
-                }
-                await window.performSearch();
-            } finally {
-                if (typeof originalShowLoading === 'function') {
-                    window.showLoading = originalShowLoading;
-                }
-            }
-        } catch (error) {
-            console.error('Search error:', error);
-            alert(`Failed to search for "${title}"`);
+        if (typeof window.openTMDBMovie === 'function') {
+            window.openTMDBMovie(item);
         }
     },
     
@@ -219,10 +146,13 @@ const TMDBContentModule = {
         let recommendedContent = [];
         
         try {
-            const TMDB_API_KEY = 'be880dc5b7df8623008f6cc66c0c7396';
+            const apiKey = this.getApiKey();
+            if (!apiKey) {
+                throw new Error('TMDB API key missing');
+            }
             const [similarRes, recommendedRes] = await Promise.all([
-                fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/similar?api_key=${TMDB_API_KEY}&page=1`),
-                fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/recommendations?api_key=${TMDB_API_KEY}&page=1`)
+                fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/similar?api_key=${apiKey}&page=1`),
+                fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/recommendations?api_key=${apiKey}&page=1`)
             ]);
             
             if (similarRes.ok) {
@@ -402,22 +332,23 @@ const TMDBContentModule = {
             let url = '';
             const { type, endpoint, region } = this.currentSection;
             
+            const apiKey = this.getApiKey();
+            if (!apiKey) {
+                throw new Error('TMDB API key missing');
+            }
+
             // Build URL based on endpoint
             if (endpoint === 'trending') {
-                url = `${this.BASE_URL}/trending/${type}/day?api_key=${this.API_KEY}&page=${page}`;
+                url = `${this.BASE_URL}/trending/${type}/week?api_key=${apiKey}&page=${page}`;
             } else if (endpoint === 'popular') {
-                url = `${this.BASE_URL}/${type}/popular?api_key=${this.API_KEY}${region ? `&region=${region}` : ''}&page=${page}`;
-            } else if (endpoint === 'top_rated') {
-                url = `${this.BASE_URL}/${type}/top_rated?api_key=${this.API_KEY}${region ? `&region=${region}` : ''}&page=${page}`;
+                url = `${this.BASE_URL}/${type}/popular?api_key=${apiKey}${region ? `&region=${region}` : ''}&page=${page}`;
             } else if (endpoint === 'now_playing') {
-                url = `${this.BASE_URL}/movie/now_playing?api_key=${this.API_KEY}&region=${region}&page=${page}`;
-            } else if (endpoint === 'upcoming') {
-                url = `${this.BASE_URL}/movie/upcoming?api_key=${this.API_KEY}&region=${region}&page=${page}`;
+                url = `${this.BASE_URL}/movie/now_playing?api_key=${apiKey}&region=${region}&page=${page}`;
             }
             
             const response = await fetch(url);
             const data = await response.json();
-            const items = data.results || [];
+            const items = (data.results || []).slice(0, 20).map(item => this.normalizeMovie(item));
             
             // Render items
             grid.innerHTML = '';
@@ -425,7 +356,7 @@ const TMDBContentModule = {
                 const card = window.renderPostCard({
                     title: item.title || item.name,
                     image: this.getPosterUrl(item.poster_path),
-                    link: item.id.toString()
+                    link: item.tmdb_id ? item.tmdb_id.toString() : item.id?.toString()
                 }, 'tmdb');
                 
                 // Override click handler to search providers
@@ -505,33 +436,21 @@ const TMDBContentModule = {
         console.log('📺 Loading TMDB content sections...');
 
         try {
-            // Fetch all data in parallel
             const [
                 trendingMovies,
                 popularMovies,
-                topRated,
-                nowPlaying,
-                upcoming,
-                popularTV,
-                topRatedTV
+                nowPlaying
             ] = await Promise.all([
                 this.getTrendingMovies(),
                 this.getPopularMovies(),
-                this.getTopRatedMovies(),
-                this.getNowPlayingMovies(),
-                this.getUpcomingMovies(),
-                this.getPopularTVShows(),
-                this.getTopRatedTVShows()
+                this.getNowPlayingMovies()
             ]);
 
-            // Render sections with endpoint info for pagination (removed Coming Soon)
+            // Render sections with endpoint info for pagination
             const sections = [
-                { title: '🔥 Trending Today', items: trendingMovies, type: 'movie', endpoint: 'trending', region: '' },
+                { title: '🔥 Trending This Week', items: trendingMovies, type: 'movie', endpoint: 'trending', region: '' },
                 { title: '✨ Popular Movies', items: popularMovies, type: 'movie', endpoint: 'popular', region: '' },
-                { title: '⭐ Top Rated Movies', items: topRated, type: 'movie', endpoint: 'top_rated', region: '' },
-                { title: '🎬 Now Playing', items: nowPlaying, type: 'movie', endpoint: 'now_playing', region: '' },
-                { title: '📺 Popular TV Shows', items: popularTV, type: 'tv', endpoint: 'popular', region: '' },
-                { title: '🏆 Top Rated TV Shows', items: topRatedTV, type: 'tv', endpoint: 'top_rated', region: '' }
+                { title: '🎬 Now Playing', items: nowPlaying, type: 'movie', endpoint: 'now_playing', region: '' }
             ];
 
             sections.forEach(({ title, items, type, endpoint, region }) => {
@@ -544,6 +463,9 @@ const TMDBContentModule = {
             console.log('✅ TMDB content sections loaded');
         } catch (error) {
             console.error('Failed to render TMDB sections:', error);
+            if (container) {
+                container.appendChild(this.renderRetrySection());
+            }
         }
     }
 };

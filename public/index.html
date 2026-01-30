@@ -83,6 +83,10 @@
                         <div id="playerMeta" class="player-meta"></div>
                         <div id="providerSelector" class="provider-selector"></div>
                         <video id="videoPlayer" class="video-player" controls></video>
+                        <div id="tmdbPlayerContainer" class="tmdb-player-container" style="display: none;">
+                            <div id="tmdbPlayerMessage" class="tmdb-player-message"></div>
+                            <div id="tmdbIframeContainer" class="tmdb-iframe-container"></div>
+                        </div>
                         <div id="streamSelector" class="stream-selector"></div>
                         <div id="playerEpisodes" class="player-episodes"></div>
                     </div>
@@ -114,6 +118,8 @@
             </div>
         </main>
 
+    <script src="/env.js"></script>
+    <script src="tmdb-config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="history.js"></script>
     <script src="tmdb-content.js"></script>

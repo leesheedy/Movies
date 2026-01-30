@@ -26,7 +26,10 @@ async function loadNewUpdatesPage() {
     if (window.showLoading) showLoading(true, 'Loading updates...');
     
     try {
-        const TMDB_API_KEY = 'be880dc5b7df8623008f6cc66c0c7396';
+        const TMDB_API_KEY = window.TMDBConfig?.getApiKey?.() || '';
+        if (!TMDB_API_KEY) {
+            throw new Error('TMDB API key missing');
+        }
         const BASE_URL = 'https://api.themoviedb.org/3';
         
         // Fetch upcoming and now playing

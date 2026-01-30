@@ -15,7 +15,10 @@ const PopularStarsModule = {
 
     async loadPopularStars() {
         try {
-            const TMDB_API_KEY = 'be880dc5b7df8623008f6cc66c0c7396';
+            const TMDB_API_KEY = window.TMDBConfig?.getApiKey?.() || '';
+            if (!TMDB_API_KEY) {
+                throw new Error('TMDB API key missing');
+            }
             const response = await fetch(`https://api.themoviedb.org/3/person/popular?api_key=${TMDB_API_KEY}&page=${this.currentPage}`);
             
             if (!response.ok) {
@@ -122,7 +125,10 @@ const PopularStarsModule = {
 
     async loadViewAllStars(append = false) {
         try {
-            const TMDB_API_KEY = 'be880dc5b7df8623008f6cc66c0c7396';
+            const TMDB_API_KEY = window.TMDBConfig?.getApiKey?.() || '';
+            if (!TMDB_API_KEY) {
+                throw new Error('TMDB API key missing');
+            }
             const response = await fetch(`https://api.themoviedb.org/3/person/popular?api_key=${TMDB_API_KEY}&page=${this.viewAllPage}`);
             
             if (!response.ok) {
@@ -244,7 +250,10 @@ const PopularStarsModule = {
         `;
         
         try {
-            const TMDB_API_KEY = 'be880dc5b7df8623008f6cc66c0c7396';
+            const TMDB_API_KEY = window.TMDBConfig?.getApiKey?.() || '';
+            if (!TMDB_API_KEY) {
+                throw new Error('TMDB API key missing');
+            }
             const response = await fetch(`https://api.themoviedb.org/3/person/${starId}?api_key=${TMDB_API_KEY}&append_to_response=combined_credits`);
             
             if (!response.ok) {

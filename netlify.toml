@@ -9,6 +9,18 @@
   force = true
 
 [[redirects]]
+  from = "/env.js"
+  to = "/.netlify/functions/env"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/movie/*"
+  to = "/index.html"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/*"
   to = "https://polymovies.onrender.com/api/:splat"
   status = 200
