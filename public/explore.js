@@ -1,4 +1,4 @@
-// Explore Module - Aggregates content from all providers
+// Explore Module - Aggregates content from Vidsrc
 const ExploreModule = {
     state: {
         allGenres: new Map(), // Map<genreName, [{provider, filter}]>
@@ -65,7 +65,7 @@ const ExploreModule = {
         container.innerHTML = `
             <div class="explore-header">
                 <h1>🌍 Explore All Content</h1>
-                <p class="explore-subtitle">Browse movies and TV shows from all providers</p>
+                <p class="explore-subtitle">Browse movies and TV shows from Vidsrc</p>
             </div>
             
             <div class="explore-sections">
@@ -118,7 +118,7 @@ const ExploreModule = {
         try {
             const providers = this.state.allGenres.get(genreName);
             if (!providers || providers.length === 0) {
-                showError('No providers found for this genre');
+                showError('No results found for this genre');
                 return;
             }
             
@@ -173,7 +173,7 @@ const ExploreModule = {
             }
             
             // Update the page
-            document.getElementById('searchTitle').textContent = `${genreName} - All Providers`;
+            document.getElementById('searchTitle').textContent = `${genreName} - Vidsrc`;
             renderPosts(this.state.genreContentPosts, 'searchResults', 'explore');
             
             // Render pagination/load more button
@@ -210,7 +210,7 @@ const ExploreModule = {
         const paginationContainer = document.getElementById('exploreAllPagination');
         if (!container) return;
         
-        showLoading(true, 'Loading content from all providers...');
+        showLoading(true, 'Loading content from Vidsrc...');
         
         try {
             // Get all providers

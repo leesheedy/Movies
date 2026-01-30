@@ -1,4 +1,4 @@
-// Movies Module - Aggregates all movies from all providers
+// Movies Module - Aggregates movies from Vidsrc
 const MoviesModule = {
     state: {
         currentPage: 1,
@@ -22,7 +22,7 @@ const MoviesModule = {
         container.innerHTML = `
             <div class="content-header">
                 <h1>🎬 Movies</h1>
-                <p class="content-subtitle">Browse movies from all providers</p>
+                <p class="content-subtitle">Browse movies from Vidsrc</p>
             </div>
             
             <div class="content-sections">
@@ -40,7 +40,7 @@ const MoviesModule = {
         const paginationContainer = document.getElementById('moviesPagination');
         if (!container) return;
         
-        showLoading(true, 'Loading movies from all providers...');
+        showLoading(true, 'Loading movies from Vidsrc...');
         
         try {
             const providers = this.state.allProviders;

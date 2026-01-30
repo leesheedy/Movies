@@ -34,7 +34,7 @@ const cacheStore = {
     streams: new Map()
 };
 
-const preferredProviders = ['vidsrc', 'upcloud', 'akcloud', 'megacloud'];
+const preferredProviders = ['vidsrc'];
 
 function sortByPreferredProviders(list, valueGetter) {
     if (!Array.isArray(list)) return [];
@@ -186,7 +186,7 @@ function renderSearchResults(results, providerLabelMap) {
 
     const filteredResults = applySearchProviderFilter(results, state.searchProviderFilter);
     if (!filteredResults || filteredResults.length === 0) {
-        resultsContainer.innerHTML = '<p class="search-empty-state">No results found. Try another search or provider filter.</p>';
+        resultsContainer.innerHTML = '<p class="search-empty-state">No results found. Try another search.</p>';
         return;
     }
 
@@ -302,7 +302,7 @@ function ensureSearchModal() {
             <div class="history-modal-header search-modal-header">
                 <div class="search-modal-title">
                     <h2 id="searchModalTitle">Search Results</h2>
-                    <p class="search-modal-subtitle">Search across all providers (excluding Hindi or dubbed results)</p>
+                    <p class="search-modal-subtitle">Search Vidsrc (IMDB) catalog</p>
                 </div>
                 <button class="history-close-btn" id="searchModalClose" type="button" aria-label="Close search">✕</button>
             </div>
@@ -404,7 +404,7 @@ function resetSearchModal(options = {}) {
     const filtersEl = document.getElementById('searchProviderFilters');
     const { keepSummary = false } = options;
     if (resultsContainer) {
-        resultsContainer.innerHTML = '<p class="search-empty-state">Start typing to search across all providers.</p>';
+        resultsContainer.innerHTML = '<p class="search-empty-state">Start typing to search Vidsrc.</p>';
     }
     if (summaryEl && !keepSummary) {
         summaryEl.textContent = 'Search is ready. Type a title and we will fetch results instantly.';
@@ -800,8 +800,21 @@ async function fetchStream(provider, link, type = 'movie') {
 // UI Rendering Functions
 function renderProviderSelect(providers) {
     const select = document.getElementById('providerSelect');
+    select.innerHTML = '';
+
+    if (providers.length <= 1) {
+        const provider = providers[0];
+        const option = document.createElement('option');
+        option.value = provider?.value || '';
+        option.textContent = provider?.display_name || 'Vidsrc (IMDB)';
+        select.appendChild(option);
+        select.value = provider?.value || '';
+        select.style.display = 'none';
+        return;
+    }
+
+    select.style.display = '';
     select.innerHTML = '<option value="">Select Provider...</option>';
-    
     providers.forEach(provider => {
         const option = document.createElement('option');
         option.value = provider.value;
@@ -818,21 +831,21 @@ function getProviderLabel(providerValue) {
 function renderProviderSelectorLoading() {
     const container = document.getElementById('providerSelector');
     if (!container) return;
-    container.innerHTML = '<div class="provider-loading">Loading available providers...</div>';
+    container.innerHTML = '<div class="provider-loading">Loading Vidsrc...</div>';
 }
 
 function renderProviderSelector(providers, activeProvider) {
     const container = document.getElementById('providerSelector');
     if (!container) return;
     if (!Array.isArray(providers) || providers.length === 0) {
-        container.innerHTML = '<div class="provider-empty">No providers available for this title.</div>';
+        container.innerHTML = '<div class="provider-empty">No Vidsrc streams available for this title.</div>';
         return;
     }
 
     container.innerHTML = `
         <div class="provider-selector-header">
-            <h3 class="provider-selector-title">Available Providers</h3>
-            <span class="provider-selector-note">Select a provider to load streams.</span>
+            <h3 class="provider-selector-title">Available Source</h3>
+            <span class="provider-selector-note">Select a source to load streams.</span>
         </div>
         <div class="provider-selector-options">
             ${providers.map(provider => `
@@ -1956,7 +1969,7 @@ async function performSearch(queryOverride = '', options = {}) {
             resultsContainer.innerHTML = '<p class="search-empty-state search-loading-state">Loading...</p>';
         }
         if (paginationEl) paginationEl.innerHTML = '';
-        if (summaryEl) summaryEl.textContent = 'Searching across providers...';
+        if (summaryEl) summaryEl.textContent = 'Searching Vidsrc...';
         
         const searchTitle = document.getElementById('searchModalTitle');
         if (searchTitle) {
@@ -2521,7 +2534,7 @@ async function loadTMDBRecommendationsForDetails(title, contentType) {
         if (providersRes && providersRes.length > 0) {
             html += `
                 <div class="details-section">
-                    <h2 class="section-title">📦 Available in Other Providers</h2>
+                    <h2 class="section-title">📦 Available on Vidsrc</h2>
                     <div class="provider-results-grid">
                         ${providersRes.map(result => `
                             <div class="provider-result-section">
@@ -2608,7 +2621,7 @@ async function openBestMatchForTitle(title, options = {}) {
     const query = (title || '').trim();
     if (!query) return false;
 
-    showLoading(true, `Searching providers for "${query}"...`);
+    showLoading(true, `Searching Vidsrc for "${query}"...`);
     try {
         const results = await searchInAllProviders(query);
         const match = results.find(result => Array.isArray(result.posts) && result.posts.length > 0);
@@ -2619,7 +2632,7 @@ async function openBestMatchForTitle(title, options = {}) {
                 return true;
             }
         }
-        showToast(`No providers found for "${query}".`, 'info', 3000);
+        showToast(`No results found for "${query}".`, 'info', 3000);
         if (fallbackToSearch) {
             openSearchModal(query);
             performSearch(query, { source: 'header' });
