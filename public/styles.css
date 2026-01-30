@@ -237,6 +237,11 @@ body {
     padding: 0 28px 18px;
 }
 
+.search-input-wrap {
+    position: relative;
+    flex: 1;
+}
+
 .search-modal-controls input {
     flex: 1;
     padding: 14px 18px;
@@ -252,7 +257,35 @@ body {
     border-color: rgba(255, 255, 255, 0.5);
 }
 
-.search-modal-controls button {
+.search-clear-btn {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: background 0.2s ease;
+}
+
+.search-clear-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.search-input-wrap input {
+    width: 100%;
+    padding-right: 48px;
+}
+
+.search-modal-controls > button {
     padding: 14px 22px;
     font-size: 16px;
     border-radius: 999px;
@@ -264,7 +297,7 @@ body {
     min-width: 120px;
 }
 
-.search-modal-controls button:hover {
+.search-modal-controls > button:hover {
     background: #ff1f2a;
 }
 
