@@ -1,4 +1,5 @@
 import { Stream, ProviderContext, TextTracks } from "../types";
+import { createAutoResolver } from "./resolvers";
 
 export const getStream = async ({
   link: id,
@@ -18,6 +19,23 @@ export const getStream = async ({
         return { tmdbId: id };
       }
     })();
+
+    if (payload.embedUrl) {
+      const autoResolve = createAutoResolver(providerContext);
+      const resolved = await autoResolve(String(payload.embedUrl));
+      if (resolved.length) {
+        resolved.forEach((stream) => {
+          streams.push({
+            server: "auto-resolver",
+            link: stream.url,
+            type: stream.url.includes(".m3u8") ? "m3u8" : "mp4",
+            quality: stream.quality as Stream["quality"],
+            headers: stream.headers,
+          });
+        });
+        return streams;
+      }
+    }
 
     const tmdbId: string | number =
       payload.tmdbId ?? payload.id ?? payload.tmdId ?? "";
