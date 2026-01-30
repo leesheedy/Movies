@@ -260,7 +260,7 @@ const TMDBContentModule = {
                                 <h3 class="tmdb-provider-name">📦 ${result.displayName}</h3>
                                 <div class="tmdb-results-grid">
                                     ${result.posts.map(post => `
-                                        <div class="tmdb-result-card" onclick="TMDBContentModule.closeSearchModal(); loadDetails('${result.provider}', '${post.link}')">
+                                        <div class="tmdb-result-card" onclick="TMDBContentModule.closeSearchModal(); openWatchTab('${result.provider}', '${post.link}')">
                                             <img src="${post.image}" alt="${post.title}" />
                                             <div class="tmdb-result-info">
                                                 <h4>${post.title}</h4>

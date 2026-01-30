@@ -150,8 +150,8 @@ const HistoryModule = {
                 </div>
             `;
             card.addEventListener('click', () => {
-                if (window.loadDetails) {
-                    loadDetails(item.provider, item.link);
+                if (window.openWatchTab) {
+                    openWatchTab(item.provider, item.link);
                 }
             });
             row.appendChild(card);
@@ -203,7 +203,7 @@ const HistoryModule = {
                         const date = new Date(item.lastWatched).toLocaleDateString();
                         
                         return `
-                            <div class="history-item" onclick="HistoryModule.closeModal(); loadDetails('${item.provider}', '${item.link}')">
+                            <div class="history-item" onclick="HistoryModule.closeModal(); openWatchTab('${item.provider}', '${item.link}')">
                                 <img src="${item.image}" alt="${item.title}" />
                                 <div class="history-item-info">
                                     <h4>${item.title}</h4>
@@ -311,7 +311,7 @@ function loadHistoryPage() {
                     </div>
                 ` : ''}
                 <div class="history-full-actions">
-                    <button onclick="loadDetails('${item.provider}', '${item.link}')" class="history-full-play-btn">▶ Continue</button>
+                    <button onclick="openWatchTab('${item.provider}', '${item.link}')" class="history-full-play-btn">▶ Continue</button>
                     <button onclick="HistoryModule.removeFromHistory('${item.id}'); loadHistoryPage();" class="history-full-remove-btn">Remove</button>
                 </div>
             </div>

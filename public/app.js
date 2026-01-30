@@ -236,7 +236,6 @@ function renderSearchResultCard(result, providerLabelMap) {
 }
 
 function handleSearchSelection({ provider, link, source = 'modal', card }) {
-    const transitionDuration = 300;
     const modal = document.getElementById('searchModal');
     const searchView = document.getElementById('searchView');
 
@@ -244,26 +243,18 @@ function handleSearchSelection({ provider, link, source = 'modal', card }) {
         card.classList.add('is-selected');
     }
 
+    openWatchTab(provider, link);
+
     if (source === 'modal' && modal) {
         modal.classList.add('is-transitioning');
+        closeSearchModal();
+        modal.classList.remove('is-transitioning');
     }
 
     if (source === 'page' && searchView) {
         searchView.classList.add('is-transitioning');
+        searchView.classList.remove('is-transitioning');
     }
-
-    setTimeout(() => {
-        if (modal) {
-            closeSearchModal();
-            modal.classList.remove('is-transitioning');
-        }
-
-        if (searchView) {
-            searchView.classList.remove('is-transitioning');
-        }
-
-        loadDetails(provider, link, { autoPlay: true });
-    }, transitionDuration);
 }
 
 function ensureSearchModal() {
@@ -326,7 +317,7 @@ function ensureSearchModal() {
             return;
         }
         performSearch(query, { source: 'modal' });
-    }, 450));
+    }, 200));
     submit?.addEventListener('click', () => {
         if (input) {
             performSearch(input.value);
@@ -482,6 +473,28 @@ function debounce(fn, delay) {
         clearTimeout(timer);
         timer = setTimeout(() => fn(...args), delay);
     };
+}
+
+function buildWatchUrl(provider, link) {
+    const base = `${window.location.origin}${window.location.pathname}`;
+    const params = new URLSearchParams({
+        watch: '1',
+        provider,
+        link
+    });
+    return `${base}?${params.toString()}`;
+}
+
+function openWatchTab(provider, link) {
+    if (!provider || !link) return;
+    const watchUrl = buildWatchUrl(provider, link);
+    const newTab = window.open(watchUrl, '_blank', 'noopener');
+    if (!newTab) {
+        showToast('Popup blocked. Opening in this tab instead.', 'info', 2000);
+        loadDetails(provider, link, { autoPlay: true });
+    } else {
+        newTab.focus();
+    }
 }
 
 function syncHeaderSearchInput(value) {
@@ -785,7 +798,7 @@ function renderPostCard(post, provider, options = {}) {
             });
             return;
         }
-        loadDetails(targetProvider, post.link);
+        openWatchTab(targetProvider, post.link);
     });
     
     return card;
@@ -1010,33 +1023,70 @@ async function renderDetails(meta, provider) {
     loadTMDBRecommendationsForDetails(meta.title, meta.type);
 }
 
-function renderSeasonSelector(linkList, provider, type) {
-    const container = document.getElementById('seasonSelector');
-    
+function renderWatchDetails(meta, provider) {
+    const container = document.getElementById('watchExtras');
+    if (!container) return;
+
+    const typeLabel = meta.type || 'N/A';
+    const ratingLabel = meta.rating ? `⭐ ${meta.rating}` : '';
+    const isSeries = Array.isArray(meta.linkList) && meta.linkList.length > 0;
+
+    container.innerHTML = `
+        <div class="watch-details">
+            <div class="watch-details-header">
+                <div>
+                    <h2>${meta.title}</h2>
+                    <div class="watch-details-meta">
+                        <span>${typeLabel}</span>
+                        ${ratingLabel ? `<span>${ratingLabel}</span>` : ''}
+                        ${meta.imdbId ? `<span>IMDb: ${meta.imdbId}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+            <p class="details-synopsis">${meta.synopsis || 'No synopsis available.'}</p>
+            <div id="watchSeasonSelector" class="${isSeries ? '' : 'hidden'}"></div>
+            ${!isSeries ? '<p class="watch-details-note">Movie loaded. Pick a stream above to start watching.</p>' : ''}
+        </div>
+    `;
+
+    if (isSeries) {
+        renderSeasonSelector(meta.linkList, provider, meta.type, { containerId: 'watchSeasonSelector' });
+    }
+}
+
+function renderSeasonSelector(linkList, provider, type, options = {}) {
+    const { containerId = 'seasonSelector' } = options;
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const selectId = `${containerId}-select`;
+    const episodesId = `${containerId}-episodes`;
+
     container.innerHTML = `
         <div class="season-selector">
             <h3>Select Season/Quality:</h3>
-            <select id="seasonSelect">
+            <select id="${selectId}">
                 ${linkList.map((item, index) => `
                     <option value="${index}">${item.title} ${item.quality ? `(${item.quality})` : ''}</option>
                 `).join('')}
             </select>
-            <div id="episodesList" class="episodes-list"></div>
+            <div id="${episodesId}" class="episodes-list"></div>
         </div>
     `;
-    
-    const select = document.getElementById('seasonSelect');
-    select.addEventListener('change', (e) => {
+
+    const select = container.querySelector(`#${selectId}`);
+    const episodesContainer = container.querySelector(`#${episodesId}`);
+    select?.addEventListener('change', (e) => {
         const selectedIndex = e.target.value;
-        renderEpisodes(linkList[selectedIndex], provider, type);
+        renderEpisodes(linkList[selectedIndex], provider, type, episodesContainer);
     });
-    
+
     // Render first season by default
-    renderEpisodes(linkList[0], provider, type);
+    renderEpisodes(linkList[0], provider, type, episodesContainer);
 }
 
-async function renderEpisodes(linkItem, provider, type) {
-    const container = document.getElementById('episodesList');
+async function renderEpisodes(linkItem, provider, type, container) {
+    if (!container) return;
     container.innerHTML = '<p style="color: #b3b3b3;">Loading episodes...</p>';
     
     try {
@@ -1863,6 +1913,42 @@ async function changeCatalogPage(newPage) {
     }
 }
 
+function getWatchParams() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('watch') !== '1') return null;
+    const provider = params.get('provider');
+    const link = params.get('link');
+    if (!provider || !link) return null;
+    return { provider, link };
+}
+
+async function loadWatchPage(provider, link) {
+    showLoading(true, 'Loading player...');
+    try {
+        const meta = await fetchMeta(provider, link);
+        state.currentMeta = { meta, provider, link };
+
+        if (window.HistoryModule && meta) {
+            window.HistoryModule.addToHistory({
+                title: meta.title,
+                image: meta.image,
+                provider: provider,
+                link: link
+            });
+        }
+
+        renderWatchDetails(meta, provider);
+        showView('player');
+        showLoading(false);
+
+        await attemptAutoPlay(meta, provider);
+    } catch (error) {
+        showError('Failed to load player: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
 async function loadDetails(provider, link, options = {}) {
     const { autoPlay = false } = options;
     showLoading();
@@ -1989,7 +2075,15 @@ async function init() {
         showError('No providers available. Please build the project first: npm run build');
         return;
     }
-    
+
+    const watchParams = getWatchParams();
+    if (watchParams) {
+        state.selectedProvider = watchParams.provider;
+        document.getElementById('providerSelect').value = watchParams.provider;
+        await loadWatchPage(watchParams.provider, watchParams.link);
+        return;
+    }
+
     // Auto-select first provider
     if (providers.length > 0) {
         state.selectedProvider = providers[0].value;
@@ -2136,7 +2230,7 @@ async function init() {
                 return;
             }
             performSearch(query, { source: 'header', silent: true });
-        }, 450));
+        }, 200));
     }
     
     // Search icon button
@@ -2247,7 +2341,7 @@ async function loadTMDBRecommendationsForDetails(title, contentType) {
                                 <h3 style="color: var(--primary-color); margin-bottom: 15px;">${result.displayName}</h3>
                                 <div class="provider-posts-grid">
                                     ${result.posts.slice(0, 6).map(post => `
-                                        <div class="provider-post-card" onclick="loadDetails('${result.provider}', '${post.link}')">
+                                        <div class="provider-post-card" onclick="openWatchTab('${result.provider}', '${post.link}')">
                                             <img src="${post.image}" alt="${post.title}" />
                                             <h4>${post.title}</h4>
                                         </div>
@@ -2588,8 +2682,8 @@ async function renderHeroBanner(provider, catalogData) {
                 <div class="hero-content">
                     <h1 class="hero-title">${featuredPost.title}</h1>
                     <div class="hero-buttons">
-                        <button class="hero-btn hero-btn-play" onclick="loadDetails('${provider}', '${featuredPost.link.replace(/'/g, "\\'")}')">▶ Play</button>
-                        <button class="hero-btn hero-btn-info" onclick="loadDetails('${provider}', '${featuredPost.link.replace(/'/g, "\\'")}')">ℹ More Info</button>
+                        <button class="hero-btn hero-btn-play" onclick="openWatchTab('${provider}', '${featuredPost.link.replace(/'/g, "\\'")}')">▶ Play</button>
+                        <button class="hero-btn hero-btn-info" onclick="openWatchTab('${provider}', '${featuredPost.link.replace(/'/g, "\\'")}')">ℹ More Info</button>
                     </div>
                 </div>
             `;
@@ -2740,7 +2834,7 @@ async function renderNetflixSection(provider, catalogItem) {
                     <h4>${post.title}</h4>
                 </div>
             `;
-            card.addEventListener('click', () => loadDetails(provider, post.link));
+            card.addEventListener('click', () => openWatchTab(provider, post.link));
             row.appendChild(card);
         });
         
@@ -2763,3 +2857,4 @@ window.loadExplorePage = loadExplorePage;
 window.reloadCatalogSection = reloadCatalogSection;
 window.renderHeroBanner = renderHeroBanner;
 window.renderNetflixSection = renderNetflixSection;
+window.openWatchTab = openWatchTab;
