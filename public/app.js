@@ -15,6 +15,10 @@ const state = {
     isVideoPlaying: false, // Track video playback state
     searchRequestId: 0,
     playbackProviders: [],
+    pendingFullscreenRequest: false,
+    fullscreenExitArmed: false,
+    gamepadBackPressed: false,
+    gamepadPolling: false,
 };
 
 // Expose state and API_BASE globally for modules
@@ -268,10 +272,11 @@ function handleSearchSelection({ provider, link, tmdbItem, source = 'menu', card
             searchView.classList.remove('is-transitioning');
         }
 
+        queueFullscreenRequest();
         if (tmdbItem) {
             openTMDBMovie(tmdbItem);
         } else {
-            openPlaybackTab(provider, link);
+            loadPlaybackDetails(provider, link, { autoPlay: true });
         }
     }, transitionDuration);
 }
@@ -440,7 +445,7 @@ function openPlaybackTab(provider, link) {
 window.openPlaybackTab = openPlaybackTab;
 
 function buildVidsrcEmbedUrl(imdbId) {
-    return `https://vidsrc-embed.ru/embed/movie/${imdbId}`;
+    return `https://vidsrc-embed.ru/embed/movie/${imdbId}?autoplay=1`;
 }
 
 const adBlockConfig = {
@@ -655,6 +660,8 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
     if (tmdbIframeContainer) {
         tmdbIframeContainer.appendChild(iframe);
     }
+
+    attemptPlayerFullscreen();
 }
 
 function resetTmdbPlayer() {
@@ -771,6 +778,95 @@ function hideAllViews() {
     });
 }
 
+function isFullscreenActive() {
+    return Boolean(document.fullscreenElement);
+}
+
+function queueFullscreenRequest() {
+    state.pendingFullscreenRequest = true;
+}
+
+function requestFullscreenForElement(element) {
+    if (!element || !element.requestFullscreen) return false;
+    element.requestFullscreen().catch((error) => {
+        console.warn('Fullscreen request failed:', error);
+    });
+    return true;
+}
+
+function requestPlayerFullscreen() {
+    const tmdbContainer = document.getElementById('tmdbPlayerContainer');
+    const tmdbIframeContainer = document.getElementById('tmdbIframeContainer');
+    const video = document.getElementById('videoPlayer');
+    if (tmdbContainer && tmdbContainer.style.display !== 'none' && tmdbIframeContainer?.children.length) {
+        return requestFullscreenForElement(tmdbContainer);
+    }
+    if (video) {
+        return requestFullscreenForElement(video);
+    }
+    return false;
+}
+
+function attemptPlayerFullscreen() {
+    if (!state.pendingFullscreenRequest) return;
+    state.pendingFullscreenRequest = false;
+    requestPlayerFullscreen();
+}
+
+function handleBackAction() {
+    if (isFullscreenActive()) {
+        document.exitFullscreen().catch((error) => {
+            console.warn('Failed to exit fullscreen:', error);
+        });
+        state.fullscreenExitArmed = true;
+        return;
+    }
+
+    if (state.fullscreenExitArmed) {
+        state.fullscreenExitArmed = false;
+        if (state.selectedProvider) {
+            loadHomePage();
+            updateNavLinks('home');
+        }
+        return;
+    }
+}
+
+function initBackNavigationHandlers() {
+    document.addEventListener('keydown', (event) => {
+        const target = event.target;
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+            return;
+        }
+        if (event.key === 'Escape' || event.key === 'BrowserBack' || event.key === 'Backspace') {
+            handleBackAction();
+        }
+    });
+
+    const pollGamepad = () => {
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        for (const gamepad of gamepads) {
+            if (!gamepad) continue;
+            const backButton = gamepad.buttons?.[1];
+            const isPressed = Boolean(backButton && backButton.pressed);
+            if (isPressed && !state.gamepadBackPressed) {
+                state.gamepadBackPressed = true;
+                handleBackAction();
+            } else if (!isPressed && state.gamepadBackPressed) {
+                state.gamepadBackPressed = false;
+            }
+        }
+        window.requestAnimationFrame(pollGamepad);
+    };
+
+    window.addEventListener('gamepadconnected', () => {
+        if (!state.gamepadPolling) {
+            state.gamepadPolling = true;
+            pollGamepad();
+        }
+    });
+}
+
 function showView(viewName) {
     hideAllViews();
     
@@ -793,12 +889,16 @@ function showView(viewName) {
         movies: 'moviesView',
         tvshows: 'tvShowsView',
         history: 'historyView',
+        continue: 'continueView',
     };
     const viewId = viewMap[viewName];
     if (viewId) {
         document.getElementById(viewId).style.display = 'block';
     }
     state.currentView = viewName;
+    if (viewName !== 'player') {
+        state.fullscreenExitArmed = false;
+    }
 }
 
 function getImdbIdFromPath() {
@@ -1188,6 +1288,7 @@ function renderPostCard(post, provider, options = {}) {
             return;
         }
         if (isTmdb) {
+            queueFullscreenRequest();
             openTMDBMovie({
                 tmdb_id: post.tmdbId || post.link,
                 title: post.title,
@@ -1196,7 +1297,8 @@ function renderPostCard(post, provider, options = {}) {
             });
             return;
         }
-        openPlaybackTab(targetProvider, post.link);
+        queueFullscreenRequest();
+        loadPlaybackDetails(targetProvider, post.link, { autoPlay: true });
     });
     
     return card;
@@ -1748,7 +1850,9 @@ async function playStream(stream) {
                 
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
                     console.log('✅ HLS manifest parsed successfully');
-                    video.play().catch(e => {
+                    video.play().then(() => {
+                        attemptPlayerFullscreen();
+                    }).catch(e => {
                         console.error('❌ HLS play error:', e);
                         showError('Failed to start playback: ' + e.message);
                     });
@@ -1792,7 +1896,9 @@ async function playStream(stream) {
                 // Native HLS support (Safari)
                 video.src = streamUrl;
                 video.addEventListener('loadedmetadata', () => {
-                    video.play().catch(e => {
+                    video.play().then(() => {
+                        attemptPlayerFullscreen();
+                    }).catch(e => {
                         console.error('Play error:', e);
                         showError('Failed to start playback: ' + e.message);
                     });
@@ -1853,7 +1959,9 @@ async function playStream(stream) {
             }, { once: true });
             
             console.log('▶️ Attempting to play video...');
-            video.play().catch(e => {
+            video.play().then(() => {
+                attemptPlayerFullscreen();
+            }).catch(e => {
                 console.error('❌ Direct play error:', e);
                 console.error('Error name:', e.name, 'Message:', e.message);
                 // Don't show error to user - they can try another stream
@@ -2295,6 +2403,9 @@ async function changeCatalogPage(newPage) {
 
 async function loadDetails(provider, link, options = {}) {
     const { autoPlay = false } = options;
+    if (autoPlay) {
+        queueFullscreenRequest();
+    }
     showLoading();
     try {
         const meta = await fetchMeta(provider, link);
@@ -2326,11 +2437,22 @@ async function loadDetails(provider, link, options = {}) {
 
 async function loadPlaybackDetails(provider, link, options = {}) {
     const { autoPlay = true } = options;
+    if (autoPlay) {
+        queueFullscreenRequest();
+    }
     renderProviderSelectorLoading();
     showLoading();
     try {
         const meta = await fetchMeta(provider, link);
         state.currentMeta = { meta, provider, link };
+        if (window.HistoryModule && meta) {
+            window.HistoryModule.addToHistory({
+                title: meta.title,
+                image: meta.image,
+                provider: provider,
+                link: link
+            });
+        }
         renderPlayerMeta(meta);
         renderPlayerEpisodes(meta.linkList, provider, meta.type);
         showView('player');
@@ -2442,6 +2564,7 @@ async function init() {
 
     initAdBlocker();
     loadTmdbImdbCache();
+    initBackNavigationHandlers();
     
     // Load providers
     showLoading();
@@ -2613,6 +2736,25 @@ async function init() {
             }
         });
     }
+
+    const continueBtn = document.getElementById('continueBtn');
+    if (continueBtn) {
+        continueBtn.addEventListener('click', () => {
+            if (window.loadContinueWatchingPage) {
+                loadContinueWatchingPage();
+            }
+        });
+    }
+
+    const continueBackBtn = document.getElementById('continueBackBtn');
+    if (continueBackBtn) {
+        continueBackBtn.addEventListener('click', () => {
+            if (state.selectedProvider) {
+                loadHomePage();
+                updateNavLinks('home');
+            }
+        });
+    }
     
     // Header search input
     const searchInputHeader = document.getElementById('searchInputHeader');
@@ -2672,7 +2814,8 @@ function updateNavLinks(active) {
         explore: 'exploreBtn',
         movies: 'moviesBtn',
         tvshows: 'tvShowsBtn',
-        history: 'historyBtn'
+        history: 'historyBtn',
+        continue: 'continueBtn'
     };
     
     if (navMap[active]) {
@@ -3280,7 +3423,10 @@ async function renderNetflixSection(provider, catalogItem) {
                     <h4>${post.title}</h4>
                 </div>
             `;
-            card.addEventListener('click', () => openPlaybackTab(provider, post.link));
+            card.addEventListener('click', () => {
+                queueFullscreenRequest();
+                loadPlaybackDetails(provider, post.link, { autoPlay: true });
+            });
             row.appendChild(card);
         });
         

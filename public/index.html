@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mitta Movies - Stream Movies & TV Shows</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
     <div id="app">
@@ -22,6 +22,7 @@
                         <button id="tvShowsBtn" class="nav-link">TV Shows</button>
                         <button id="exploreBtn" class="nav-link">Explore</button>
                         <button id="historyBtn" class="nav-link">History</button>
+                        <button id="continueBtn" class="nav-link">Continue Watching</button>
                     </nav>
                 </div>
                 <div class="header-right">
@@ -131,17 +132,23 @@
                     <button id="historyBackBtn" class="back-btn">← Back</button>
                     <div id="historyContent"></div>
                 </div>
+
+                <!-- Continue Watching View -->
+                <div id="continueView" class="view" style="display: none;">
+                    <button id="continueBackBtn" class="back-btn">← Back</button>
+                    <div id="continueContent"></div>
+                </div>
             </div>
         </main>
 
     <script src="/env.js"></script>
-    <script src="tmdb-config.js"></script>
+    <script src="/tmdb-config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <script src="history.js"></script>
-    <script src="tmdb-content.js"></script>
-    <script src="app.js"></script>
-    <script src="explore.js"></script>
-    <script src="movies.js"></script>
-    <script src="tvshows.js"></script>
+    <script src="/history.js"></script>
+    <script src="/tmdb-content.js"></script>
+    <script src="/app.js"></script>
+    <script src="/explore.js"></script>
+    <script src="/movies.js"></script>
+    <script src="/tvshows.js"></script>
 </body>
 </html>
