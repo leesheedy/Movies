@@ -65,10 +65,7 @@ const TVShowsModule = {
             const fetchPromises = providersToFetch.map(async (provider) => {
                 try {
                     // Get catalog to find TV show sections
-                    const catalogResponse = await fetch(`${API_BASE}/api/${provider.value}/catalog`);
-                    if (!catalogResponse.ok) return { posts: [], provider: provider.value };
-                    
-                    const catalogData = await catalogResponse.json();
+                    const catalogData = await fetchCatalog(provider.value);
                     
                     // Find TV show-related sections
                     let tvFilter = '';
@@ -86,10 +83,7 @@ const TVShowsModule = {
                         }
                     }
                     
-                    const postsResponse = await fetch(`${API_BASE}/api/${provider.value}/posts?filter=${encodeURIComponent(tvFilter)}&page=1`);
-                    if (!postsResponse.ok) return { posts: [], provider: provider.value };
-                    
-                    const data = await postsResponse.json();
+                    const data = await fetchPosts(provider.value, tvFilter, 1);
                     const posts = Array.isArray(data) ? data : (data.posts || []);
                     
                     // Take first 12 posts from each provider

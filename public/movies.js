@@ -65,10 +65,7 @@ const MoviesModule = {
             const fetchPromises = providersToFetch.map(async (provider) => {
                 try {
                     // Get catalog to find movie sections
-                    const catalogResponse = await fetch(`${API_BASE}/api/${provider.value}/catalog`);
-                    if (!catalogResponse.ok) return { posts: [], provider: provider.value };
-                    
-                    const catalogData = await catalogResponse.json();
+                    const catalogData = await fetchCatalog(provider.value);
                     
                     // Find movie-related sections
                     let movieFilter = '';
@@ -85,10 +82,7 @@ const MoviesModule = {
                         }
                     }
                     
-                    const postsResponse = await fetch(`${API_BASE}/api/${provider.value}/posts?filter=${encodeURIComponent(movieFilter)}&page=1`);
-                    if (!postsResponse.ok) return { posts: [], provider: provider.value };
-                    
-                    const data = await postsResponse.json();
+                    const data = await fetchPosts(provider.value, movieFilter, 1);
                     const posts = Array.isArray(data) ? data : (data.posts || []);
                     
                     // Take first 12 posts from each provider

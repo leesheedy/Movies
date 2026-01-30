@@ -13,6 +13,7 @@ const state = {
     retryCount: 0,
     maxRetries: 3,
     isVideoPlaying: false, // Track video playback state
+    searchRequestId: 0,
 };
 
 // Expose state and API_BASE globally for modules
@@ -21,6 +22,51 @@ window.state = state;
 // API Base URL
 const API_BASE = window.location.origin;
 window.API_BASE = API_BASE;
+
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const SEARCH_MIN_LENGTH = 2;
+const cacheStore = {
+    catalog: new Map(),
+    posts: new Map(),
+    search: new Map(),
+    meta: new Map(),
+    streams: new Map()
+};
+
+function getCached(map, key) {
+    const entry = map.get(key);
+    if (!entry) return null;
+    if (entry.expiresAt < Date.now()) {
+        map.delete(key);
+        return null;
+    }
+    return entry.value;
+}
+
+function setCached(map, key, value) {
+    map.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+    return value;
+}
+
+function scheduleIdleTask(task) {
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        window.requestIdleCallback(() => task());
+        return;
+    }
+    setTimeout(task, 150);
+}
+
+function prefetchMetaForPosts(provider, posts = [], limit = 6) {
+    const items = Array.isArray(posts) ? posts.slice(0, limit) : [];
+    if (items.length === 0) return;
+    scheduleIdleTask(() => {
+        items.forEach(post => {
+            if (post?.link) {
+                fetchMeta(provider, post.link).catch(() => {});
+            }
+        });
+    });
+}
 
 // Utility Functions
 function showLoading(show = true, message = 'Loading...') {
@@ -50,6 +96,23 @@ function normalizeSearchTitle(title = '') {
         .replace(/&/g, 'and')
         .replace(/[^a-z0-9]+/g, ' ')
         .trim();
+}
+
+function normalizeSearchQuery(query = '') {
+    return normalizeSearchTitle(query).slice(0, 120);
+}
+
+function scoreSearchResult(title, normalizedQuery) {
+    if (!normalizedQuery) return 0;
+    const normalizedTitle = normalizeSearchTitle(title);
+    if (!normalizedTitle) return 0;
+    if (normalizedTitle === normalizedQuery) return 120;
+    if (normalizedTitle.startsWith(normalizedQuery)) return 100;
+    if (normalizedTitle.includes(normalizedQuery)) return 80;
+    const queryTokens = normalizedQuery.split(' ').filter(Boolean);
+    if (queryTokens.length === 0) return 0;
+    const matchCount = queryTokens.filter(token => normalizedTitle.includes(token)).length;
+    return 50 + matchCount * 5;
 }
 
 function applySearchProviderFilter(results, providerFilter) {
@@ -129,7 +192,7 @@ function renderSearchResultCard(result, providerLabelMap) {
         .join('');
 
     card.innerHTML = `
-        <img src="${result.image}" alt="${result.title}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
+        <img src="${result.image}" alt="${result.title}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
         <div class="post-card-content">
             <h3>${result.title}</h3>
             <div class="search-result-meta">
@@ -179,7 +242,10 @@ function ensureSearchModal() {
                 <button class="history-close-btn" id="searchModalClose" aria-label="Close search">✕</button>
             </div>
             <div class="search-modal-controls">
-                <input type="text" id="searchModalInput" placeholder="Search for movies or shows..." />
+                <div class="search-input-wrap">
+                    <input type="text" id="searchModalInput" placeholder="Search for movies or shows..." />
+                    <button class="search-clear-btn" id="searchModalClear" type="button" aria-label="Clear search">✕</button>
+                </div>
                 <button id="searchModalSubmit">Search</button>
             </div>
             <div class="search-modal-summary">
@@ -204,15 +270,33 @@ function ensureSearchModal() {
     
     const input = modal.querySelector('#searchModalInput');
     const submit = modal.querySelector('#searchModalSubmit');
+    const clearBtn = modal.querySelector('#searchModalClear');
     input?.addEventListener('keypress', (event) => {
         if (event.key === 'Enter') {
             performSearch(input.value);
         }
     });
+    input?.addEventListener('input', debounce(() => {
+        if (!input) return;
+        const query = input.value.trim();
+        syncHeaderSearchInput(query);
+        if (!query) {
+            resetSearchModal();
+            return;
+        }
+        performSearch(query, { source: 'modal' });
+    }, 450));
     submit?.addEventListener('click', () => {
         if (input) {
             performSearch(input.value);
         }
+    });
+    clearBtn?.addEventListener('click', () => {
+        if (!input) return;
+        input.value = '';
+        syncHeaderSearchInput('');
+        input.focus();
+        resetSearchModal();
     });
     
     return modal;
@@ -226,7 +310,11 @@ function openSearchModal(query = '') {
         input.focus();
         input.setSelectionRange(input.value.length, input.value.length);
     }
+    syncHeaderSearchInput(query);
     modal.classList.add('is-open');
+    if (!query) {
+        resetSearchModal();
+    }
     return modal;
 }
 
@@ -234,6 +322,22 @@ function closeSearchModal() {
     const modal = document.getElementById('searchModal');
     if (modal) {
         modal.classList.remove('is-open');
+    }
+}
+
+function resetSearchModal(options = {}) {
+    const resultsContainer = document.getElementById('searchModalResults');
+    const summaryEl = document.getElementById('searchSummary');
+    const filtersEl = document.getElementById('searchProviderFilters');
+    const { keepSummary = false } = options;
+    if (resultsContainer) {
+        resultsContainer.innerHTML = '<p class="search-empty-state">Start typing to search across all providers.</p>';
+    }
+    if (summaryEl && !keepSummary) {
+        summaryEl.textContent = 'Search is ready. Type a title and we will fetch results instantly.';
+    }
+    if (filtersEl) {
+        filtersEl.innerHTML = '';
     }
 }
 
@@ -330,6 +434,21 @@ function showToast(message, type = 'info', duration = 1000) {
     }, duration);
 }
 
+function debounce(fn, delay) {
+    let timer;
+    return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
+    };
+}
+
+function syncHeaderSearchInput(value) {
+    const searchInputHeader = document.getElementById('searchInputHeader');
+    if (searchInputHeader && searchInputHeader.value !== value) {
+        searchInputHeader.value = value;
+    }
+}
+
 function showError(message, downloadLink = null) {
     const errorEl = document.getElementById('errorMessage');
     
@@ -420,71 +539,102 @@ async function fetchProviders() {
 }
 
 async function fetchCatalog(provider) {
-    const response = await fetch(`${API_BASE}/api/${provider}/catalog`);
-    if (!response.ok) throw new Error('Failed to fetch catalog');
-    return response.json();
+    const cacheKey = `${provider}`;
+    const cached = getCached(cacheStore.catalog, cacheKey);
+    if (cached) return cached;
+    const fetchPromise = fetch(`${API_BASE}/api/${provider}/catalog`)
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to fetch catalog');
+            return response.json();
+        })
+        .then(data => setCached(cacheStore.catalog, cacheKey, data))
+        .catch(error => {
+            cacheStore.catalog.delete(cacheKey);
+            throw error;
+        });
+    setCached(cacheStore.catalog, cacheKey, fetchPromise);
+    return fetchPromise;
 }
 
 async function fetchPosts(provider, filter = '', page = 1) {
-    const response = await fetch(`${API_BASE}/api/${provider}/posts?filter=${encodeURIComponent(filter)}&page=${page}`);
-    if (!response.ok) throw new Error('Failed to fetch posts');
-    const data = await response.json();
-    
-    // Handle different response formats
-    if (Array.isArray(data)) {
-        // Direct array response - wrap it in an object with pagination info
-        return {
-            posts: data,
-            hasNextPage: false // Default to false for array responses
-        };
-    } else if (data && typeof data === 'object') {
-        // Already in the expected format
-        return data;
-    } else {
-        // Unexpected format - return empty structure
-        return {
-            posts: [],
-            hasNextPage: false
-        };
-    }
+    const cacheKey = `${provider}:${filter}:${page}`;
+    const cached = getCached(cacheStore.posts, cacheKey);
+    if (cached) return cached;
+    const fetchPromise = fetch(`${API_BASE}/api/${provider}/posts?filter=${encodeURIComponent(filter)}&page=${page}`)
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to fetch posts');
+            return response.json();
+        })
+        .then(data => {
+            if (Array.isArray(data)) {
+                return {
+                    posts: data,
+                    hasNextPage: false
+                };
+            }
+            if (data && typeof data === 'object') {
+                return data;
+            }
+            return {
+                posts: [],
+                hasNextPage: false
+            };
+        })
+        .then(data => setCached(cacheStore.posts, cacheKey, data))
+        .catch(error => {
+            cacheStore.posts.delete(cacheKey);
+            throw error;
+        });
+    setCached(cacheStore.posts, cacheKey, fetchPromise);
+    return fetchPromise;
 }
 
 async function searchPosts(provider, query, page = 1) {
     try {
-        const response = await fetch(`${API_BASE}/api/${provider}/search?query=${encodeURIComponent(query)}&page=${page}`);
-        if (!response.ok) {
-            console.warn(`Search failed for provider ${provider} with status ${response.status}`);
-            // Return empty structure instead of throwing error
-            return {
-                posts: [],
-                hasNextPage: false,
-                provider: provider
-            };
-        }
-        const data = await response.json();
-        
-        // Handle different response formats
-        if (Array.isArray(data)) {
-            // Direct array response - wrap it in an object with pagination info
-            return {
-                posts: data,
-                hasNextPage: false, // Default to false for array responses
-                provider: provider
-            };
-        } else if (data && typeof data === 'object') {
-            // Already in the expected format
-            return {
-                ...data,
-                provider: provider
-            };
-        } else {
-            // Unexpected format - return empty structure
-            return {
-                posts: [],
-                hasNextPage: false,
-                provider: provider
-            };
-        }
+        const normalizedQuery = normalizeSearchQuery(query);
+        const cacheKey = `${provider}:${normalizedQuery}:${page}`;
+        const cached = getCached(cacheStore.search, cacheKey);
+        if (cached) return cached;
+
+        const fetchPromise = fetch(`${API_BASE}/api/${provider}/search?query=${encodeURIComponent(query)}&page=${page}`)
+            .then(response => {
+                if (!response.ok) {
+                    console.warn(`Search failed for provider ${provider} with status ${response.status}`);
+                    return {
+                        posts: [],
+                        hasNextPage: false,
+                        provider: provider
+                    };
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (Array.isArray(data)) {
+                    return {
+                        posts: data,
+                        hasNextPage: false,
+                        provider: provider
+                    };
+                }
+                if (data && typeof data === 'object') {
+                    return {
+                        ...data,
+                        provider: provider
+                    };
+                }
+                return {
+                    posts: [],
+                    hasNextPage: false,
+                    provider: provider
+                };
+            })
+            .then(result => setCached(cacheStore.search, cacheKey, result))
+            .catch(error => {
+                cacheStore.search.delete(cacheKey);
+                throw error;
+            });
+        setCached(cacheStore.search, cacheKey, fetchPromise);
+        return fetchPromise;
     } catch (error) {
         console.warn(`Search failed for provider ${provider}:`, error);
         // Return empty structure instead of throwing error
@@ -497,9 +647,21 @@ async function searchPosts(provider, query, page = 1) {
 }
 
 async function fetchMeta(provider, link) {
-    const response = await fetch(`${API_BASE}/api/${provider}/meta?link=${encodeURIComponent(link)}`);
-    if (!response.ok) throw new Error('Failed to fetch metadata');
-    return response.json();
+    const cacheKey = `${provider}:${link}`;
+    const cached = getCached(cacheStore.meta, cacheKey);
+    if (cached) return cached;
+    const fetchPromise = fetch(`${API_BASE}/api/${provider}/meta?link=${encodeURIComponent(link)}`)
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to fetch metadata');
+            return response.json();
+        })
+        .then(data => setCached(cacheStore.meta, cacheKey, data))
+        .catch(error => {
+            cacheStore.meta.delete(cacheKey);
+            throw error;
+        });
+    setCached(cacheStore.meta, cacheKey, fetchPromise);
+    return fetchPromise;
 }
 
 async function fetchEpisodes(provider, url) {
@@ -509,23 +671,36 @@ async function fetchEpisodes(provider, url) {
 }
 
 async function fetchStream(provider, link, type = 'movie') {
+    const cacheKey = `${provider}:${type}:${link}`;
+    const cached = getCached(cacheStore.streams, cacheKey);
+    if (cached) return cached;
     const url = `${API_BASE}/api/${provider}/stream?link=${encodeURIComponent(link)}&type=${type}`;
     console.log('🎥 Fetching stream:', {provider, link, type, url});
-    const response = await fetch(url);
-    console.log('🎥 Stream response status:', response.status);
-    if (!response.ok) throw new Error('Failed to fetch stream');
-    const streams = await response.json();
-    console.log('✅ Streams received:', streams.length, 'options');
-    streams.forEach((s, i) => {
-        console.log(`  Stream ${i}:`, {
-            server: s.server,
-            type: s.type,
-            quality: s.quality,
-            requiresExtraction: s.requiresExtraction,
-            linkPreview: s.link.substring(0, 80) + '...'
+    const fetchPromise = fetch(url)
+        .then(response => {
+            console.log('🎥 Stream response status:', response.status);
+            if (!response.ok) throw new Error('Failed to fetch stream');
+            return response.json();
+        })
+        .then(streams => {
+            console.log('✅ Streams received:', streams.length, 'options');
+            streams.forEach((s, i) => {
+                console.log(`  Stream ${i}:`, {
+                    server: s.server,
+                    type: s.type,
+                    quality: s.quality,
+                    requiresExtraction: s.requiresExtraction,
+                    linkPreview: s.link.substring(0, 80) + '...'
+                });
+            });
+            return setCached(cacheStore.streams, cacheKey, streams);
+        })
+        .catch(error => {
+            cacheStore.streams.delete(cacheKey);
+            throw error;
         });
-    });
-    return streams;
+    setCached(cacheStore.streams, cacheKey, fetchPromise);
+    return fetchPromise;
 }
 
 // UI Rendering Functions
@@ -549,7 +724,7 @@ function renderPostCard(post, provider) {
     const displayProvider = post.provider || provider;
     
     card.innerHTML = `
-        <img src="${post.image}" alt="${post.title}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
+        <img src="${post.image}" alt="${post.title}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
         <div class="post-card-content">
             <h3>${post.title}</h3>
             <span class="provider-badge">${displayProvider}</span>
@@ -1380,10 +1555,10 @@ async function loadHomePage() {
             moviesHeader.innerHTML = '<h2 class="category-title">🎬 Movies</h2>';
             catalogContainer.appendChild(moviesHeader);
             
-            for (const item of moviesSections) {
-                const section = await renderNetflixSection(provider, item);
-                if (section) catalogContainer.appendChild(section);
-            }
+            const movieSections = await Promise.all(
+                moviesSections.map(item => renderNetflixSection(provider, item))
+            );
+            movieSections.filter(Boolean).forEach(section => catalogContainer.appendChild(section));
         }
         
         // Render TV Shows Section
@@ -1393,17 +1568,17 @@ async function loadHomePage() {
             tvHeader.innerHTML = '<h2 class="category-title">📺 TV Shows</h2>';
             catalogContainer.appendChild(tvHeader);
             
-            for (const item of tvShowsSections) {
-                const section = await renderNetflixSection(provider, item);
-                if (section) catalogContainer.appendChild(section);
-            }
+            const tvSections = await Promise.all(
+                tvShowsSections.map(item => renderNetflixSection(provider, item))
+            );
+            tvSections.filter(Boolean).forEach(section => catalogContainer.appendChild(section));
         }
         
         // Render Other Sections
-        for (const item of otherSections) {
-            const section = await renderNetflixSection(provider, item);
-            if (section) catalogContainer.appendChild(section);
-        }
+        const otherRenderedSections = await Promise.all(
+            otherSections.map(item => renderNetflixSection(provider, item))
+        );
+        otherRenderedSections.filter(Boolean).forEach(section => catalogContainer.appendChild(section));
         
         // Render genres at the bottom if available
         if (catalogData.genres && catalogData.genres.length > 0) {
@@ -1457,18 +1632,34 @@ async function loadFullCatalog(provider, filter, title) {
     }
 }
 
-async function performSearch(queryOverride = '') {
+async function performSearch(queryOverride = '', options = {}) {
     const searchInput = document.getElementById('searchInputHeader');
     const query = (queryOverride || searchInput?.value || '').trim();
+    const normalizedQuery = normalizeSearchQuery(query);
+    const { silent = false, source = 'header' } = options;
     
     if (!query) {
-        showError('Please enter a search query.');
+        if (!silent) {
+            showError('Please enter a search query.');
+        }
+        resetSearchModal();
+        return;
+    }
+
+    if (normalizedQuery.length < SEARCH_MIN_LENGTH) {
+        openSearchModal(query);
+        const summaryEl = document.getElementById('searchSummary');
+        if (summaryEl) {
+            summaryEl.textContent = `Keep typing… at least ${SEARCH_MIN_LENGTH} characters to search.`;
+        }
+        resetSearchModal({ keepSummary: true });
         return;
     }
     
     openSearchModal(query);
     showLoading();
     try {
+        const requestId = ++state.searchRequestId;
         const allProviders = state.providers;
         const resultsContainer = document.getElementById('searchModalResults');
         const paginationEl = document.getElementById('searchPagination');
@@ -1498,6 +1689,10 @@ async function performSearch(queryOverride = '') {
                 result
             })))
         );
+
+        if (requestId !== state.searchRequestId) {
+            return;
+        }
 
         const providerCounts = {};
         const aggregatedMap = new Map();
@@ -1538,6 +1733,9 @@ async function performSearch(queryOverride = '') {
         });
 
         const aggregatedResults = Array.from(aggregatedMap.values()).sort((a, b) => {
+            const scoreA = scoreSearchResult(a.title, normalizedQuery) + Math.min(a.providers.length, 5) * 5;
+            const scoreB = scoreSearchResult(b.title, normalizedQuery) + Math.min(b.providers.length, 5) * 5;
+            if (scoreB !== scoreA) return scoreB - scoreA;
             if (b.providers.length !== a.providers.length) {
                 return b.providers.length - a.providers.length;
             }
@@ -1548,6 +1746,9 @@ async function performSearch(queryOverride = '') {
 
         if (summaryEl) {
             summaryEl.textContent = `${aggregatedResults.length} title${aggregatedResults.length === 1 ? '' : 's'} found across ${Object.keys(providerCounts).length} provider${Object.keys(providerCounts).length === 1 ? '' : 's'}.`;
+            if (source === 'header') {
+                summaryEl.textContent += ' Results update as you type.';
+            }
         }
 
         renderSearchProviderFilters(providerCounts, providerLabelMap);
@@ -1829,6 +2030,15 @@ async function init() {
                 performSearch();
             }
         });
+        searchInputHeader.addEventListener('input', debounce(() => {
+            const query = searchInputHeader.value.trim();
+            if (!query) {
+                openSearchModal('');
+                resetSearchModal();
+                return;
+            }
+            performSearch(query, { source: 'header', silent: true });
+        }, 450));
     }
     
     // Search icon button
@@ -2287,6 +2497,7 @@ async function renderHeroBanner(provider, catalogData) {
             `;
             
             container.appendChild(heroBanner);
+            prefetchMetaForPosts(provider, [featuredPost], 1);
             
             // Add Genre Browser Section right after banner
             
@@ -2420,11 +2631,13 @@ async function renderNetflixSection(provider, catalogItem) {
         const row = document.createElement('div');
         row.className = 'netflix-row';
         
-        posts.slice(0, 20).forEach(post => {
+        const previewPosts = posts.slice(0, 20);
+        prefetchMetaForPosts(provider, previewPosts, 6);
+        previewPosts.forEach(post => {
             const card = document.createElement('div');
             card.className = 'netflix-card';
             card.innerHTML = `
-                <img src="${post.image}" alt="${post.title}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
+                <img src="${post.image}" alt="${post.title}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
                 <div class="netflix-card-overlay">
                     <h4>${post.title}</h4>
                 </div>
