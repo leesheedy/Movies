@@ -81,7 +81,17 @@ function getTmdbApiKey() {
     return window.TMDBConfig?.ensureApiKey?.() || '';
 }
 
-const preferredProviders = ['vidsrc'];
+const TMDB_PROVIDER = {
+    value: 'tmdb',
+    display_name: 'TMDB',
+    type: 'metadata'
+};
+
+const preferredProviders = ['tmdb'];
+
+function isTmdbOnlyMode() {
+    return state.providers.length === 1 && state.providers[0]?.value === 'tmdb';
+}
 
 function sortByPreferredProviders(list, valueGetter) {
     if (!Array.isArray(list)) return [];
@@ -759,22 +769,10 @@ function getImdbIdFromPath() {
 
 // API Calls
 async function fetchProviders() {
-    console.log('📡 Fetching providers from:', `${API_BASE}/api/providers`);
-    try {
-        const response = await fetch(`${API_BASE}/api/providers`);
-        console.log('📡 Provider response status:', response.status);
-        if (!response.ok) throw new Error('Failed to fetch providers');
-        const providers = await response.json();
-        const orderedProviders = sortByPreferredProviders(providers);
-        console.log('✅ Providers loaded:', orderedProviders.length, 'providers');
-        console.log('📋 Provider list:', orderedProviders.map(p => p.value));
-        state.providers = orderedProviders;
-        return orderedProviders;
-    } catch (error) {
-        console.error('❌ Error fetching providers:', error);
-        showError('Failed to load providers. Make sure the server is running and built.');
-        return [];
-    }
+    const providers = [TMDB_PROVIDER];
+    const orderedProviders = sortByPreferredProviders(providers);
+    state.providers = orderedProviders;
+    return orderedProviders;
 }
 
 async function fetchCatalog(provider) {
@@ -1973,9 +1971,26 @@ async function loadHomePage() {
     
     showLoading();
     try {
-        const catalogData = await fetchCatalog(provider);
         const catalogContainer = document.getElementById('catalogSections');
         catalogContainer.innerHTML = '';
+
+        if (provider === 'tmdb') {
+            if (window.HistoryModule) {
+                const historySection = window.HistoryModule.renderHistorySection();
+                if (historySection) {
+                    catalogContainer.appendChild(historySection);
+                }
+            }
+
+            if (window.TMDBContentModule) {
+                await window.TMDBContentModule.renderAllSections(catalogContainer);
+            }
+
+            showView('home');
+            return;
+        }
+
+        const catalogData = await fetchCatalog(provider);
         
         // Render Hero Banner
         await renderHeroBanner(provider, catalogData);
@@ -2400,7 +2415,7 @@ async function init() {
     
     // Auto-select preferred provider
     if (providers.length > 0) {
-        const preferred = providers.find(provider => provider.value === 'vidsrc') || providers[0];
+        const preferred = providers.find(provider => provider.value === 'tmdb') || providers[0];
         state.selectedProvider = preferred.value;
         document.getElementById('providerSelect').value = preferred.value;
         const params = new URLSearchParams(window.location.search);
@@ -2902,6 +2917,10 @@ function stopVideo() {
 async function loadExplorePage() {
     showLoading(true, 'Loading Explore...');
     try {
+        if (isTmdbOnlyMode()) {
+            showError('Explore is unavailable in TMDB-only mode. Use Home or Search instead.');
+            return;
+        }
         // Initialize explore module if not already done
         if (window.ExploreModule && state.providers.length > 0) {
             await window.ExploreModule.init(state.providers);
@@ -2922,6 +2941,10 @@ async function loadExplorePage() {
 async function loadMoviesPage() {
     showLoading(true, 'Loading Movies...');
     try {
+        if (isTmdbOnlyMode()) {
+            showError('Movies is unavailable in TMDB-only mode. Use Home or Search instead.');
+            return;
+        }
         if (window.MoviesModule && state.providers.length > 0) {
             await window.MoviesModule.init(state.providers);
             window.MoviesModule.renderMoviesPage();
@@ -2941,6 +2964,10 @@ async function loadMoviesPage() {
 async function loadTVShowsPage() {
     showLoading(true, 'Loading TV Shows...');
     try {
+        if (isTmdbOnlyMode()) {
+            showError('TV Shows is unavailable in TMDB-only mode. Use Home or Search instead.');
+            return;
+        }
         if (window.TVShowsModule && state.providers.length > 0) {
             await window.TVShowsModule.init(state.providers);
             window.TVShowsModule.renderTVShowsPage();
