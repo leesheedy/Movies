@@ -549,19 +549,53 @@ function initAdBlocker() {
         return originalOpen.call(window, normalizedUrl, target, features);
     };
 
-    const originalAssign = window.location.assign.bind(window.location);
-    window.location.assign = (url) => {
-        const { allowed, normalizedUrl } = guardNavigation(url, 'redirect');
-        if (!allowed) return;
-        originalAssign(normalizedUrl);
-    };
+    const patchLocation = () => {
+        const locationPrototype = Object.getPrototypeOf(window.location);
+        if (!locationPrototype) return;
 
-    const originalReplace = window.location.replace.bind(window.location);
-    window.location.replace = (url) => {
-        const { allowed, normalizedUrl } = guardNavigation(url, 'redirect');
-        if (!allowed) return;
-        originalReplace(normalizedUrl);
+        const originalAssign = locationPrototype.assign?.bind(window.location);
+        if (originalAssign) {
+            try {
+                locationPrototype.assign = function (url) {
+                    const { allowed, normalizedUrl } = guardNavigation(url, 'redirect');
+                    if (!allowed) return;
+                    return originalAssign(normalizedUrl);
+                };
+            } catch (error) {
+                console.warn('Adblock: unable to override location.assign', error);
+            }
+        }
+
+        const originalReplace = locationPrototype.replace?.bind(window.location);
+        if (originalReplace) {
+            try {
+                locationPrototype.replace = function (url) {
+                    const { allowed, normalizedUrl } = guardNavigation(url, 'redirect');
+                    if (!allowed) return;
+                    return originalReplace(normalizedUrl);
+                };
+            } catch (error) {
+                console.warn('Adblock: unable to override location.replace', error);
+            }
+        }
+
+        const hrefDescriptor = Object.getOwnPropertyDescriptor(locationPrototype, 'href');
+        if (hrefDescriptor?.set && hrefDescriptor?.configurable) {
+            try {
+                Object.defineProperty(locationPrototype, 'href', {
+                    get: hrefDescriptor.get?.bind(window.location),
+                    set: (url) => {
+                        const { allowed, normalizedUrl } = guardNavigation(url, 'redirect');
+                        if (!allowed) return;
+                        hrefDescriptor.set.call(window.location, normalizedUrl);
+                    }
+                });
+            } catch (error) {
+                console.warn('Adblock: unable to override location.href', error);
+            }
+        }
     };
+    patchLocation();
 
     document.addEventListener('click', (event) => {
         const anchor = event.target?.closest?.('a');
