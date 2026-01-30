@@ -520,8 +520,8 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
     }
 
     const iframe = document.createElement('iframe');
-    const embedUrl = buildVidsrcEmbedUrl(imdbId);
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
+    iframe.src = buildVidsrcEmbedUrl(imdbId);
+    iframe.setAttribute('csp', 'sandbox allow-scripts allow-same-origin allow-forms');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.setAttribute('allow', 'autoplay; fullscreen');
     iframe.setAttribute('allowfullscreen', 'true');
