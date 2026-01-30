@@ -215,7 +215,7 @@ function getTmdbPosterUrl(path) {
 }
 
 function renderSearchResults(results) {
-    const resultsContainer = document.getElementById('searchModalResults');
+    const resultsContainer = document.getElementById('searchMenuResults');
     if (!resultsContainer) return;
 
     resultsContainer.innerHTML = '';
@@ -237,21 +237,21 @@ function renderSearchResults(results) {
             poster_path: result.poster_path,
             provider: 'tmdb'
         };
-        resultsContainer.appendChild(renderPostCard(cardData, 'tmdb', { animateOnSelect: true }));
+        resultsContainer.appendChild(renderPostCard(cardData, 'tmdb', { animateOnSelect: true, searchSource: 'menu' }));
     });
 }
 
-function handleSearchSelection({ provider, link, tmdbItem, source = 'modal', card }) {
+function handleSearchSelection({ provider, link, tmdbItem, source = 'menu', card }) {
     const transitionDuration = 150;
-    const modal = document.getElementById('searchModal');
+    const searchMenu = document.getElementById('searchMenu');
     const searchView = document.getElementById('searchView');
 
     if (card) {
         card.classList.add('is-selected');
     }
 
-    if (source === 'modal' && modal) {
-        modal.classList.add('is-transitioning');
+    if (source === 'menu' && searchMenu) {
+        searchMenu.classList.add('is-transitioning');
     }
 
     if (source === 'page' && searchView) {
@@ -259,9 +259,9 @@ function handleSearchSelection({ provider, link, tmdbItem, source = 'modal', car
     }
 
     setTimeout(() => {
-        if (modal) {
-            closeSearchModal();
-            modal.classList.remove('is-transitioning');
+        if (searchMenu) {
+            closeSearchMenu();
+            searchMenu.classList.remove('is-transitioning');
         }
 
         if (searchView) {
@@ -276,119 +276,34 @@ function handleSearchSelection({ provider, link, tmdbItem, source = 'modal', car
     }, transitionDuration);
 }
 
-function ensureSearchModal() {
-    let modal = document.getElementById('searchModal');
-    if (modal) {
-        bindSearchModalEvents(modal);
-        return modal;
+function openSearchMenu(query = '') {
+    const menu = document.getElementById('searchMenu');
+    if (!menu) return null;
+    showView('home');
+    updateNavLinks('home');
+    menu.hidden = false;
+    menu.classList.add('is-open');
+    const title = document.getElementById('searchMenuTitle');
+    if (title) {
+        title.textContent = query ? `Search Results for "${query}"` : 'Search Results';
     }
-    
-    modal = document.createElement('div');
-    modal.id = 'searchModal';
-    modal.className = 'history-modal search-modal';
-    modal.innerHTML = `
-        <div class="history-modal-content search-modal-content" role="dialog" aria-modal="true">
-            <div class="history-modal-header search-modal-header">
-                <div class="search-modal-title">
-                    <h2 id="searchModalTitle">Search Results</h2>
-                    <p class="search-modal-subtitle">Search TMDB movies</p>
-                </div>
-                <button class="history-close-btn" id="searchModalClose" type="button" aria-label="Close search">✕</button>
-            </div>
-            <div class="search-modal-controls">
-                <div class="search-input-wrap">
-                    <input type="text" id="searchModalInput" placeholder="Search for movies or shows..." />
-                    <button class="search-clear-btn" id="searchModalClear" type="button" aria-label="Clear search">✕</button>
-                </div>
-                <button id="searchModalSubmit">Search</button>
-            </div>
-            <div class="search-modal-summary">
-                <div id="searchSummary" class="search-summary-text"></div>
-                <div id="searchProviderFilters" class="search-provider-filters"></div>
-            </div>
-            <div class="history-modal-body search-modal-body">
-                <div id="searchModalResults" class="posts-grid search-results-grid"></div>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    bindSearchModalEvents(modal);
-    
-    return modal;
-}
-
-function bindSearchModalEvents(modal) {
-    if (modal.dataset.bound === 'true') return;
-    modal.dataset.bound = 'true';
-
-    const closeBtn = modal.querySelector('#searchModalClose');
-    closeBtn?.addEventListener('click', closeSearchModal);
-    modal.addEventListener('click', (event) => {
-        if (event.target === modal) {
-            closeSearchModal();
-        }
-    });
-
-    const input = modal.querySelector('#searchModalInput');
-    const submit = modal.querySelector('#searchModalSubmit');
-    const clearBtn = modal.querySelector('#searchModalClear');
-    input?.addEventListener('keypress', (event) => {
-        if (event.key === 'Enter') {
-            performSearch(input.value);
-        }
-    });
-    input?.addEventListener('input', debounce(() => {
-        if (!input) return;
-        const query = input.value.trim();
-        syncHeaderSearchInput(query);
-        if (!query) {
-            resetSearchModal();
-            return;
-        }
-        performSearch(query, { source: 'modal' });
-    }, 250));
-    submit?.addEventListener('click', () => {
-        if (input) {
-            performSearch(input.value);
-        }
-    });
-    clearBtn?.addEventListener('click', () => {
-        if (!input) return;
-        input.value = '';
-        syncHeaderSearchInput('');
-        input.focus();
-        resetSearchModal();
-    });
-}
-
-function openSearchModal(query = '') {
-    const modal = ensureSearchModal();
-    const input = modal.querySelector('#searchModalInput');
-    if (input) {
-        input.value = query;
-        input.focus();
-        input.setSelectionRange(input.value.length, input.value.length);
-    }
-    syncHeaderSearchInput(query);
-    modal.classList.add('is-open');
     if (!query) {
-        resetSearchModal();
+        resetSearchMenu();
     }
-    return modal;
+    return menu;
 }
 
-function closeSearchModal() {
-    const modal = document.getElementById('searchModal');
-    if (modal) {
-        modal.classList.remove('is-open');
-        modal.classList.remove('is-transitioning');
+function closeSearchMenu() {
+    const menu = document.getElementById('searchMenu');
+    if (menu) {
+        menu.classList.remove('is-open');
+        menu.classList.remove('is-transitioning');
+        menu.hidden = true;
     }
 }
 
-function resetSearchModal(options = {}) {
-    const resultsContainer = document.getElementById('searchModalResults');
+function resetSearchMenu(options = {}) {
+    const resultsContainer = document.getElementById('searchMenuResults');
     const summaryEl = document.getElementById('searchSummary');
     const filtersEl = document.getElementById('searchProviderFilters');
     const { keepSummary = false } = options;
@@ -606,6 +521,9 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
 
     const iframe = document.createElement('iframe');
     iframe.src = buildVidsrcEmbedUrl(imdbId);
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
+    iframe.setAttribute('referrerpolicy', 'no-referrer');
+    iframe.setAttribute('allow', 'autoplay; fullscreen');
     iframe.setAttribute('allowfullscreen', 'true');
     iframe.setAttribute('loading', 'lazy');
 
@@ -688,6 +606,21 @@ function syncHeaderSearchInput(value) {
     const searchInputHeader = document.getElementById('searchInputHeader');
     if (searchInputHeader && searchInputHeader.value !== value) {
         searchInputHeader.value = value;
+    }
+    updateHeaderSearchState(value);
+}
+
+function updateHeaderSearchState(valueOverride = null) {
+    const searchInputHeader = document.getElementById('searchInputHeader');
+    const container = document.querySelector('.search-icon-container');
+    const clearBtn = document.getElementById('searchClearHeader');
+    const value = valueOverride !== null ? valueOverride : (searchInputHeader?.value || '');
+    const hasQuery = value.trim().length > 0;
+    if (container) {
+        container.classList.toggle('has-query', hasQuery);
+    }
+    if (clearBtn) {
+        clearBtn.setAttribute('aria-hidden', hasQuery ? 'false' : 'true');
     }
 }
 
@@ -1143,7 +1076,7 @@ function renderPostCard(post, provider, options = {}) {
                     poster_path: post.poster_path || null,
                     release_date: post.release_date || null
                 } : null,
-                source: 'page',
+                source: options.searchSource || 'page',
                 card
             });
             return;
@@ -2120,25 +2053,26 @@ async function performSearch(queryOverride = '', options = {}) {
         if (!silent) {
             showError('Please enter a search query.');
         }
-        resetSearchModal();
+        closeSearchMenu();
+        resetSearchMenu();
         return;
     }
 
     if (normalizedQuery.length < SEARCH_MIN_LENGTH) {
-        openSearchModal(query);
+        openSearchMenu(query);
         const summaryEl = document.getElementById('searchSummary');
         if (summaryEl) {
             summaryEl.textContent = `Keep typing… at least ${SEARCH_MIN_LENGTH} characters to search.`;
         }
-        resetSearchModal({ keepSummary: true });
+        resetSearchMenu({ keepSummary: true });
         return;
     }
     
-    openSearchModal(query);
+    openSearchMenu(query);
     showLoading();
     try {
         const requestId = ++state.searchRequestId;
-        const resultsContainer = document.getElementById('searchModalResults');
+        const resultsContainer = document.getElementById('searchMenuResults');
         const paginationEl = document.getElementById('searchPagination');
         const summaryEl = document.getElementById('searchSummary');
         if (resultsContainer) {
@@ -2147,7 +2081,7 @@ async function performSearch(queryOverride = '', options = {}) {
         if (paginationEl) paginationEl.innerHTML = '';
         if (summaryEl) summaryEl.textContent = 'Searching TMDB...';
         
-        const searchTitle = document.getElementById('searchModalTitle');
+        const searchTitle = document.getElementById('searchMenuTitle');
         if (searchTitle) {
             searchTitle.textContent = `Search Results for "${query}"`;
         }
@@ -2190,7 +2124,7 @@ async function performSearch(queryOverride = '', options = {}) {
         renderSearchResults(results);
     } catch (error) {
         showError('Search failed: ' + error.message);
-        const resultsContainer = document.getElementById('searchModalResults');
+        const resultsContainer = document.getElementById('searchMenuResults');
         if (resultsContainer) {
             resultsContainer.innerHTML = `
                 <div class="search-empty-state">
@@ -2583,13 +2517,27 @@ async function init() {
         });
         searchInputHeader.addEventListener('input', debounce(() => {
             const query = searchInputHeader.value.trim();
+            updateHeaderSearchState(query);
             if (!query) {
-                openSearchModal('');
-                resetSearchModal();
+                closeSearchMenu();
+                resetSearchMenu();
                 return;
             }
             performSearch(query, { source: 'header', silent: true });
         }, 250));
+        updateHeaderSearchState(searchInputHeader.value);
+    }
+
+    const searchClearHeader = document.getElementById('searchClearHeader');
+    if (searchClearHeader) {
+        searchClearHeader.addEventListener('click', () => {
+            if (!searchInputHeader) return;
+            searchInputHeader.value = '';
+            updateHeaderSearchState('');
+            closeSearchMenu();
+            resetSearchMenu();
+            searchInputHeader.focus();
+        });
     }
     
     // Search icon button
@@ -2598,7 +2546,7 @@ async function init() {
         searchToggle.addEventListener('click', () => {
             const query = searchInputHeader.value.trim();
             if (!query) {
-                openSearchModal();
+                openSearchMenu();
                 return;
             }
             performSearch(query);
@@ -2772,7 +2720,7 @@ async function openBestMatchForTitle(title, options = {}) {
         }
         showToast(`No results found for "${query}".`, 'info', 3000);
         if (fallbackToSearch) {
-            openSearchModal(query);
+            openSearchMenu(query);
             performSearch(query, { source: 'header' });
         }
         return false;
