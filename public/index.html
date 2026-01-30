@@ -27,6 +27,7 @@
                 <div class="header-right">
                     <div class="search-icon-container">
                         <input type="text" id="searchInputHeader" class="search-input-header" placeholder="Search movies or shows..." />
+                        <button id="searchClearHeader" class="search-clear-btn header-search-clear" type="button" aria-label="Clear search" aria-hidden="true">✕</button>
                         <button id="searchToggle" class="search-icon-btn">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="11" cy="11" r="8"></circle>
@@ -56,6 +57,21 @@
 
                 <!-- Home View -->
                 <div id="homeView" class="view">
+                    <div id="searchMenu" class="search-menu" hidden>
+                        <div class="search-menu-header">
+                            <div class="search-menu-title">
+                                <h2 id="searchMenuTitle">Search Results</h2>
+                                <p class="search-menu-subtitle">Search TMDB movies</p>
+                            </div>
+                        </div>
+                        <div class="search-menu-summary">
+                            <div id="searchSummary" class="search-summary-text"></div>
+                            <div id="searchProviderFilters" class="search-provider-filters"></div>
+                        </div>
+                        <div class="search-menu-body">
+                            <div id="searchMenuResults" class="posts-grid search-results-grid"></div>
+                        </div>
+                    </div>
                     <div id="catalogSections"></div>
                 </div>
 
