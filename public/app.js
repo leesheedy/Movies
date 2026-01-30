@@ -2536,7 +2536,7 @@ async function searchInAllProviders(title) {
     const providers = state.providers || [];
     if (providers.length === 0) return [];
 
-    const preferredProviders = ['upcloud', 'akcloud', 'megacloud'];
+    const preferredProviders = ['vidsrc', 'upcloud', 'akcloud', 'megacloud'];
     const orderedProviders = [...providers].sort((a, b) => {
         const aValue = (a.value || a).toString().toLowerCase();
         const bValue = (b.value || b).toString().toLowerCase();
