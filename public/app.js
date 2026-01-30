@@ -628,7 +628,6 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
     const embedUrl = buildVidsrcEmbedUrl(imdbId);
     const iframe = document.createElement('iframe');
     iframe.src = embedUrl;
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.setAttribute('allow', 'autoplay; fullscreen');
     iframe.setAttribute('allowfullscreen', 'true');
