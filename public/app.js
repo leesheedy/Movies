@@ -34,6 +34,26 @@ const cacheStore = {
     streams: new Map()
 };
 
+const preferredProviders = ['vidsrc', 'upcloud', 'akcloud', 'megacloud'];
+
+function sortByPreferredProviders(list, valueGetter) {
+    if (!Array.isArray(list)) return [];
+    const getValue = valueGetter || ((item) => (item.value || item.provider || item).toString().toLowerCase());
+    return list
+        .map((item, index) => ({ item, index }))
+        .sort((a, b) => {
+            const aValue = getValue(a.item);
+            const bValue = getValue(b.item);
+            const aIndex = preferredProviders.indexOf(aValue);
+            const bIndex = preferredProviders.indexOf(bValue);
+            if (aIndex === -1 && bIndex === -1) return a.index - b.index;
+            if (aIndex === -1) return 1;
+            if (bIndex === -1) return -1;
+            return aIndex - bIndex;
+        })
+        .map(({ item }) => item);
+}
+
 function getCached(map, key) {
     const entry = map.get(key);
     if (!entry) return null;
@@ -600,10 +620,11 @@ async function fetchProviders() {
         console.log('📡 Provider response status:', response.status);
         if (!response.ok) throw new Error('Failed to fetch providers');
         const providers = await response.json();
-        console.log('✅ Providers loaded:', providers.length, 'providers');
-        console.log('📋 Provider list:', providers.map(p => p.value));
-        state.providers = providers;
-        return providers;
+        const orderedProviders = sortByPreferredProviders(providers);
+        console.log('✅ Providers loaded:', orderedProviders.length, 'providers');
+        console.log('📋 Provider list:', orderedProviders.map(p => p.value));
+        state.providers = orderedProviders;
+        return orderedProviders;
     } catch (error) {
         console.error('❌ Error fetching providers:', error);
         showError('Failed to load providers. Make sure the server is running and built.');
@@ -856,6 +877,10 @@ async function loadAvailableProviders(meta, primaryProvider, primaryLink) {
         providerResults = await searchInAllProviders(title);
     }
 
+    const orderedResults = sortByPreferredProviders(providerResults, (item) => item.provider);
+    const vidsrcResult = orderedResults.find((result) => result.provider === 'vidsrc');
+    const preferredPrimary = vidsrcResult ? 'vidsrc' : primaryProvider;
+
     const providers = [];
     const seen = new Set();
     const addProvider = (providerValue, link, displayName) => {
@@ -868,14 +893,23 @@ async function loadAvailableProviders(meta, primaryProvider, primaryLink) {
         });
     };
 
-    addProvider(primaryProvider, primaryLink, getProviderLabel(primaryProvider));
-    providerResults.forEach(result => {
+    if (preferredPrimary === 'vidsrc' && vidsrcResult?.posts?.[0]?.link) {
+        addProvider('vidsrc', vidsrcResult.posts[0].link, vidsrcResult.displayName);
+    }
+
+    if (primaryProvider !== 'vidsrc') {
+        addProvider(primaryProvider, primaryLink, getProviderLabel(primaryProvider));
+    } else if (!vidsrcResult?.posts?.[0]?.link) {
+        addProvider(primaryProvider, primaryLink, getProviderLabel(primaryProvider));
+    }
+
+    orderedResults.forEach(result => {
         const link = result?.posts?.[0]?.link;
         addProvider(result?.provider, link, result?.displayName);
     });
 
     state.playbackProviders = providers;
-    renderProviderSelector(providers, primaryProvider);
+    renderProviderSelector(providers, preferredPrimary);
     return providers;
 }
 
@@ -2108,7 +2142,8 @@ async function loadPlaybackDetails(provider, link, options = {}) {
         showView('player');
         const providers = await loadAvailableProviders(meta, provider, link);
         if (autoPlay) {
-            const queue = buildProviderQueue(provider, providers);
+            const preferredProvider = providers.find(item => item.provider === 'vidsrc')?.provider || provider;
+            const queue = buildProviderQueue(preferredProvider, providers);
             await attemptProviderPlaybackQueue(queue, { initialMeta: meta, initialProvider: provider });
         }
     } catch (error) {
@@ -2222,10 +2257,11 @@ async function init() {
         return;
     }
     
-    // Auto-select first provider
+    // Auto-select preferred provider
     if (providers.length > 0) {
-        state.selectedProvider = providers[0].value;
-        document.getElementById('providerSelect').value = providers[0].value;
+        const preferred = providers.find(provider => provider.value === 'vidsrc') || providers[0];
+        state.selectedProvider = preferred.value;
+        document.getElementById('providerSelect').value = preferred.value;
         const params = new URLSearchParams(window.location.search);
         const deepProvider = params.get('provider');
         const deepLink = params.get('link');
@@ -2536,17 +2572,7 @@ async function searchInAllProviders(title) {
     const providers = state.providers || [];
     if (providers.length === 0) return [];
 
-    const preferredProviders = ['vidsrc', 'upcloud', 'akcloud', 'megacloud'];
-    const orderedProviders = [...providers].sort((a, b) => {
-        const aValue = (a.value || a).toString().toLowerCase();
-        const bValue = (b.value || b).toString().toLowerCase();
-        const aIndex = preferredProviders.indexOf(aValue);
-        const bIndex = preferredProviders.indexOf(bValue);
-        if (aIndex === -1 && bIndex === -1) return 0;
-        if (aIndex === -1) return 1;
-        if (bIndex === -1) return -1;
-        return aIndex - bIndex;
-    });
+    const orderedProviders = sortByPreferredProviders(providers);
 
     const searchPromises = orderedProviders.map(async (provider) => {
         try {
