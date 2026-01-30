@@ -526,6 +526,20 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
     iframe.setAttribute('allow', 'autoplay; fullscreen');
     iframe.setAttribute('allowfullscreen', 'true');
     iframe.setAttribute('loading', 'lazy');
+    iframe.srcdoc = `<!doctype html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <style>
+                    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; }
+                    iframe { border: 0; width: 100%; height: 100%; }
+                </style>
+            </head>
+            <body>
+                <iframe src="${embedUrl}" referrerpolicy="no-referrer" allow="autoplay; fullscreen" allowfullscreen="true" loading="lazy"></iframe>
+            </body>
+        </html>`;
 
     let fallbackTimeout = null;
     const showFallback = () => {
