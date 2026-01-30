@@ -169,6 +169,13 @@ const TMDBContentModule = {
         }
         
         try {
+            if (typeof window.openBestMatchForTitle === 'function') {
+                const found = await window.openBestMatchForTitle(title, { fallbackToSearch: false });
+                if (found) {
+                    return;
+                }
+            }
+
             if (typeof window.performSearch !== 'function') {
                 throw new Error('Search function unavailable');
             }
