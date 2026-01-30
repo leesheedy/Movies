@@ -443,6 +443,111 @@ function buildVidsrcEmbedUrl(imdbId) {
     return `https://vidsrc-embed.ru/embed/movie/${imdbId}`;
 }
 
+const adBlockConfig = {
+    hostKeywords: [
+        'doubleclick',
+        'googlesyndication',
+        'googleadservices',
+        'adservice',
+        'adsystem',
+        'adnxs',
+        'adzerk',
+        'taboola',
+        'outbrain',
+        'popads',
+        'propellerads',
+        'mgid',
+        'zedo',
+        'adsrvr'
+    ],
+    elementSelectors: [
+        '[id^="ad-"]',
+        '[id*=" ad-"]',
+        '[id*="ads"]',
+        '[class^="ad-"]',
+        '[class*=" ad-"]',
+        '[class*="ads"]',
+        '[class*="sponsor"]',
+        '[id*="sponsor"]',
+        '.adsbox',
+        '.ad-banner',
+        '.ad-container',
+        '.banner-ad',
+        '.sponsored',
+        'iframe[src*="ads"]'
+    ]
+};
+
+function isAdHost(hostname) {
+    if (!hostname) return false;
+    const host = hostname.toLowerCase();
+    return adBlockConfig.hostKeywords.some(keyword => host.includes(keyword));
+}
+
+function isAdUrl(url) {
+    if (!url) return false;
+    try {
+        const parsed = new URL(url, window.location.href);
+        return isAdHost(parsed.hostname);
+    } catch (error) {
+        return false;
+    }
+}
+
+function hideAdElement(element) {
+    if (!element || element.dataset?.adblocked) return;
+    element.dataset.adblocked = 'true';
+    element.style.setProperty('display', 'none', 'important');
+    element.setAttribute('aria-hidden', 'true');
+}
+
+function blockAdElements(root = document) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll(adBlockConfig.elementSelectors.join(',')).forEach(hideAdElement);
+    root.querySelectorAll('[src],[href]').forEach((node) => {
+        const url = node.getAttribute('src') || node.getAttribute('href');
+        if (isAdUrl(url)) {
+            hideAdElement(node);
+        }
+    });
+}
+
+function initAdBlocker() {
+    if (window.__adBlockEnabled) return;
+    window.__adBlockEnabled = true;
+
+    const style = document.createElement('style');
+    style.id = 'adblock-style';
+    style.textContent = `
+        ${adBlockConfig.elementSelectors.join(',')} {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
+    `;
+    document.head.appendChild(style);
+
+    const originalOpen = window.open;
+    window.open = function (url, target, features) {
+        if (isAdUrl(url)) {
+            console.warn('🛑 Adblock: blocked popup', url);
+            return null;
+        }
+        return originalOpen.call(window, url, target, features);
+    };
+
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+                if (node.nodeType !== Node.ELEMENT_NODE) return;
+                blockAdElements(node);
+            });
+        });
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    blockAdElements(document);
+}
+
 async function resolveImdbId(tmdbId) {
     const cached = getCachedImdbId(tmdbId);
     if (cached.hit) {
@@ -519,18 +624,30 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
         tmdbMessage.textContent = 'Loading player...';
     }
 
+    const embedUrl = buildVidsrcEmbedUrl(imdbId);
+    const embedOrigin = (() => {
+        try {
+            return new URL(embedUrl).origin;
+        } catch (error) {
+            return null;
+        }
+    })();
     const iframe = document.createElement('iframe');
-    iframe.src = buildVidsrcEmbedUrl(imdbId);
+    iframe.src = embedUrl;
     iframe.setAttribute('csp', 'sandbox allow-scripts allow-same-origin allow-forms');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.setAttribute('allow', 'autoplay; fullscreen');
     iframe.setAttribute('allowfullscreen', 'true');
     iframe.setAttribute('loading', 'lazy');
+    const cspContent = embedOrigin
+        ? `default-src 'none'; frame-src ${embedOrigin};`
+        : "default-src 'none'; frame-src *;";
     iframe.srcdoc = `<!doctype html>
         <html lang="en">
             <head>
                 <meta charset="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <meta http-equiv="Content-Security-Policy" content="${cspContent}" />
                 <style>
                     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; }
                     iframe { border: 0; width: 100%; height: 100%; }
@@ -2348,6 +2465,7 @@ async function loadPlayer(provider, link, type, options = {}) {
 async function init() {
     console.log('🎬 Vega Providers Web Player Initialized');
 
+    initAdBlocker();
     loadTmdbImdbCache();
     
     // Load providers
