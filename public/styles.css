@@ -214,6 +214,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
 .search-modal-header {
@@ -354,10 +355,33 @@ body {
     grid-column: 1 / -1;
 }
 
+.search-loading-state {
+    font-style: italic;
+    letter-spacing: 0.02em;
+}
+
+.search-modal.is-transitioning {
+    pointer-events: none;
+}
+
+.search-modal.is-transitioning .search-modal-content {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+}
+
 .search-result-card .post-card-content {
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+.search-result-card {
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.search-result-card.is-selected {
+    transform: scale(0.98);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
 }
 
 .search-result-meta {
@@ -406,6 +430,15 @@ body {
 
 .search-modal .post-card img {
     height: 320px;
+}
+
+#searchView {
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+#searchView.is-transitioning {
+    opacity: 0;
+    transform: translateY(12px);
 }
 
 /* Provider Select Compact */
