@@ -41,8 +41,6 @@ export const getMeta = async function ({
             tmdbId: data?.meta?.moviedb_id?.toString() || "",
             year: data?.meta?.year,
             embedUrl:
-              video?.embed_url ||
-              video?.embedUrl ||
               data?.meta?.videos?.[0]?.embed_url ||
               data?.meta?.videos?.[0]?.embedUrl ||
               data?.meta?.links?.[0]?.url ||

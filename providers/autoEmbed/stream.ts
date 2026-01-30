@@ -26,7 +26,7 @@ export const getStream = async ({
       if (resolved.length) {
         resolved.forEach((stream) => {
           streams.push({
-            server: stream.server || "auto-resolver",
+            server: "auto-resolver",
             link: stream.url,
             type: stream.url.includes(".m3u8") ? "m3u8" : "mp4",
             quality: stream.quality as Stream["quality"],

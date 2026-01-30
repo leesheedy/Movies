@@ -5,7 +5,6 @@ export interface ResolverStream {
   url: string;
   quality?: string;
   headers?: Record<string, string>;
-  server?: string;
 }
 
 export interface ProviderResolver {
@@ -25,18 +24,6 @@ let cachedMegaCloudKeyAt = 0;
 const extract = (pattern: RegExp, text: string): string => {
   const match = pattern.exec(text);
   return match?.[1] ?? "";
-};
-
-const extractFileIdFromUrl = (embedUrl: string): string => {
-  try {
-    const url = new URL(embedUrl);
-    const idParam = url.searchParams.get("id");
-    if (idParam) return idParam;
-    const parts = url.pathname.split("/").filter(Boolean);
-    return parts[parts.length - 1] || "";
-  } catch {
-    return "";
-  }
 };
 
 const ensureAbsoluteUrl = (url: string, baseUrl: string): string => {
@@ -181,9 +168,7 @@ export class MegaCloudResolver implements ProviderResolver {
 
     const fileId =
       extract(/data-id=["'](.*?)["']/, html.data) ||
-      extract(/data-id\s*=\s*(\d+)/, html.data) ||
-      extract(/data-embed=["'](.*?)["']/, html.data) ||
-      extractFileIdFromUrl(embedUrl);
+      extract(/data-id\s*=\s*(\d+)/, html.data);
 
     if (!fileId) {
       return [];
@@ -198,9 +183,7 @@ export class MegaCloudResolver implements ProviderResolver {
     const json = await axios.get(apiUrl, { headers: ajaxHeaders });
     const payload = json.data || {};
 
-    const shouldDecrypt =
-      payload.encrypted || typeof payload.sources === "string";
-    const sources = shouldDecrypt
+    const sources = payload.encrypted
       ? decryptMegaCloud(payload.sources, await getMegaCloudKey(this.providerContext))
       : payload.sources;
 
@@ -211,7 +194,6 @@ export class MegaCloudResolver implements ProviderResolver {
       .map((source: any) => ({
         url: source.file,
         quality: source.label || "auto",
-        server: "megacloud",
         headers: {
           Referer: embedUrl,
           Origin: new URL(embedUrl).origin,
@@ -249,7 +231,6 @@ export class UpCloudResolver implements ProviderResolver {
       .map((source: any) => ({
         url: source.file,
         quality: source.label || "auto",
-        server: "upcloud",
         headers: {
           Referer: embedUrl,
           Origin: new URL(embedUrl).origin,
@@ -280,11 +261,7 @@ export class AKCloudResolver implements ProviderResolver {
     if (!iframeSrc) return [];
 
     const resolvedIframe = ensureAbsoluteUrl(iframeSrc, embedUrl);
-    const streams = await this.megaCloudResolver.resolve(resolvedIframe);
-    return streams.map((stream) => ({
-      ...stream,
-      server: stream.server || "akcloud",
-    }));
+    return this.megaCloudResolver.resolve(resolvedIframe);
   }
 }
 
