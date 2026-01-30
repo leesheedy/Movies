@@ -6,10 +6,6 @@ const { execSync } = require("child_process");
 const os = require("os");
 const axios = require("axios");
 const cheerio = require("cheerio");
-const { getBaseUrl } = require("./dist/getBaseUrl.js");
-const { hubcloudExtracter } = require("./dist/hubcloudExtractor.js");
-const { superVideoExtractor } = require("./dist/superVideoExtractor.js");
-const { gdFlixExtracter } = require("./dist/gdflixExtractor.js");
 
 /**
  * Local development server for testing providers
@@ -29,17 +25,10 @@ class DevServer {
     this.providerContext = {
       axios,
       cheerio,
-      getBaseUrl,
       commonHeaders: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       },
-      extractors: {
-        hubcloudExtracter,
-        superVideoExtractor,
-        gdFlixExtracter,
-      },
-      Aes: {},
     };
 
     this.setupMiddleware();
@@ -353,34 +342,7 @@ class DevServer {
           console.warn(`⚠️ No streams returned for ${provider}. Link: ${link.substring(0, 80)}`);
         }
 
-        // Process and validate streams
-        const processedStreams = await Promise.all(result.map(async stream => {
-          // Check if it's a Gofile direct download link that might be expired/limited
-          const isGofileDirectDownload = stream.link.match(/file[\w-]*\.gofile\.io\/download\//);
-          
-          // Check if it's a Gofile page URL that needs extraction
-          const isGofilePageUrl = stream.link.includes('gofile.io/d/');
-          
-          // Check if it's other page URLs that need extraction
-          const needsExtraction = stream.link.includes('drive.google.com/file') ||
-            stream.link.includes('hubcloud.cc') ||
-            stream.link.match(/nexdrive\.pro\/[a-z0-9]+\/?$/);
-          
-          // Gofile streams removed - provider no longer supported
-          
-          // Handle other extraction needs
-          if (needsExtraction) {
-            return {
-              ...stream,
-              requiresExtraction: true,
-              extractionService: this.getExtractionService(stream.link)
-            };
-          }
-          
-          return stream;
-        }));
-
-        res.json(processedStreams);
+        res.json(result);
       } catch (error) {
         console.error(`Error getting stream for ${req.params.provider}:`, error);
         res.status(500).json({ error: error.message });
@@ -399,19 +361,7 @@ class DevServer {
         const decodedUrl = decodeURIComponent(url);
         console.log(`Proxying stream from: ${decodedUrl}`);
 
-        // Extract direct link if it's a file hosting service
-        let finalUrl = decodedUrl;
-
-        if (decodedUrl.includes('nexdrive')) {
-          finalUrl = await this.extractNexdriveLink(decodedUrl);
-        }
-
-        if (!finalUrl) {
-          return res.status(404).json({ error: "Could not extract stream URL" });
-        }
-
-        // Return the extracted URL for client to play
-        res.json({ streamUrl: finalUrl });
+        res.json({ streamUrl: decodedUrl });
       } catch (error) {
         console.error('Stream proxy error:', error);
         res.status(500).json({ error: error.message });
@@ -515,34 +465,6 @@ class DevServer {
       .readdirSync(this.distDir, { withFileTypes: true })
       .filter((item) => item.isDirectory())
       .map((item) => item.name);
-  }
-
-  getExtractionService(url) {
-    if (url.includes('nexdrive')) return 'nexdrive';
-    if (url.includes('hubcloud')) return 'hubcloud';
-    if (url.includes('drive.google.com')) return 'gdrive';
-    return null;
-  }
-
-  async extractNexdriveLink(url) {
-    try {
-      console.log('Extracting nexdrive/supervideo link:', url);
-      
-      // Nexdrive usually returns direct links or uses superVideoExtractor
-      const result = await this.providerContext.extractors.superVideoExtractor(url);
-      console.log('Nexdrive extraction result:', result);
-      
-      if (result && typeof result === 'object' && result.link) {
-        return result.link;
-      } else if (typeof result === 'string') {
-        return result;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('Nexdrive extraction error:', error);
-      return null;
-    }
   }
 
   getBuildTime() {

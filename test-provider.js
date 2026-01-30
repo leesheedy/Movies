@@ -2,11 +2,6 @@ const readline = require("readline");
 const cheerio = require("cheerio");
 const axios = require("axios");
 const { z } = require("zod");
-const { getBaseUrl } = require("./dist/getBaseUrl.js");
-const { hubcloudExtracter } = require("./dist/hubcloudExtractor.js");
-const { gofileExtracter } = require("./dist/gofileExtracter.js");
-const { superVideoExtractor } = require("./dist/superVideoExtractor.js");
-const { gdFlixExtracter } = require("./dist/gdFlixExtractor.js");
 
 // Create readline interface
 const rl = readline.createInterface({
@@ -27,18 +22,10 @@ function prompt(question) {
 const providerContext = {
   axios,
   cheerio,
-  getBaseUrl,
   commonHeaders: {
     "User-Agent":
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   },
-  extractors: {
-    hubcloudExtracter: hubcloudExtracter,
-    gofileExtracter: gofileExtracter,
-    superVideoExtractor: superVideoExtractor,
-    gdFlixExtracter: gdFlixExtracter,
-  },
-  Crypto: {},
 };
 
 // Function parameter definitions based on README and types

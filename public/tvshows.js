@@ -1,4 +1,4 @@
-// TV Shows Module - Aggregates all TV shows from all providers
+// TV Shows Module - Aggregates TV shows from Vidsrc
 const TVShowsModule = {
     state: {
         currentPage: 1,
@@ -22,7 +22,7 @@ const TVShowsModule = {
         container.innerHTML = `
             <div class="content-header">
                 <h1>📺 TV Shows</h1>
-                <p class="content-subtitle">Browse TV shows and series from all providers</p>
+                <p class="content-subtitle">Browse TV shows and series from Vidsrc</p>
             </div>
             
             <div class="content-sections">
@@ -40,7 +40,7 @@ const TVShowsModule = {
         const paginationContainer = document.getElementById('tvShowsPagination');
         if (!container) return;
         
-        showLoading(true, 'Loading TV shows from all providers...');
+        showLoading(true, 'Loading TV shows from Vidsrc...');
         
         try {
             const providers = this.state.allProviders;

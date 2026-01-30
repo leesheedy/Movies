@@ -131,13 +131,6 @@ export interface ProviderType {
 
 export type ProviderContext = {
   axios: AxiosStatic;
-  Aes: any; // AES encryption utility, if used
-  getBaseUrl: (providerValue: string) => Promise<string>;
   commonHeaders: Record<string, string>;
-  cheerio: typeof cheerio;
-  extractors: {
-    hubcloudExtracter: (link: string, signal: AbortSignal) => Promise<Stream[]>;
-    superVideoExtractor: (data: any) => Promise<string>;
-    gdFlixExtracter: (link: string, signal: AbortSignal) => Promise<Stream[]>;
-  };
+  cheerio?: typeof cheerio;
 };
