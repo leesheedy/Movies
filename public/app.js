@@ -34,6 +34,53 @@ const cacheStore = {
     streams: new Map()
 };
 
+const TMDB_IMDB_CACHE_KEY = 'tmdb_imdb_cache_v1';
+const tmdbImdbCache = new Map();
+
+function loadTmdbImdbCache() {
+    try {
+        const raw = localStorage.getItem(TMDB_IMDB_CACHE_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        Object.entries(data).forEach(([tmdbId, imdbId]) => {
+            tmdbImdbCache.set(tmdbId, imdbId);
+        });
+    } catch (error) {
+        console.warn('Failed to load TMDB IMDb cache:', error);
+    }
+}
+
+function saveTmdbImdbCache() {
+    try {
+        const payload = {};
+        tmdbImdbCache.forEach((value, key) => {
+            payload[key] = value;
+        });
+        localStorage.setItem(TMDB_IMDB_CACHE_KEY, JSON.stringify(payload));
+    } catch (error) {
+        console.warn('Failed to save TMDB IMDb cache:', error);
+    }
+}
+
+function getCachedImdbId(tmdbId) {
+    if (!tmdbId) return { hit: false, value: null };
+    const key = String(tmdbId);
+    if (!tmdbImdbCache.has(key)) {
+        return { hit: false, value: null };
+    }
+    return { hit: true, value: tmdbImdbCache.get(key) };
+}
+
+function setCachedImdbId(tmdbId, imdbId) {
+    if (!tmdbId) return;
+    tmdbImdbCache.set(String(tmdbId), imdbId ?? null);
+    saveTmdbImdbCache();
+}
+
+function getTmdbApiKey() {
+    return window.TMDBConfig?.ensureApiKey?.() || '';
+}
+
 const preferredProviders = ['vidsrc'];
 
 function sortByPreferredProviders(list, valueGetter) {
@@ -136,48 +183,28 @@ function scoreSearchResult(title, normalizedQuery) {
     return 50 + matchCount * 5;
 }
 
-function applySearchProviderFilter(results, providerFilter) {
-    if (!providerFilter || providerFilter === 'all') return results;
-    return results.filter(result => result.providers.some(provider => provider.provider === providerFilter));
+function applySearchProviderFilter(results) {
+    return results;
 }
 
-function renderSearchProviderFilters(providerCounts, providerLabelMap) {
+function renderSearchProviderFilters() {
     const filtersEl = document.getElementById('searchProviderFilters');
-    if (!filtersEl) return;
-    filtersEl.innerHTML = '';
-
-    const entries = Object.entries(providerCounts || {});
-    if (entries.length === 0) return;
-
-    const allBtn = document.createElement('button');
-    allBtn.type = 'button';
-    allBtn.className = `provider-filter-btn ${state.searchProviderFilter === 'all' ? 'is-active' : ''}`;
-    const totalCount = entries.reduce((sum, [, count]) => sum + count, 0);
-    allBtn.textContent = `All (${totalCount})`;
-    allBtn.addEventListener('click', () => {
-        state.searchProviderFilter = 'all';
-        renderSearchProviderFilters(providerCounts, providerLabelMap);
-        renderSearchResults(state.searchResults, providerLabelMap);
-    });
-    filtersEl.appendChild(allBtn);
-
-    entries
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .forEach(([providerValue, count]) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = `provider-filter-btn ${state.searchProviderFilter === providerValue ? 'is-active' : ''}`;
-            btn.textContent = `${providerLabelMap[providerValue] || providerValue} (${count})`;
-            btn.addEventListener('click', () => {
-                state.searchProviderFilter = providerValue;
-                renderSearchProviderFilters(providerCounts, providerLabelMap);
-                renderSearchResults(state.searchResults, providerLabelMap);
-            });
-            filtersEl.appendChild(btn);
-        });
+    if (filtersEl) {
+        filtersEl.innerHTML = '';
+    }
 }
 
-function renderSearchResults(results, providerLabelMap) {
+function getTmdbPosterUrl(path) {
+    if (!path) {
+        return 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E';
+    }
+    if (window.TMDBContentModule?.getPosterUrl) {
+        return window.TMDBContentModule.getPosterUrl(path);
+    }
+    return `https://image.tmdb.org/t/p/w500${path}`;
+}
+
+function renderSearchResults(results) {
     const resultsContainer = document.getElementById('searchModalResults');
     if (!resultsContainer) return;
 
@@ -191,72 +218,20 @@ function renderSearchResults(results, providerLabelMap) {
     }
 
     filteredResults.forEach(result => {
-        resultsContainer.appendChild(renderSearchResultCard(result, providerLabelMap));
+        const cardData = {
+            title: result.title,
+            image: getTmdbPosterUrl(result.poster_path),
+            link: String(result.tmdb_id),
+            tmdbId: result.tmdb_id,
+            release_date: result.release_date,
+            poster_path: result.poster_path,
+            provider: 'tmdb'
+        };
+        resultsContainer.appendChild(renderPostCard(cardData, 'tmdb', { animateOnSelect: true }));
     });
 }
 
-function renderSearchResultCard(result, providerLabelMap) {
-    const card = document.createElement('div');
-    card.className = 'post-card search-result-card';
-
-    const primaryProvider = result.providers[0];
-    const providerCount = result.providers.length;
-    const providerButtons = result.providers
-        .map(providerEntry => {
-            const displayName = providerLabelMap[providerEntry.provider] || providerEntry.provider;
-            return `
-                <button class="provider-choice-btn" data-provider="${providerEntry.provider}" data-link="${encodeURIComponent(providerEntry.link)}" type="button">
-                    ${displayName}
-                </button>
-            `;
-        })
-        .join('');
-
-    card.innerHTML = `
-        <img src="${result.image}" alt="${result.title}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
-        <div class="post-card-content">
-            <h3>${result.title}</h3>
-            <div class="search-result-meta">
-                <span class="provider-badge">${providerCount} provider${providerCount === 1 ? '' : 's'}</span>
-                ${providerCount === 1 ? `<span class="provider-badge subtle">${providerLabelMap[primaryProvider.provider] || primaryProvider.provider}</span>` : ''}
-            </div>
-            <div class="provider-choice-group">
-                ${providerButtons}
-            </div>
-        </div>
-    `;
-
-    card.addEventListener('click', () => {
-        if (primaryProvider) {
-            handleSearchSelection({
-                provider: primaryProvider.provider,
-                link: primaryProvider.link,
-                source: 'modal',
-                card
-            });
-        }
-    });
-
-    card.querySelectorAll('.provider-choice-btn').forEach(button => {
-        button.addEventListener('click', event => {
-            event.stopPropagation();
-            const provider = button.getAttribute('data-provider');
-            const link = decodeURIComponent(button.getAttribute('data-link') || '');
-            if (provider && link) {
-                handleSearchSelection({
-                    provider,
-                    link,
-                    source: 'modal',
-                    card
-                });
-            }
-        });
-    });
-
-    return card;
-}
-
-function handleSearchSelection({ provider, link, source = 'modal', card }) {
+function handleSearchSelection({ provider, link, tmdbItem, source = 'modal', card }) {
     const transitionDuration = 150;
     const modal = document.getElementById('searchModal');
     const searchView = document.getElementById('searchView');
@@ -283,7 +258,11 @@ function handleSearchSelection({ provider, link, source = 'modal', card }) {
             searchView.classList.remove('is-transitioning');
         }
 
-        openPlaybackTab(provider, link);
+        if (tmdbItem) {
+            openTMDBMovie(tmdbItem);
+        } else {
+            openPlaybackTab(provider, link);
+        }
     }, transitionDuration);
 }
 
@@ -302,7 +281,7 @@ function ensureSearchModal() {
             <div class="history-modal-header search-modal-header">
                 <div class="search-modal-title">
                     <h2 id="searchModalTitle">Search Results</h2>
-                    <p class="search-modal-subtitle">Search Vidsrc (IMDB) catalog</p>
+                    <p class="search-modal-subtitle">Search TMDB movies</p>
                 </div>
                 <button class="history-close-btn" id="searchModalClose" type="button" aria-label="Close search">✕</button>
             </div>
@@ -404,7 +383,7 @@ function resetSearchModal(options = {}) {
     const filtersEl = document.getElementById('searchProviderFilters');
     const { keepSummary = false } = options;
     if (resultsContainer) {
-        resultsContainer.innerHTML = '<p class="search-empty-state">Start typing to search Vidsrc.</p>';
+        resultsContainer.innerHTML = '<p class="search-empty-state">Start typing to search TMDB.</p>';
     }
     if (summaryEl && !keepSummary) {
         summaryEl.textContent = 'Search is ready. Type a title and we will fetch results instantly.';
@@ -535,6 +514,166 @@ function openPlaybackTab(provider, link) {
 
 window.openPlaybackTab = openPlaybackTab;
 
+function buildVidsrcEmbedUrl(imdbId) {
+    return `https://vidsrc-embed.ru/embed/movie/${imdbId}`;
+}
+
+async function resolveImdbId(tmdbId) {
+    const cached = getCachedImdbId(tmdbId);
+    if (cached.hit) {
+        return cached.value;
+    }
+
+    const apiKey = getTmdbApiKey();
+    if (!apiKey) {
+        return null;
+    }
+
+    try {
+        const response = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/external_ids?api_key=${apiKey}`);
+        if (!response.ok) {
+            throw new Error(`TMDB external_ids failed: ${response.status}`);
+        }
+        const data = await response.json();
+        const imdbId = data.imdb_id || null;
+        setCachedImdbId(tmdbId, imdbId);
+        return imdbId;
+    } catch (error) {
+        console.error('Failed to resolve IMDb ID:', error);
+        return null;
+    }
+}
+
+function updateImdbRoute(imdbId) {
+    if (!imdbId) return;
+    const newUrl = `/movie/${imdbId}`;
+    window.history.pushState({ imdbId }, '', newUrl);
+}
+
+function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
+    const playerMeta = document.getElementById('playerMeta');
+    const videoPlayer = document.getElementById('videoPlayer');
+    const tmdbContainer = document.getElementById('tmdbPlayerContainer');
+    const tmdbMessage = document.getElementById('tmdbPlayerMessage');
+    const tmdbIframeContainer = document.getElementById('tmdbIframeContainer');
+    const providerSelector = document.getElementById('providerSelector');
+    const streamSelector = document.getElementById('streamSelector');
+    const playerEpisodes = document.getElementById('playerEpisodes');
+
+    if (videoPlayer) {
+        videoPlayer.pause?.();
+        videoPlayer.style.display = 'none';
+    }
+    if (providerSelector) providerSelector.innerHTML = '';
+    if (streamSelector) streamSelector.innerHTML = '';
+    if (playerEpisodes) playerEpisodes.innerHTML = '';
+
+    if (playerMeta) {
+        playerMeta.innerHTML = `
+            <h1>${title || 'Movie'}</h1>
+            <p>${releaseDate ? `Release: ${releaseDate}` : ''}</p>
+        `;
+    }
+
+    if (tmdbContainer) {
+        tmdbContainer.style.display = 'block';
+    }
+
+    if (tmdbIframeContainer) {
+        tmdbIframeContainer.innerHTML = '';
+    }
+
+    if (!imdbId) {
+        if (tmdbMessage) {
+            tmdbMessage.textContent = 'Source unavailable';
+        }
+        return;
+    }
+
+    if (tmdbMessage) {
+        tmdbMessage.textContent = 'Loading player...';
+    }
+
+    const iframe = document.createElement('iframe');
+    iframe.src = buildVidsrcEmbedUrl(imdbId);
+    iframe.setAttribute('allowfullscreen', 'true');
+    iframe.setAttribute('loading', 'lazy');
+
+    let fallbackTimeout = null;
+    const showFallback = () => {
+        if (tmdbMessage) {
+            tmdbMessage.textContent = 'Playback failed to load. Please try again later.';
+        }
+    };
+
+    iframe.addEventListener('load', () => {
+        if (tmdbMessage) {
+            tmdbMessage.textContent = '';
+        }
+        if (fallbackTimeout) {
+            clearTimeout(fallbackTimeout);
+        }
+    });
+
+    iframe.addEventListener('error', showFallback);
+    fallbackTimeout = setTimeout(showFallback, 8000);
+
+    if (tmdbIframeContainer) {
+        tmdbIframeContainer.appendChild(iframe);
+    }
+}
+
+function resetTmdbPlayer() {
+    const tmdbContainer = document.getElementById('tmdbPlayerContainer');
+    const tmdbMessage = document.getElementById('tmdbPlayerMessage');
+    const tmdbIframeContainer = document.getElementById('tmdbIframeContainer');
+    const videoPlayer = document.getElementById('videoPlayer');
+
+    if (tmdbContainer) {
+        tmdbContainer.style.display = 'none';
+    }
+    if (tmdbMessage) {
+        tmdbMessage.textContent = '';
+    }
+    if (tmdbIframeContainer) {
+        tmdbIframeContainer.innerHTML = '';
+    }
+    if (videoPlayer) {
+        videoPlayer.style.display = 'block';
+    }
+}
+
+async function openTMDBMovie(item) {
+    const tmdbId = item?.tmdb_id || item?.id;
+    if (!tmdbId) return;
+    showLoading(true, 'Resolving IMDb ID...');
+    const imdbId = await resolveImdbId(tmdbId);
+    showLoading(false);
+    state.currentMeta = null;
+    updateImdbRoute(imdbId);
+    renderTmdbPlayer({
+        title: item?.title || item?.name || 'Movie',
+        posterPath: item?.poster_path,
+        releaseDate: item?.release_date,
+        imdbId
+    });
+    showView('player');
+}
+
+async function openImdbRoute(imdbId) {
+    if (!imdbId) return;
+    state.currentMeta = null;
+    renderTmdbPlayer({
+        title: `IMDb ${imdbId}`,
+        posterPath: null,
+        releaseDate: null,
+        imdbId
+    });
+    showView('player');
+}
+
+window.openTMDBMovie = openTMDBMovie;
+
 function syncHeaderSearchInput(value) {
     const searchInputHeader = document.getElementById('searchInputHeader');
     if (searchInputHeader && searchInputHeader.value !== value) {
@@ -593,6 +732,7 @@ function showView(viewName) {
             errorEl.style.display = 'none';
             errorEl.innerHTML = '';
         }
+        resetTmdbPlayer();
     }
     
     const viewMap = {
@@ -610,6 +750,11 @@ function showView(viewName) {
         document.getElementById(viewId).style.display = 'block';
     }
     state.currentView = viewName;
+}
+
+function getImdbIdFromPath() {
+    const match = window.location.pathname.match(/^\/movie\/(tt\d+)/);
+    return match ? match[1] : null;
 }
 
 // API Calls
@@ -989,12 +1134,28 @@ function renderPostCard(post, provider, options = {}) {
     card.addEventListener('click', () => {
         // Use the provider from the post object if available (for search results)
         const targetProvider = post.provider || provider;
+        const isTmdb = targetProvider === 'tmdb' || Boolean(post.tmdbId);
         if (options.animateOnSelect) {
             handleSearchSelection({
                 provider: targetProvider,
                 link: post.link,
+                tmdbItem: isTmdb ? {
+                    tmdb_id: post.tmdbId || post.link,
+                    title: post.title,
+                    poster_path: post.poster_path || null,
+                    release_date: post.release_date || null
+                } : null,
                 source: 'page',
                 card
+            });
+            return;
+        }
+        if (isTmdb) {
+            openTMDBMovie({
+                tmdb_id: post.tmdbId || post.link,
+                title: post.title,
+                poster_path: post.poster_path || null,
+                release_date: post.release_date || null
             });
             return;
         }
@@ -1224,6 +1385,7 @@ async function renderDetails(meta, provider) {
 }
 
 function renderPlayerMeta(meta) {
+    resetTmdbPlayer();
     const container = document.getElementById('playerMeta');
     if (!container) return;
     container.innerHTML = `
@@ -1961,7 +2123,6 @@ async function performSearch(queryOverride = '', options = {}) {
     showLoading();
     try {
         const requestId = ++state.searchRequestId;
-        const allProviders = state.providers;
         const resultsContainer = document.getElementById('searchModalResults');
         const paginationEl = document.getElementById('searchPagination');
         const summaryEl = document.getElementById('searchSummary');
@@ -1969,7 +2130,7 @@ async function performSearch(queryOverride = '', options = {}) {
             resultsContainer.innerHTML = '<p class="search-empty-state search-loading-state">Loading...</p>';
         }
         if (paginationEl) paginationEl.innerHTML = '';
-        if (summaryEl) summaryEl.textContent = 'Searching Vidsrc...';
+        if (summaryEl) summaryEl.textContent = 'Searching TMDB...';
         
         const searchTitle = document.getElementById('searchModalTitle');
         if (searchTitle) {
@@ -1980,84 +2141,49 @@ async function performSearch(queryOverride = '', options = {}) {
         state.currentPage = 1;
         state.currentFilter = '';
         state.searchProviderFilter = 'all';
+        const apiKey = getTmdbApiKey();
+        if (!apiKey) {
+            throw new Error('TMDB API key missing');
+        }
 
-        const providerLabelMap = allProviders.reduce((acc, provider) => {
-            acc[provider.value] = provider.display_name || provider.value;
-            return acc;
-        }, {});
-
-        const providerResults = await Promise.allSettled(
-            allProviders.map(provider => searchPosts(provider.value, query, 1).then(result => ({
-                provider,
-                result
-            })))
-        );
+        const response = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}`);
+        if (!response.ok) {
+            throw new Error(`TMDB search failed: ${response.status}`);
+        }
+        const data = await response.json();
+        const results = (data.results || []).slice(0, 20).map(item => ({
+            tmdb_id: item.id,
+            title: item.title,
+            poster_path: item.poster_path,
+            release_date: item.release_date
+        }));
 
         if (requestId !== state.searchRequestId) {
             return;
         }
 
-        const providerCounts = {};
-        const aggregatedMap = new Map();
-
-        providerResults.forEach(outcome => {
-            if (outcome.status !== 'fulfilled') return;
-            const { provider, result } = outcome.value;
-            const posts = Array.isArray(result)
-                ? result
-                : Array.isArray(result?.posts)
-                    ? result.posts
-                    : [];
-            const filteredPosts = filterBlockedPosts(posts);
-
-            if (filteredPosts.length === 0) return;
-            providerCounts[provider.value] = filteredPosts.length;
-
-            filteredPosts.forEach(post => {
-                const title = post.title || post.name || 'Untitled';
-                const key = normalizeSearchTitle(title);
-                const existing = aggregatedMap.get(key);
-                if (!existing) {
-                    aggregatedMap.set(key, {
-                        title,
-                        image: post.image,
-                        providers: [{ provider: provider.value, link: post.link }]
-                    });
-                } else {
-                    const hasProvider = existing.providers.some(item => item.provider === provider.value);
-                    if (!hasProvider) {
-                        existing.providers.push({ provider: provider.value, link: post.link });
-                    }
-                    if (!existing.image && post.image) {
-                        existing.image = post.image;
-                    }
-                }
-            });
-        });
-
-        const aggregatedResults = Array.from(aggregatedMap.values()).sort((a, b) => {
-            const scoreA = scoreSearchResult(a.title, normalizedQuery) + Math.min(a.providers.length, 5) * 5;
-            const scoreB = scoreSearchResult(b.title, normalizedQuery) + Math.min(b.providers.length, 5) * 5;
-            if (scoreB !== scoreA) return scoreB - scoreA;
-            if (b.providers.length !== a.providers.length) {
-                return b.providers.length - a.providers.length;
-            }
-            return a.title.localeCompare(b.title);
-        });
-
-        state.searchResults = aggregatedResults;
+        state.searchResults = results;
 
         if (summaryEl) {
-            summaryEl.textContent = `${aggregatedResults.length} title${aggregatedResults.length === 1 ? '' : 's'} found across ${Object.keys(providerCounts).length} provider${Object.keys(providerCounts).length === 1 ? '' : 's'}.`;
+            summaryEl.textContent = `${results.length} result${results.length === 1 ? '' : 's'} found on TMDB.`;
             if (source === 'header') {
                 summaryEl.textContent += ' Results update as you type.';
             }
         }
 
-        renderSearchProviderFilters(providerCounts, providerLabelMap);
-        renderSearchResults(aggregatedResults, providerLabelMap);
+        renderSearchProviderFilters();
+        renderSearchResults(results);
     } catch (error) {
         showError('Search failed: ' + error.message);
+        const resultsContainer = document.getElementById('searchModalResults');
+        if (resultsContainer) {
+            resultsContainer.innerHTML = `
+                <div class="search-empty-state">
+                    TMDB search failed.
+                    <button class="netflix-view-all" style="margin-left: 12px;" onclick="performSearch('${query.replace(/'/g, "\\'")}')">Retry</button>
+                </div>
+            `;
+        }
     } finally {
         showLoading(false);
     }
@@ -2258,6 +2384,8 @@ async function loadPlayer(provider, link, type, options = {}) {
 // Initialize App
 async function init() {
     console.log('🎬 Vega Providers Web Player Initialized');
+
+    loadTmdbImdbCache();
     
     // Load providers
     showLoading();
@@ -2279,7 +2407,10 @@ async function init() {
         const deepProvider = params.get('provider');
         const deepLink = params.get('link');
         const autoPlay = params.get('autoplay') !== '0';
-        if (deepProvider && deepLink) {
+        const routeImdbId = getImdbIdFromPath();
+        if (routeImdbId) {
+            await openImdbRoute(routeImdbId);
+        } else if (deepProvider && deepLink) {
             const providerMatch = providers.find(p => p.value === deepProvider);
             if (providerMatch) {
                 state.selectedProvider = deepProvider;
@@ -2328,9 +2459,22 @@ async function init() {
             if (state.currentMeta) {
                 renderDetails(state.currentMeta.meta, state.currentMeta.provider);
                 showView('details');
+            } else if (state.selectedProvider) {
+                loadHomePage();
             }
         });
     }
+
+    window.addEventListener('popstate', () => {
+        const imdbId = getImdbIdFromPath();
+        if (imdbId) {
+            openImdbRoute(imdbId);
+            return;
+        }
+        if (state.selectedProvider) {
+            loadHomePage();
+        }
+    });
     
     // Navigation buttons
     const exploreBtn = document.getElementById('exploreBtn');
@@ -2494,7 +2638,10 @@ async function loadTMDBRecommendationsForDetails(title, contentType) {
     container.innerHTML = '<p style="color: var(--text-muted); text-align: center;">Loading recommendations...</p>';
     
     try {
-        const TMDB_API_KEY = 'be880dc5b7df8623008f6cc66c0c7396';
+        const TMDB_API_KEY = getTmdbApiKey();
+        if (!TMDB_API_KEY) {
+            throw new Error('TMDB API key missing');
+        }
         const BASE_URL = 'https://api.themoviedb.org/3';
         
         // Search for the content on TMDB
@@ -2521,38 +2668,14 @@ async function loadTMDBRecommendationsForDetails(title, contentType) {
         tmdbDetailsData.similarPage = 1;
         
         // Fetch similar and recommended
-        const [similarRes, recommendedRes, providersRes] = await Promise.all([
+        const [similarRes, recommendedRes] = await Promise.all([
             fetch(`${BASE_URL}/${searchType}/${tmdbId}/similar?api_key=${TMDB_API_KEY}&page=1`),
-            fetch(`${BASE_URL}/${searchType}/${tmdbId}/recommendations?api_key=${TMDB_API_KEY}&page=1`),
-            // Also search in other providers
-            searchInAllProviders(title)
+            fetch(`${BASE_URL}/${searchType}/${tmdbId}/recommendations?api_key=${TMDB_API_KEY}&page=1`)
         ]);
         
         let html = '';
         
-        // Show available in other providers
-        if (providersRes && providersRes.length > 0) {
-            html += `
-                <div class="details-section">
-                    <h2 class="section-title">📦 Available on Vidsrc</h2>
-                    <div class="provider-results-grid">
-                        ${providersRes.map(result => `
-                            <div class="provider-result-section">
-                                <h3 style="color: var(--primary-color); margin-bottom: 15px;">${result.displayName}</h3>
-                                <div class="provider-posts-grid">
-                                    ${result.posts.slice(0, 6).map(post => `
-                                        <div class="provider-post-card" onclick="openPlaybackTab('${result.provider}', '${post.link}')">
-                                            <img src="${post.image}" alt="${post.title}" />
-                                            <h4>${post.title}</h4>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-        }
+        // Recommendations only (TMDB)
         
         // Recommended section
         if (recommendedRes.ok) {
@@ -2700,7 +2823,10 @@ async function loadMoreTMDBPage(sectionId, type, nextPage, totalPages) {
     button.textContent = 'Loading...';
     
     try {
-        const TMDB_API_KEY = 'be880dc5b7df8623008f6cc66c0c7396';
+        const TMDB_API_KEY = getTmdbApiKey();
+        if (!TMDB_API_KEY) {
+            throw new Error('TMDB API key missing');
+        }
         const BASE_URL = 'https://api.themoviedb.org/3';
         
         // Determine endpoint based on section
@@ -2769,6 +2895,7 @@ function stopVideo() {
         
         state.isVideoPlaying = false;
     }
+    resetTmdbPlayer();
 }
 
 // Function to load explore page
@@ -2832,7 +2959,7 @@ async function loadTVShowsPage() {
 // Render Hero Banner with TMDB High Quality Images
 async function renderHeroBanner(provider, catalogData) {
     const container = document.getElementById('catalogSections');
-    const TMDB_API_KEY = 'be880dc5b7df8623008f6cc66c0c7396';
+    const TMDB_API_KEY = getTmdbApiKey();
     
     try {
         // Get first catalog item to fetch posts
@@ -2929,6 +3056,10 @@ async function renderHeroBanner(provider, catalogData) {
             // Fetch TMDB image asynchronously
             (async () => {
                 try {
+                    if (!TMDB_API_KEY) {
+                        console.warn('TMDB API key missing, skipping hero backdrop fetch.');
+                        return;
+                    }
                     let tmdbId = null;
                     let mediaType = null;
                     

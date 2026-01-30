@@ -63,6 +63,16 @@ class DevServer {
   }
 
   setupRoutes() {
+    // Serve environment variables for the frontend
+    this.app.get("/env.js", (req, res) => {
+      const envPayload = {
+        VITE_TMDB_KEY: process.env.VITE_TMDB_KEY || "",
+      };
+      res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      res.send(`window.__ENV__ = ${JSON.stringify(envPayload)};`);
+    });
+
     // Serve manifest.json
     this.app.get("/manifest.json", (req, res) => {
       const manifestPath = path.join(this.currentDir, "manifest.json");
@@ -73,6 +83,12 @@ class DevServer {
       } else {
         res.status(404).json({ error: "Manifest not found. Run build first." });
       }
+    });
+
+    // Client-side routes (IMDb-based movie paths)
+    this.app.get(/^\/movie\/.+/, (req, res) => {
+      const indexPath = path.join(this.publicDir, "index.html");
+      res.sendFile(indexPath);
     });
 
     // Serve individual provider files

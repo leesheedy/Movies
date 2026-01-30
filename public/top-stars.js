@@ -95,7 +95,10 @@ const TopStarsModule = {
         }
         
         try {
-            const TMDB_API_KEY = 'be880dc5b7df8623008f6cc66c0c7396';
+            const TMDB_API_KEY = window.TMDBConfig?.getApiKey?.() || '';
+            if (!TMDB_API_KEY) {
+                throw new Error('TMDB API key missing');
+            }
             const BASE_URL = 'https://api.themoviedb.org/3';
             
             const url = `${BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(this.currentStar)}&page=${this.currentPage}`;

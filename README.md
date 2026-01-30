@@ -33,6 +33,16 @@ If you’re using a TV remote, make sure it’s paired as a keyboard or gamepad;
 npm install
 ```
 
+### 1.5) Configure TMDB API key
+
+Set the TMDB API key in your environment so the UI can fetch trending, popular, and now-playing movies:
+
+```bash
+export VITE_TMDB_KEY="your_tmdb_key"
+```
+
+For Netlify, add `VITE_TMDB_KEY` in the site environment variables. Locally, you can copy `.env.example` to `.env` and load it in your shell.
+
 ### 2) Build provider bundle
 
 ```bash
