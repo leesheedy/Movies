@@ -529,11 +529,12 @@ function initAdBlocker() {
 
     const originalOpen = window.open;
     window.open = function (url, target, features) {
-        if (isAdUrl(url)) {
-            console.warn('🛑 Adblock: blocked popup', url);
+        const normalizedUrl = typeof url === 'string' ? url.trim() : '';
+        if (!normalizedUrl || normalizedUrl === 'about:blank' || isAdUrl(normalizedUrl)) {
+            console.warn('🛑 Adblock: blocked popup', normalizedUrl || '[empty]');
             return null;
         }
-        return originalOpen.call(window, url, target, features);
+        return originalOpen.call(window, normalizedUrl, target, features);
     };
 
     const observer = new MutationObserver((mutations) => {
@@ -625,38 +626,13 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
     }
 
     const embedUrl = buildVidsrcEmbedUrl(imdbId);
-    const embedOrigin = (() => {
-        try {
-            return new URL(embedUrl).origin;
-        } catch (error) {
-            return null;
-        }
-    })();
     const iframe = document.createElement('iframe');
     iframe.src = embedUrl;
-    iframe.setAttribute('csp', 'sandbox allow-scripts allow-same-origin allow-forms');
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.setAttribute('allow', 'autoplay; fullscreen');
     iframe.setAttribute('allowfullscreen', 'true');
     iframe.setAttribute('loading', 'lazy');
-    const cspContent = embedOrigin
-        ? `default-src 'none'; frame-src ${embedOrigin};`
-        : "default-src 'none'; frame-src *;";
-    iframe.srcdoc = `<!doctype html>
-        <html lang="en">
-            <head>
-                <meta charset="utf-8" />
-                <meta name="viewport" content="width=device-width, initial-scale=1" />
-                <meta http-equiv="Content-Security-Policy" content="${cspContent}" />
-                <style>
-                    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; }
-                    iframe { border: 0; width: 100%; height: 100%; }
-                </style>
-            </head>
-            <body>
-                <iframe src="${embedUrl}" referrerpolicy="no-referrer" allow="autoplay; fullscreen" allowfullscreen="true" loading="lazy"></iframe>
-            </body>
-        </html>`;
 
     let fallbackTimeout = null;
     const showFallback = () => {
