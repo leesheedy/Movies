@@ -53,7 +53,7 @@ function scheduleIdleTask(task) {
         window.requestIdleCallback(() => task());
         return;
     }
-    setTimeout(task, 150);
+    setTimeout(task, 60);
 }
 
 function prefetchMetaForPosts(provider, posts = [], limit = 6) {
@@ -236,7 +236,7 @@ function renderSearchResultCard(result, providerLabelMap) {
 }
 
 function handleSearchSelection({ provider, link, source = 'modal', card }) {
-    const transitionDuration = 300;
+    const transitionDuration = 150;
     const modal = document.getElementById('searchModal');
     const searchView = document.getElementById('searchView');
 
@@ -262,7 +262,7 @@ function handleSearchSelection({ provider, link, source = 'modal', card }) {
             searchView.classList.remove('is-transitioning');
         }
 
-        loadDetails(provider, link, { autoPlay: true });
+        openPlaybackTab(provider, link);
     }, transitionDuration);
 }
 
@@ -326,7 +326,7 @@ function ensureSearchModal() {
             return;
         }
         performSearch(query, { source: 'modal' });
-    }, 450));
+    }, 250));
     submit?.addEventListener('click', () => {
         if (input) {
             performSearch(input.value);
@@ -483,6 +483,22 @@ function debounce(fn, delay) {
         timer = setTimeout(() => fn(...args), delay);
     };
 }
+
+function buildPlaybackUrl(provider, link) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('provider', provider);
+    url.searchParams.set('link', link);
+    url.searchParams.set('autoplay', '1');
+    return url.toString();
+}
+
+function openPlaybackTab(provider, link) {
+    if (!provider || !link) return;
+    const url = buildPlaybackUrl(provider, link);
+    window.open(url, '_blank', 'noopener');
+}
+
+window.openPlaybackTab = openPlaybackTab;
 
 function syncHeaderSearchInput(value) {
     const searchInputHeader = document.getElementById('searchInputHeader');
@@ -785,7 +801,7 @@ function renderPostCard(post, provider, options = {}) {
             });
             return;
         }
-        loadDetails(targetProvider, post.link);
+        openPlaybackTab(targetProvider, post.link);
     });
     
     return card;
@@ -1010,6 +1026,41 @@ async function renderDetails(meta, provider) {
     loadTMDBRecommendationsForDetails(meta.title, meta.type);
 }
 
+function renderPlayerMeta(meta) {
+    const container = document.getElementById('playerMeta');
+    if (!container) return;
+    container.innerHTML = `
+        <h1>${meta.title}</h1>
+        <p>${meta.synopsis || 'No synopsis available.'}</p>
+    `;
+}
+
+function renderPlayerEpisodes(linkList, provider, type) {
+    const container = document.getElementById('playerEpisodes');
+    if (!container) return;
+    if (type === 'movie' || !Array.isArray(linkList) || linkList.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    container.innerHTML = `
+        <div class="season-selector">
+            <h3>Select Season/Quality:</h3>
+            <select id="playerSeasonSelect">
+                ${linkList.map((item, index) => `
+                    <option value="${index}">${item.title} ${item.quality ? `(${item.quality})` : ''}</option>
+                `).join('')}
+            </select>
+            <div id="playerEpisodesList" class="episodes-list"></div>
+        </div>
+    `;
+    const select = document.getElementById('playerSeasonSelect');
+    select.addEventListener('change', (e) => {
+        const selectedIndex = e.target.value;
+        renderEpisodes(linkList[selectedIndex], provider, type, 'playerEpisodesList');
+    });
+    renderEpisodes(linkList[0], provider, type, 'playerEpisodesList');
+}
+
 function renderSeasonSelector(linkList, provider, type) {
     const container = document.getElementById('seasonSelector');
     
@@ -1035,8 +1086,9 @@ function renderSeasonSelector(linkList, provider, type) {
     renderEpisodes(linkList[0], provider, type);
 }
 
-async function renderEpisodes(linkItem, provider, type) {
-    const container = document.getElementById('episodesList');
+async function renderEpisodes(linkItem, provider, type, containerId = 'episodesList') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
     container.innerHTML = '<p style="color: #b3b3b3;">Loading episodes...</p>';
     
     try {
@@ -1894,6 +1946,25 @@ async function loadDetails(provider, link, options = {}) {
     }
 }
 
+async function loadPlaybackDetails(provider, link, options = {}) {
+    const { autoPlay = true } = options;
+    showLoading();
+    try {
+        const meta = await fetchMeta(provider, link);
+        state.currentMeta = { meta, provider, link };
+        renderPlayerMeta(meta);
+        renderPlayerEpisodes(meta.linkList, provider, meta.type);
+        showView('player');
+        if (autoPlay) {
+            await attemptAutoPlay(meta, provider);
+        }
+    } catch (error) {
+        showError('Failed to load details: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
 async function attemptAutoPlay(meta, provider) {
     if (!meta || state.isVideoPlaying) return;
 
@@ -1994,7 +2065,20 @@ async function init() {
     if (providers.length > 0) {
         state.selectedProvider = providers[0].value;
         document.getElementById('providerSelect').value = providers[0].value;
-        loadHomePage();
+        const params = new URLSearchParams(window.location.search);
+        const deepProvider = params.get('provider');
+        const deepLink = params.get('link');
+        const autoPlay = params.get('autoplay') !== '0';
+        if (deepProvider && deepLink) {
+            const providerMatch = providers.find(p => p.value === deepProvider);
+            if (providerMatch) {
+                state.selectedProvider = deepProvider;
+                document.getElementById('providerSelect').value = deepProvider;
+            }
+            await loadPlaybackDetails(state.selectedProvider, deepLink, { autoPlay });
+        } else {
+            loadHomePage();
+        }
     }
     
     // Event Listeners
@@ -2136,7 +2220,7 @@ async function init() {
                 return;
             }
             performSearch(query, { source: 'header', silent: true });
-        }, 450));
+        }, 250));
     }
     
     // Search icon button
@@ -2247,7 +2331,7 @@ async function loadTMDBRecommendationsForDetails(title, contentType) {
                                 <h3 style="color: var(--primary-color); margin-bottom: 15px;">${result.displayName}</h3>
                                 <div class="provider-posts-grid">
                                     ${result.posts.slice(0, 6).map(post => `
-                                        <div class="provider-post-card" onclick="loadDetails('${result.provider}', '${post.link}')">
+                                        <div class="provider-post-card" onclick="openPlaybackTab('${result.provider}', '${post.link}')">
                                             <img src="${post.image}" alt="${post.title}" />
                                             <h4>${post.title}</h4>
                                         </div>
@@ -2588,8 +2672,8 @@ async function renderHeroBanner(provider, catalogData) {
                 <div class="hero-content">
                     <h1 class="hero-title">${featuredPost.title}</h1>
                     <div class="hero-buttons">
-                        <button class="hero-btn hero-btn-play" onclick="loadDetails('${provider}', '${featuredPost.link.replace(/'/g, "\\'")}')">▶ Play</button>
-                        <button class="hero-btn hero-btn-info" onclick="loadDetails('${provider}', '${featuredPost.link.replace(/'/g, "\\'")}')">ℹ More Info</button>
+                        <button class="hero-btn hero-btn-play" onclick="openPlaybackTab('${provider}', '${featuredPost.link.replace(/'/g, "\\'")}')">▶ Play</button>
+                        <button class="hero-btn hero-btn-info" onclick="openPlaybackTab('${provider}', '${featuredPost.link.replace(/'/g, "\\'")}')">ℹ More Info</button>
                     </div>
                 </div>
             `;
@@ -2740,7 +2824,7 @@ async function renderNetflixSection(provider, catalogItem) {
                     <h4>${post.title}</h4>
                 </div>
             `;
-            card.addEventListener('click', () => loadDetails(provider, post.link));
+            card.addEventListener('click', () => openPlaybackTab(provider, post.link));
             row.appendChild(card);
         });
         
