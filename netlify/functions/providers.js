@@ -1,17 +1,6 @@
 const fs = require("fs");
 const path = require("path");
 
-const ALLOWED_VALUES = [
-  "drive",
-  "world4u",
-  "mod",
-  "uhd",
-  "filmyfly",
-  "hdhub4u",
-  "a111477",
-  "kissKh",
-];
-
 function loadManifest() {
   const manifestPath = path.resolve(__dirname, "..", "..", "manifest.json");
   const contents = fs.readFileSync(manifestPath, "utf8");
@@ -21,14 +10,12 @@ function loadManifest() {
 exports.handler = async () => {
   try {
     const manifest = loadManifest();
-    const providers = ALLOWED_VALUES.map((value) =>
-      manifest.find((provider) => provider.value === value)
-    )
-      .filter(Boolean)
-      .map((provider) => ({
-        ...provider,
-        disabled: false,
-      }));
+    const providers = Array.isArray(manifest)
+      ? manifest.map((provider) => ({
+          ...provider,
+          disabled: false,
+        }))
+      : [];
 
     return {
       statusCode: 200,
