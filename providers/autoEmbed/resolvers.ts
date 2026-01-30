@@ -154,7 +154,8 @@ export class MegaCloudResolver implements ProviderResolver {
   constructor(private providerContext: ProviderContext) {}
 
   canHandle(url: string): boolean {
-    return url.includes("megacloud") || url.includes("mcloud");
+    const normalized = url.toLowerCase();
+    return normalized.includes("megacloud") || normalized.includes("mcloud");
   }
 
   async resolve(embedUrl: string): Promise<ResolverStream[]> {
@@ -206,7 +207,7 @@ export class UpCloudResolver implements ProviderResolver {
   constructor(private providerContext: ProviderContext) {}
 
   canHandle(url: string): boolean {
-    return url.includes("upcloud");
+    return url.toLowerCase().includes("upcloud");
   }
 
   async resolve(embedUrl: string): Promise<ResolverStream[]> {
@@ -246,7 +247,7 @@ export class AKCloudResolver implements ProviderResolver {
   ) {}
 
   canHandle(url: string): boolean {
-    return url.includes("akcloud");
+    return url.toLowerCase().includes("akcloud");
   }
 
   async resolve(embedUrl: string): Promise<ResolverStream[]> {
@@ -268,9 +269,9 @@ export class AKCloudResolver implements ProviderResolver {
 export const createAutoResolver = (providerContext: ProviderContext) => {
   const megaCloudResolver = new MegaCloudResolver(providerContext);
   const resolvers: ProviderResolver[] = [
-    megaCloudResolver,
     new UpCloudResolver(providerContext),
     new AKCloudResolver(providerContext, megaCloudResolver),
+    megaCloudResolver,
   ];
 
   return async function autoResolve(embedUrl: string): Promise<ResolverStream[]> {

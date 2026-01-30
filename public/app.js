@@ -506,7 +506,11 @@ function buildPlaybackUrl(provider, link) {
 function openPlaybackTab(provider, link) {
     if (!provider || !link) return;
     const url = buildPlaybackUrl(provider, link);
-    window.open(url, '_blank', 'noopener');
+    const popup = window.open(url, '_blank', 'noopener');
+    if (!popup) {
+        window.location.href = url;
+        showToast('Popup blocked. Opening playback in this tab.', 'info', 2500);
+    }
 }
 
 window.openPlaybackTab = openPlaybackTab;
@@ -2531,8 +2535,20 @@ async function loadTMDBRecommendationsForDetails(title, contentType) {
 async function searchInAllProviders(title) {
     const providers = state.providers || [];
     if (providers.length === 0) return [];
-    
-    const searchPromises = providers.map(async (provider) => {
+
+    const preferredProviders = ['upcloud', 'akcloud', 'megacloud'];
+    const orderedProviders = [...providers].sort((a, b) => {
+        const aValue = (a.value || a).toString().toLowerCase();
+        const bValue = (b.value || b).toString().toLowerCase();
+        const aIndex = preferredProviders.indexOf(aValue);
+        const bIndex = preferredProviders.indexOf(bValue);
+        if (aIndex === -1 && bIndex === -1) return 0;
+        if (aIndex === -1) return 1;
+        if (bIndex === -1) return -1;
+        return aIndex - bIndex;
+    });
+
+    const searchPromises = orderedProviders.map(async (provider) => {
         try {
             const providerValue = provider.value || provider;
             const providerName = provider.display_name || provider.value || provider;
