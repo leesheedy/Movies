@@ -14,6 +14,7 @@ const state = {
     maxRetries: 3,
     isVideoPlaying: false, // Track video playback state
     searchRequestId: 0,
+    playbackProviders: [],
 };
 
 // Expose state and API_BASE globally for modules
@@ -772,6 +773,141 @@ function renderProviderSelect(providers) {
         option.textContent = `${provider.display_name} (${provider.type})`;
         select.appendChild(option);
     });
+}
+
+function getProviderLabel(providerValue) {
+    const provider = state.providers.find(item => item.value === providerValue);
+    return provider?.display_name || providerValue;
+}
+
+function renderProviderSelectorLoading() {
+    const container = document.getElementById('providerSelector');
+    if (!container) return;
+    container.innerHTML = '<div class="provider-loading">Loading available providers...</div>';
+}
+
+function renderProviderSelector(providers, activeProvider) {
+    const container = document.getElementById('providerSelector');
+    if (!container) return;
+    if (!Array.isArray(providers) || providers.length === 0) {
+        container.innerHTML = '<div class="provider-empty">No providers available for this title.</div>';
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="provider-selector-header">
+            <h3 class="provider-selector-title">Available Providers</h3>
+            <span class="provider-selector-note">Select a provider to load streams.</span>
+        </div>
+        <div class="provider-selector-options">
+            ${providers.map(provider => `
+                <button class="provider-selector-btn ${provider.provider === activeProvider ? 'is-active' : ''}" data-provider="${provider.provider}" type="button">
+                    ${provider.displayName || provider.provider}
+                </button>
+            `).join('')}
+        </div>
+    `;
+
+    container.querySelectorAll('.provider-selector-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            const providerValue = button.getAttribute('data-provider');
+            if (providerValue) {
+                selectPlaybackProvider(providerValue);
+            }
+        });
+    });
+}
+
+function setActivePlaybackProvider(providerValue) {
+    const container = document.getElementById('providerSelector');
+    if (!container) return;
+    container.querySelectorAll('.provider-selector-btn').forEach(button => {
+        button.classList.toggle('is-active', button.getAttribute('data-provider') === providerValue);
+    });
+}
+
+function buildProviderQueue(preferredProvider, providers = state.playbackProviders) {
+    if (!Array.isArray(providers)) return [];
+    const selected = providers.find(item => item.provider === preferredProvider);
+    const remaining = providers.filter(item => item.provider !== preferredProvider);
+    return selected ? [selected, ...remaining] : providers;
+}
+
+async function loadAvailableProviders(meta, primaryProvider, primaryLink) {
+    renderProviderSelectorLoading();
+    const title = meta?.title || meta?.name || '';
+    let providerResults = [];
+
+    if (title) {
+        providerResults = await searchInAllProviders(title);
+    }
+
+    const providers = [];
+    const seen = new Set();
+    const addProvider = (providerValue, link, displayName) => {
+        if (!providerValue || !link || seen.has(providerValue)) return;
+        seen.add(providerValue);
+        providers.push({
+            provider: providerValue,
+            link,
+            displayName: displayName || getProviderLabel(providerValue)
+        });
+    };
+
+    addProvider(primaryProvider, primaryLink, getProviderLabel(primaryProvider));
+    providerResults.forEach(result => {
+        const link = result?.posts?.[0]?.link;
+        addProvider(result?.provider, link, result?.displayName);
+    });
+
+    state.playbackProviders = providers;
+    renderProviderSelector(providers, primaryProvider);
+    return providers;
+}
+
+async function attemptProviderPlaybackQueue(queue, options = {}) {
+    const { initialMeta, initialProvider } = options;
+
+    for (const candidate of queue) {
+        const label = candidate.displayName || candidate.provider;
+        showLoading(true, `Loading streams from ${label}...`);
+        let meta = null;
+        try {
+            meta = (initialMeta && candidate.provider === initialProvider)
+                ? initialMeta
+                : await fetchMeta(candidate.provider, candidate.link);
+        } catch (error) {
+            console.warn(`Failed to load details from ${candidate.provider}`, error);
+        }
+
+        if (!meta) {
+            showToast(`${label} details unavailable. Trying another provider...`, 'info', 2000);
+            continue;
+        }
+
+        state.currentMeta = { meta, provider: candidate.provider, link: candidate.link };
+        renderPlayerMeta(meta);
+        renderPlayerEpisodes(meta.linkList, candidate.provider, meta.type);
+        showView('player');
+        setActivePlaybackProvider(candidate.provider);
+
+        const success = await attemptAutoPlay(meta, candidate.provider, { suppressErrors: true });
+        if (success) {
+            showToast(`Loaded from ${label}.`, 'success', 1200);
+            return true;
+        }
+
+        showToast(`${label} unavailable. Trying another provider...`, 'info', 2000);
+    }
+
+    showError('No streams available from any provider. Try another title or provider.');
+    return false;
+}
+
+async function selectPlaybackProvider(providerValue) {
+    const queue = buildProviderQueue(providerValue);
+    if (queue.length === 0) return;
+    await attemptProviderPlaybackQueue(queue);
 }
 
 function renderPostCard(post, provider, options = {}) {
@@ -1948,6 +2084,7 @@ async function loadDetails(provider, link, options = {}) {
 
 async function loadPlaybackDetails(provider, link, options = {}) {
     const { autoPlay = true } = options;
+    renderProviderSelectorLoading();
     showLoading();
     try {
         const meta = await fetchMeta(provider, link);
@@ -1955,8 +2092,10 @@ async function loadPlaybackDetails(provider, link, options = {}) {
         renderPlayerMeta(meta);
         renderPlayerEpisodes(meta.linkList, provider, meta.type);
         showView('player');
+        const providers = await loadAvailableProviders(meta, provider, link);
         if (autoPlay) {
-            await attemptAutoPlay(meta, provider);
+            const queue = buildProviderQueue(provider, providers);
+            await attemptProviderPlaybackQueue(queue, { initialMeta: meta, initialProvider: provider });
         }
     } catch (error) {
         showError('Failed to load details: ' + error.message);
@@ -1965,8 +2104,9 @@ async function loadPlaybackDetails(provider, link, options = {}) {
     }
 }
 
-async function attemptAutoPlay(meta, provider) {
-    if (!meta || state.isVideoPlaying) return;
+async function attemptAutoPlay(meta, provider, options = {}) {
+    const { suppressErrors = false } = options;
+    if (!meta || state.isVideoPlaying) return false;
 
     try {
         const linkList = Array.isArray(meta.linkList) ? meta.linkList : [];
@@ -1975,35 +2115,36 @@ async function attemptAutoPlay(meta, provider) {
 
             if (Array.isArray(firstLinkItem?.directLinks) && firstLinkItem.directLinks.length > 0) {
                 const firstDirect = firstLinkItem.directLinks[0];
-                await loadPlayer(provider, firstDirect.link, firstDirect.type || meta.type);
-                return;
+                return await loadPlayer(provider, firstDirect.link, firstDirect.type || meta.type, { suppressErrors });
             }
 
             if (firstLinkItem?.link) {
-                await loadPlayer(provider, firstLinkItem.link, firstLinkItem.type || meta.type);
-                return;
+                return await loadPlayer(provider, firstLinkItem.link, firstLinkItem.type || meta.type, { suppressErrors });
             }
 
             if (firstLinkItem?.episodesLink) {
                 const episodes = await fetchEpisodes(provider, firstLinkItem.episodesLink);
                 const firstEpisode = Array.isArray(episodes) ? episodes[0] : null;
                 if (firstEpisode?.link) {
-                    await loadPlayer(provider, firstEpisode.link, firstEpisode.type || meta.type);
-                    return;
+                    return await loadPlayer(provider, firstEpisode.link, firstEpisode.type || meta.type, { suppressErrors });
                 }
             }
         }
 
         if (meta.link) {
-            await loadPlayer(provider, meta.link, meta.type);
+            return await loadPlayer(provider, meta.link, meta.type, { suppressErrors });
         }
     } catch (error) {
         console.warn('Autoplay attempt failed:', error);
-        showToast('Autoplay unavailable. Select a stream to play.', 'info', 1500);
+        if (!suppressErrors) {
+            showToast('Autoplay unavailable. Select a stream to play.', 'info', 1500);
+        }
     }
+    return false;
 }
 
-async function loadPlayer(provider, link, type) {
+async function loadPlayer(provider, link, type, options = {}) {
+    const { suppressErrors = false } = options;
     console.log('🎬 loadPlayer called:', {provider, link, type});
     showLoading(true, 'Loading streams...');
     try {
@@ -2014,8 +2155,10 @@ async function loadPlayer(provider, link, type) {
         
         if (streams.length === 0) {
             console.error('❌ No streams available');
-            showError('No streams available for this content. This could mean:\n- The content is temporarily unavailable\n- Try another episode or quality');
-            return;
+            if (!suppressErrors) {
+                showError('No streams available for this content. This could mean:\n- The content is temporarily unavailable\n- Try another episode or quality');
+            }
+            return false;
         }
         
         console.log('🎨 Rendering stream selector...');
@@ -2027,6 +2170,7 @@ async function loadPlayer(provider, link, type) {
         console.log('▶️ Auto-playing first stream:', streams[0]);
         await playStream(streams[0]);
         showToast('Stream loaded successfully!', 'success', 1000);
+        return true;
     } catch (error) {
         console.error('❌ loadPlayer error:', error);
         console.error('Error stack:', error.stack);
@@ -2036,11 +2180,14 @@ async function loadPlayer(provider, link, type) {
             state.retryCount++;
             showToast(`Retrying... (${state.retryCount}/${state.maxRetries})`, 'info', 2000);
             await new Promise(resolve => setTimeout(resolve, 1000));
-            return loadPlayer(provider, link, type);
+            return loadPlayer(provider, link, type, options);
         }
         
         state.retryCount = 0;
-        showError('Failed to load streams: ' + error.message + '\n\nTips:\n- Check your internet connection\n- Try refreshing the page\n- Select a different quality or episode');
+        if (!suppressErrors) {
+            showError('Failed to load streams: ' + error.message + '\n\nTips:\n- Check your internet connection\n- Try refreshing the page\n- Select a different quality or episode');
+        }
+        return false;
     } finally {
         showLoading(false);
     }
