@@ -1,5 +1,37 @@
 [
   {
+    "display_name": "Vidsrc (IMDB)",
+    "value": "vidsrc",
+    "version": "1.0",
+    "icon": "",
+    "type": "global",
+    "disabled": false
+  },
+  {
+    "display_name": "UpCloud",
+    "value": "upcloud",
+    "version": "1.0",
+    "icon": "",
+    "type": "global",
+    "disabled": false
+  },
+  {
+    "display_name": "AKCloud",
+    "value": "akcloud",
+    "version": "1.0",
+    "icon": "",
+    "type": "global",
+    "disabled": false
+  },
+  {
+    "display_name": "MegaCloud",
+    "value": "megacloud",
+    "version": "1.0",
+    "icon": "",
+    "type": "global",
+    "disabled": false
+  },
+  {
     "display_name": "MultiStream",
     "value": "autoEmbed",
     "version": "1.4",
