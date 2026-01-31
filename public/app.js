@@ -776,8 +776,11 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
     const embedUrl = buildVidsrcEmbedUrl(imdbId);
     const iframe = document.createElement('iframe');
     iframe.src = embedUrl;
-    iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
-    iframe.setAttribute('allowfullscreen', 'true');
+    iframe.setAttribute('allow', 'autoplay; fullscreen');
+    iframe.setAttribute('loading', 'lazy');
+    iframe.addEventListener('pointerdown', () => {
+        window.registerEmbedInteraction?.();
+    });
 
     let fallbackTimeout = null;
     const showFallback = () => {
