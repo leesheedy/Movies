@@ -776,8 +776,6 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
     const embedUrl = buildVidsrcEmbedUrl(imdbId);
     const iframe = document.createElement('iframe');
     iframe.src = embedUrl;
-    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-presentation');
-    iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.setAttribute('allow', 'autoplay; fullscreen');
     iframe.setAttribute('loading', 'lazy');
     iframe.addEventListener('pointerdown', () => {
