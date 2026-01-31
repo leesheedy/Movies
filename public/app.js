@@ -521,6 +521,41 @@ function initAdBlocker() {
     if (window.__adBlockEnabled) return;
     window.__adBlockEnabled = true;
 
+    let lastEmbedInteractionAt = 0;
+    window.registerEmbedInteraction = () => {
+        lastEmbedInteractionAt = Date.now();
+    };
+
+    const isSameOrigin = (url) => {
+        try {
+            return new URL(url, window.location.href).origin === window.location.origin;
+        } catch (error) {
+            return false;
+        }
+    };
+
+    const shouldSuppressExternalNavigation = (url) => {
+        if (!url || isSameOrigin(url)) return false;
+        return Date.now() - lastEmbedInteractionAt < 1500;
+    };
+
+    const softenPopup = (popup) => {
+        if (!popup) return;
+        try {
+            popup.blur?.();
+            window.focus?.();
+        } catch (error) {
+            console.warn('Adblock: unable to blur popup', error);
+        }
+        setTimeout(() => {
+            try {
+                popup.close?.();
+            } catch (error) {
+                console.warn('Adblock: unable to close popup', error);
+            }
+        }, 800);
+    };
+
     const style = document.createElement('style');
     style.id = 'adblock-style';
     style.textContent = `
@@ -539,14 +574,22 @@ function initAdBlocker() {
             console.warn(`🛑 Adblock: blocked ${context}`, normalizedUrl);
             return { allowed: false, normalizedUrl };
         }
-        return { allowed: true, normalizedUrl };
+        if (shouldSuppressExternalNavigation(normalizedUrl)) {
+            console.warn(`🛑 Adblock: suppressed ${context} from embed`, normalizedUrl);
+            return { allowed: context === 'popup', normalizedUrl, soften: true };
+        }
+        return { allowed: true, normalizedUrl, soften: false };
     };
 
     const originalOpen = window.open;
     window.open = function (url, target, features) {
-        const { allowed, normalizedUrl } = guardNavigation(url, 'popup');
+        const { allowed, normalizedUrl, soften } = guardNavigation(url, 'popup');
         if (!allowed) return null;
-        return originalOpen.call(window, normalizedUrl, target, features);
+        const popup = originalOpen.call(window, normalizedUrl, target, features);
+        if (soften || !isSameOrigin(normalizedUrl)) {
+            softenPopup(popup);
+        }
+        return popup;
     };
 
     const patchLocation = () => {
@@ -714,6 +757,9 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
     iframe.setAttribute('allow', 'autoplay; fullscreen');
     iframe.setAttribute('allowfullscreen', 'true');
     iframe.setAttribute('loading', 'lazy');
+    iframe.addEventListener('pointerdown', () => {
+        window.registerEmbedInteraction?.();
+    });
 
     let fallbackTimeout = null;
     const showFallback = () => {
