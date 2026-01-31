@@ -779,7 +779,6 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
     iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-presentation');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.setAttribute('allow', 'autoplay; fullscreen');
-    iframe.setAttribute('allowfullscreen', 'true');
     iframe.setAttribute('loading', 'lazy');
     iframe.addEventListener('pointerdown', () => {
         window.registerEmbedInteraction?.();
