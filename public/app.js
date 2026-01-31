@@ -19,6 +19,7 @@ const state = {
     fullscreenExitArmed: false,
     gamepadBackPressed: false,
     gamepadPolling: false,
+    externalNavigationAllowedUntil: 0,
 };
 
 // Expose state and API_BASE globally for modules
@@ -148,6 +149,24 @@ function prefetchMetaForPosts(provider, posts = [], limit = 6) {
             }
         });
     });
+}
+
+function allowExternalNavigation(durationMs = 1200) {
+    state.externalNavigationAllowedUntil = Date.now() + durationMs;
+}
+
+function consumeExternalNavigationAllowance() {
+    if (Date.now() > state.externalNavigationAllowedUntil) return false;
+    state.externalNavigationAllowedUntil = 0;
+    return true;
+}
+
+function openExternalUrl(url, options = {}) {
+    if (!url) return null;
+    allowExternalNavigation();
+    const target = options.target || '_blank';
+    const features = options.features;
+    return window.open(url, target, features);
 }
 
 // Utility Functions
@@ -534,9 +553,9 @@ function initAdBlocker() {
         }
     };
 
-    const shouldSuppressExternalNavigation = (url) => {
-        if (!url || isSameOrigin(url)) return false;
-        return Date.now() - lastEmbedInteractionAt < 1500;
+    const isExternalUrl = (url) => {
+        if (!url) return false;
+        return !isSameOrigin(url);
     };
 
     const softenPopup = (popup) => {
@@ -574,9 +593,13 @@ function initAdBlocker() {
             console.warn(`🛑 Adblock: blocked ${context}`, normalizedUrl);
             return { allowed: false, normalizedUrl };
         }
-        if (shouldSuppressExternalNavigation(normalizedUrl)) {
-            console.warn(`🛑 Adblock: suppressed ${context} from embed`, normalizedUrl);
-            return { allowed: context === 'popup', normalizedUrl, soften: true };
+        if (isExternalUrl(normalizedUrl)) {
+            const allowedByUser = consumeExternalNavigationAllowance();
+            const fromEmbed = Date.now() - lastEmbedInteractionAt < 1500;
+            if (!allowedByUser) {
+                console.warn(`🛑 Adblock: blocked external ${context}`, normalizedUrl);
+                return { allowed: false, normalizedUrl, soften: fromEmbed && context === 'popup' };
+            }
         }
         return { allowed: true, normalizedUrl, soften: false };
     };
@@ -755,7 +778,6 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
     iframe.src = embedUrl;
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.setAttribute('allow', 'autoplay; fullscreen');
-    iframe.setAttribute('allowfullscreen', 'true');
     iframe.setAttribute('loading', 'lazy');
     iframe.addEventListener('pointerdown', () => {
         window.registerEmbedInteraction?.();
@@ -879,7 +901,7 @@ function showError(message, downloadLink = null) {
         downloadBtn.style.cssText = 'margin-top: 10px; padding: 8px 16px; background: #e50914; border: none; border-radius: 4px; color: white; cursor: pointer; font-size: 14px;';
         downloadBtn.onclick = () => {
             console.log('Opening download link:', downloadLink);
-            window.open(downloadLink, '_blank');
+            openExternalUrl(downloadLink, { target: '_blank' });
         };
         errorEl.appendChild(downloadBtn);
     }
@@ -1388,6 +1410,15 @@ function getPostTitle(post) {
     );
 }
 
+function getPostImage(post) {
+    if (!post) return getTmdbPosterUrl();
+    if (post.image) return post.image;
+    if (post.poster) return post.poster;
+    if (post.poster_path) return getTmdbPosterUrl(post.poster_path);
+    if (post.posterPath) return getTmdbPosterUrl(post.posterPath);
+    return getTmdbPosterUrl();
+}
+
 function renderPostCard(post, provider, options = {}) {
     const card = document.createElement('div');
     card.className = 'post-card';
@@ -1395,9 +1426,10 @@ function renderPostCard(post, provider, options = {}) {
     // Use the provider from the post object if available (for search results)
     const displayProvider = post.provider || provider;
     const postTitle = getPostTitle(post);
+    const postImage = getPostImage(post);
     
     card.innerHTML = `
-        <img src="${post.image}" alt="${postTitle}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
+        <img src="${postImage}" alt="${postTitle}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
         <div class="post-card-content">
             <h3>${postTitle}</h3>
             <span class="provider-badge">${displayProvider}</span>
@@ -1871,7 +1903,7 @@ function renderStreamSelector(streams, provider) {
                 
                 // Open download in new tab
                 console.log('Opening download URL:', downloadUrl);
-                window.open(downloadUrl, '_blank');
+                openExternalUrl(downloadUrl, { target: '_blank' });
             });
         }
         
@@ -1953,7 +1985,7 @@ async function playStream(stream) {
             const tryPlay = confirm('MKV format detected. This format usually doesn\'t play in browsers.\n\nClick OK to try playing anyway, or Cancel to download the file.');
             if (!tryPlay) {
                 console.log('📥 User chose to download MKV');
-                window.open(streamUrl, '_blank');
+                openExternalUrl(streamUrl, { target: '_blank' });
                 return;
             }
             console.log('🎬 User chose to try playing MKV');
@@ -2212,7 +2244,7 @@ async function openExternalPlayer(stream) {
 
         let opened = false;
         try {
-            const newWindow = window.open(streamUrl, '_blank', 'noopener');
+            const newWindow = openExternalUrl(streamUrl, { target: '_blank', features: 'noopener' });
             if (newWindow) {
                 opened = true;
                 console.log('🪟 External stream opened in new tab');
@@ -3553,10 +3585,11 @@ async function renderNetflixSection(provider, catalogItem) {
         prefetchMetaForPosts(provider, previewPosts, 6);
         previewPosts.forEach(post => {
             const postTitle = getPostTitle(post);
+            const postImage = getPostImage(post);
             const card = document.createElement('div');
             card.className = 'netflix-card';
             card.innerHTML = `
-                <img src="${post.image}" alt="${postTitle}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
+                <img src="${postImage}" alt="${postTitle}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
                 <div class="netflix-card-overlay">
                     <h4>${postTitle}</h4>
                 </div>
