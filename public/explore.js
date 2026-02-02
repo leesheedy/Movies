@@ -9,6 +9,18 @@ const ExploreModule = {
         allContentPosts: [], // Store all loaded posts for "All Content"
         genreContentPosts: [], // Store all loaded posts for genre view
     },
+    curatedLists: {
+        digbysFlix: [
+            'tt0120903',
+            'tt0290334',
+            'tt0376994',
+            'tt0389860',
+            'tt1045778'
+        ],
+        customCovers: {
+            tt0389860: 'https://i.imgur.com/4mvTQP5.jpeg'
+        }
+    },
 
     // Initialize explore module by collecting all genres from all providers
     async init(providers) {
@@ -64,26 +76,183 @@ const ExploreModule = {
         
         container.innerHTML = `
             <div class="explore-header">
-                <h1>🌍 Explore All Content</h1>
-                <p class="explore-subtitle">Browse movies and TV shows from Vidsrc</p>
+                <h1>🌍 Explore Curated Lists</h1>
+                <p class="explore-subtitle">Jump into the hand-picked collections below.</p>
             </div>
-            
-            <div class="explore-sections">
-                <div class="explore-section">
-                    <h2>📂 Browse by Category</h2>
-                    <div id="exploreGenres" class="genres-grid"></div>
-                </div>
-                
-                <div class="explore-section" id="exploreAllContent">
-                    <h2>🎬 All Content</h2>
-                    <div id="exploreAllPosts" class="posts-grid"></div>
-                    <div id="exploreAllPagination" class="pagination"></div>
+            <div class="explore-nav">
+                <span class="explore-nav-label">Quick jumps</span>
+                <div class="explore-nav-links">
+                    <a href="#sheedys-selections" class="explore-nav-link">Sheedy's Selections</a>
+                    <a href="#digbys-flix" class="explore-nav-link">Digby's Flix</a>
+                    <a href="#ryans-recommendations" class="explore-nav-link">Ryan's Recommendations</a>
+                    <a href="#parkers-picks" class="explore-nav-link">Parker's Picks</a>
                 </div>
             </div>
+            <div id="exploreCuratedSections" class="explore-curated"></div>
         `;
-        
-        this.renderGenres();
-        this.loadAllContent();
+
+        this.renderCuratedSections();
+    },
+    
+    async renderCuratedSections() {
+        const container = document.getElementById('exploreCuratedSections');
+        if (!container) return;
+
+        showLoading(true, 'Loading curated lists...');
+
+        try {
+            const [sheedysSelections, digbysFlix] = await Promise.all([
+                window.TMDBContentModule?.getSheedysPicks?.() || [],
+                this.getDigbysFlix()
+            ]);
+
+            container.innerHTML = '';
+
+            const sheedysSection = this.buildCuratedSection({
+                id: 'sheedys-selections',
+                title: "✨ Sheedy's Selections",
+                items: sheedysSelections,
+                type: 'movie'
+            });
+            if (sheedysSection) container.appendChild(sheedysSection);
+
+            const digbysSection = this.buildCuratedSection({
+                id: 'digbys-flix',
+                title: "🎥 Digby's Flix",
+                items: digbysFlix,
+                type: 'movie'
+            });
+            if (digbysSection) container.appendChild(digbysSection);
+
+            container.appendChild(this.buildComingSoonSection({
+                id: 'ryans-recommendations',
+                title: "🍿 Ryan's Recommendations",
+                message: 'Coming soon.'
+            }));
+
+            container.appendChild(this.buildComingSoonSection({
+                id: 'parkers-picks',
+                title: "🎬 Parker's Picks",
+                message: 'Coming soon.'
+            }));
+        } catch (error) {
+            console.error('Failed to render curated lists:', error);
+            container.innerHTML = '<p class="explore-error">Failed to load curated lists. Please try again.</p>';
+        } finally {
+            showLoading(false);
+        }
+    },
+
+    async getDigbysFlix() {
+        if (!window.TMDBContentModule?.fetchMovieByImdbId) {
+            return [];
+        }
+
+        const movies = await Promise.all(
+            this.curatedLists.digbysFlix.map(async (imdbId) => {
+                try {
+                    const movie = await window.TMDBContentModule.fetchMovieByImdbId(imdbId);
+                    if (!movie) {
+                        return {
+                            tmdb_id: null,
+                            title: `IMDb ${imdbId}`,
+                            poster_path: null,
+                            release_date: null,
+                            vote_average: null,
+                            imdb_id: imdbId
+                        };
+                    }
+                    return {
+                        ...movie,
+                        imdb_id: imdbId,
+                        customPoster: this.curatedLists.customCovers[imdbId]
+                    };
+                } catch (error) {
+                    console.warn('Failed to fetch Digby pick:', imdbId, error);
+                    return {
+                        tmdb_id: null,
+                        title: `IMDb ${imdbId}`,
+                        poster_path: null,
+                        release_date: null,
+                        vote_average: null,
+                        imdb_id: imdbId
+                    };
+                }
+            })
+        );
+
+        return movies;
+    },
+
+    buildCuratedSection({ id, title, items, type }) {
+        if (!items || items.length === 0) return null;
+
+        const section = document.createElement('section');
+        section.className = 'explore-section netflix-section';
+        section.id = id;
+
+        const header = document.createElement('div');
+        header.className = 'netflix-section-header explore-curated-header';
+        header.innerHTML = `<h3 class="netflix-section-title">${title}</h3>`;
+        section.appendChild(header);
+
+        const scrollContainer = document.createElement('div');
+        scrollContainer.className = 'netflix-scroll-container';
+
+        const row = document.createElement('div');
+        row.className = 'netflix-row';
+
+        items.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'netflix-card tmdb-card explore-curated-card';
+            const itemTitle = item.title || item.name || 'Untitled';
+            const rating = item.vote_average ? item.vote_average.toFixed(1) : null;
+            const year = item.release_date || item.first_air_date;
+            const yearText = year ? new Date(year).getFullYear() : '';
+            const poster = item.customPoster || window.TMDBContentModule?.getPosterUrl?.(item.poster_path);
+
+            card.innerHTML = `
+                <img src="${poster}" alt="${itemTitle}" loading="lazy" />
+                <div class="netflix-card-overlay">
+                    <h4>${itemTitle}</h4>
+                    <div class="tmdb-card-info">
+                        ${rating ? `<span class="tmdb-rating">⭐ ${rating}</span>` : ''}
+                        ${yearText ? `<span class="tmdb-year">${yearText}</span>` : ''}
+                    </div>
+                </div>
+            `;
+
+            card.addEventListener('click', () => {
+                if (item.tmdb_id && window.TMDBContentModule?.showTMDBDetails) {
+                    window.TMDBContentModule.showTMDBDetails(item, type);
+                    return;
+                }
+                if (item.imdb_id) {
+                    window.open(`https://www.imdb.com/title/${item.imdb_id}/`, '_blank', 'noopener');
+                }
+            });
+
+            row.appendChild(card);
+        });
+
+        scrollContainer.appendChild(row);
+        section.appendChild(scrollContainer);
+        return section;
+    },
+
+    buildComingSoonSection({ id, title, message }) {
+        const section = document.createElement('section');
+        section.className = 'explore-section explore-coming-soon';
+        section.id = id;
+
+        section.innerHTML = `
+            <div class="explore-coming-soon-header">
+                <h3>${title}</h3>
+            </div>
+            <p>${message}</p>
+        `;
+
+        return section;
     },
 
     // Render all unique genres
