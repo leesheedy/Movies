@@ -96,15 +96,30 @@ const ExploreModule = {
                             </div>
                         </div>
                     </div>
-                    <div class="explore-hero-panel">
-                        <div class="explore-hero-panel-content">
-                            <p class="explore-panel-eyebrow">Now spotlighting</p>
-                            <h2 id="exploreSpotlightCollection">Loading...</h2>
-                            <p class="explore-spotlight-title" id="exploreSpotlightTitle">Selecting a featured pick.</p>
-                            <button class="explore-spotlight-btn" id="exploreSpotlightBtn" type="button">
-                                <span class="explore-spotlight-btn-icon">▶</span>
-                                Big Play
-                            </button>
+                    <div class="explore-hero-panel" id="exploreSpotlightPanel">
+                        <div class="explore-hero-backdrop" id="exploreSpotlightBackdrop" aria-hidden="true"></div>
+                        <div class="explore-hero-video" aria-hidden="true">
+                            <iframe
+                                id="exploreSpotlightVideo"
+                                title="Spotlight trailer"
+                                loading="lazy"
+                                allow="autoplay; fullscreen"
+                                referrerpolicy="no-referrer"
+                            ></iframe>
+                        </div>
+                        <div class="explore-hero-panel-inner">
+                            <div class="explore-hero-cover">
+                                <img id="exploreSpotlightPoster" alt="Spotlight cover" />
+                            </div>
+                            <div class="explore-hero-panel-content">
+                                <p class="explore-panel-eyebrow">Now spotlighting</p>
+                                <h2 id="exploreSpotlightCollection">Loading...</h2>
+                                <p class="explore-spotlight-title" id="exploreSpotlightTitle">Selecting a featured pick.</p>
+                                <button class="explore-spotlight-btn" id="exploreSpotlightBtn" type="button">
+                                    <span class="explore-spotlight-btn-icon">▶</span>
+                                    Big Play
+                                </button>
+                            </div>
                         </div>
                         <div class="explore-hero-gradient"></div>
                     </div>
@@ -182,14 +197,23 @@ const ExploreModule = {
         const collectionTitle = document.getElementById('exploreSpotlightCollection');
         const movieTitle = document.getElementById('exploreSpotlightTitle');
         const playButton = document.getElementById('exploreSpotlightBtn');
+        const posterImage = document.getElementById('exploreSpotlightPoster');
+        const backdrop = document.getElementById('exploreSpotlightBackdrop');
+        const videoFrame = document.getElementById('exploreSpotlightVideo');
+        const spotlightPanel = document.getElementById('exploreSpotlightPanel');
 
-        if (!collectionTitle || !movieTitle || !playButton) return;
+        if (!collectionTitle || !movieTitle || !playButton || !posterImage || !backdrop || !videoFrame || !spotlightPanel) return;
 
         const availableCollections = collections.filter(collection => collection.items && collection.items.length > 0);
         if (availableCollections.length === 0) {
             collectionTitle.textContent = 'Curated Collections';
             movieTitle.textContent = 'No featured picks available right now.';
             playButton.disabled = true;
+            posterImage.src = '';
+            posterImage.alt = 'No spotlight cover available';
+            backdrop.style.backgroundImage = '';
+            videoFrame.src = '';
+            spotlightPanel.classList.remove('has-video');
             return;
         }
 
@@ -201,6 +225,18 @@ const ExploreModule = {
         movieTitle.textContent = itemTitle;
         playButton.disabled = false;
 
+        const poster = item?.customPoster || window.TMDBContentModule?.getPosterUrl?.(item?.poster_path);
+        posterImage.src = poster || '';
+        posterImage.alt = itemTitle;
+
+        const backdropUrl = item?.backdrop_path
+            ? window.TMDBContentModule?.getBackdropUrl?.(item.backdrop_path)
+            : poster;
+        backdrop.style.backgroundImage = backdropUrl ? `url('${backdropUrl}')` : '';
+
+        videoFrame.src = '';
+        spotlightPanel.classList.remove('has-video');
+
         playButton.onclick = () => {
             if (item?.tmdb_id && window.TMDBContentModule?.showTMDBDetails) {
                 window.TMDBContentModule.showTMDBDetails(item, collection.type || 'movie');
@@ -210,6 +246,18 @@ const ExploreModule = {
                 window.open(`https://www.imdb.com/title/${item.imdb_id}/`, '_blank', 'noopener');
             }
         };
+
+        if (item?.tmdb_id && window.TMDBContentModule?.fetchTrailerKey) {
+            window.TMDBContentModule.fetchTrailerKey(item.tmdb_id, collection.type || 'movie')
+                .then((trailerKey) => {
+                    if (!trailerKey) return;
+                    videoFrame.src = `https://www.youtube-nocookie.com/embed/${trailerKey}?autoplay=1&mute=1&loop=1&controls=0&playsinline=1&modestbranding=1&playlist=${trailerKey}`;
+                    spotlightPanel.classList.add('has-video');
+                })
+                .catch(() => {
+                    spotlightPanel.classList.remove('has-video');
+                });
+        }
     },
 
     async getDigbysFlix() {
