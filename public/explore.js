@@ -8,6 +8,8 @@ const ExploreModule = {
         allContentPage: 1,
         allContentPosts: [], // Store all loaded posts for "All Content"
         genreContentPosts: [], // Store all loaded posts for genre view
+        spotlightTrailerKey: null,
+        spotlightMuted: true,
     },
     curatedLists: {
         digbysFlix: [
@@ -112,10 +114,16 @@ const ExploreModule = {
                                 <p class="explore-panel-eyebrow">Now spotlighting</p>
                                 <h2 id="exploreSpotlightCollection">Loading...</h2>
                                 <p class="explore-spotlight-title" id="exploreSpotlightTitle">Selecting a featured pick.</p>
-                                <button class="explore-spotlight-btn" id="exploreSpotlightBtn" type="button">
-                                    <span class="explore-spotlight-btn-icon">▶</span>
-                                    Big Play
-                                </button>
+                                <div class="explore-spotlight-controls">
+                                    <button class="explore-spotlight-btn" id="exploreSpotlightBtn" type="button">
+                                        <span class="explore-spotlight-btn-icon">▶</span>
+                                        Play
+                                    </button>
+                                    <button class="explore-spotlight-audio-btn" id="exploreSpotlightAudioBtn" type="button" aria-pressed="false" disabled>
+                                        <span class="explore-spotlight-audio-icon">🔈</span>
+                                        <span class="explore-spotlight-audio-label">Sound On</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="explore-hero-gradient"></div>
@@ -202,24 +210,30 @@ const ExploreModule = {
         const collectionTitle = document.getElementById('exploreSpotlightCollection');
         const movieTitle = document.getElementById('exploreSpotlightTitle');
         const playButton = document.getElementById('exploreSpotlightBtn');
+        const audioButton = document.getElementById('exploreSpotlightAudioBtn');
         const posterImage = document.getElementById('exploreSpotlightPoster');
         const backdrop = document.getElementById('exploreSpotlightBackdrop');
         const videoFrame = document.getElementById('exploreSpotlightVideo');
         const spotlightPanel = document.getElementById('exploreSpotlightPanel');
         const videoHost = document.getElementById('exploreSpotlightVideoHost');
 
-        if (!collectionTitle || !movieTitle || !playButton || !posterImage || !backdrop || !videoFrame || !spotlightPanel || !videoHost) return;
+        if (!collectionTitle || !movieTitle || !playButton || !audioButton || !posterImage || !backdrop || !videoFrame || !spotlightPanel || !videoHost) return;
 
         const availableCollections = collections.filter(collection => collection.items && collection.items.length > 0);
         if (availableCollections.length === 0) {
             collectionTitle.textContent = 'Curated Collections';
             movieTitle.textContent = 'No featured picks available right now.';
             playButton.disabled = true;
+            audioButton.disabled = true;
+            audioButton.setAttribute('aria-pressed', 'false');
+            audioButton.classList.remove('is-active');
             posterImage.src = '';
             posterImage.alt = 'No spotlight cover available';
             backdrop.style.backgroundImage = '';
             videoFrame.src = '';
             videoHost.classList.remove('has-video');
+            this.state.spotlightTrailerKey = null;
+            this.state.spotlightMuted = true;
             return;
         }
 
@@ -242,6 +256,12 @@ const ExploreModule = {
 
         videoFrame.src = '';
         videoHost.classList.remove('has-video');
+        this.state.spotlightTrailerKey = null;
+        this.state.spotlightMuted = true;
+        audioButton.disabled = true;
+        audioButton.setAttribute('aria-pressed', 'false');
+        audioButton.classList.remove('is-active');
+        audioButton.querySelector('.explore-spotlight-audio-label').textContent = 'Sound On';
 
         playButton.onclick = () => {
             if (item?.tmdb_id && window.TMDBContentModule?.showTMDBDetails) {
@@ -257,20 +277,35 @@ const ExploreModule = {
             window.TMDBContentModule.fetchTrailerKey(item.tmdb_id, collection.type || 'movie')
                 .then((trailerKey) => {
                     if (!trailerKey) return;
-                    videoFrame.src = this.buildYouTubeEmbedUrl(trailerKey);
+                    this.state.spotlightTrailerKey = trailerKey;
+                    videoFrame.src = this.buildYouTubeEmbedUrl(trailerKey, this.state.spotlightMuted);
                     videoHost.classList.add('has-video');
+                    audioButton.disabled = false;
                 })
                 .catch(() => {
                     videoHost.classList.remove('has-video');
+                    audioButton.disabled = true;
                 });
         }
+
+        audioButton.onclick = () => {
+            if (!this.state.spotlightTrailerKey) return;
+            this.state.spotlightMuted = !this.state.spotlightMuted;
+            audioButton.setAttribute('aria-pressed', String(!this.state.spotlightMuted));
+            audioButton.classList.toggle('is-active', !this.state.spotlightMuted);
+            const label = audioButton.querySelector('.explore-spotlight-audio-label');
+            if (label) {
+                label.textContent = this.state.spotlightMuted ? 'Sound On' : 'Sound Off';
+            }
+            videoFrame.src = this.buildYouTubeEmbedUrl(this.state.spotlightTrailerKey, this.state.spotlightMuted);
+        };
     },
 
-    buildYouTubeEmbedUrl(videoKey) {
+    buildYouTubeEmbedUrl(videoKey, muted = true) {
         const origin = encodeURIComponent(window.location.origin || '');
         const params = new URLSearchParams({
             autoplay: '1',
-            mute: '1',
+            mute: muted ? '1' : '0',
             loop: '1',
             controls: '0',
             playsinline: '1',
