@@ -46,6 +46,7 @@ const TMDBContentModule = {
             tmdb_id: item.id,
             title: item.title,
             poster_path: item.poster_path,
+            backdrop_path: item.backdrop_path,
             release_date: item.release_date,
             vote_average: item.vote_average
         };
@@ -104,6 +105,23 @@ const TMDBContentModule = {
         const data = await response.json();
         const movie = (data.movie_results || [])[0];
         return movie ? this.normalizeMovie(movie) : null;
+    },
+
+    async fetchTrailerKey(tmdbId, type = 'movie') {
+        const apiKey = this.getApiKey();
+        if (!apiKey) {
+            throw new Error('TMDB API key missing');
+        }
+        const response = await fetch(`${this.BASE_URL}/${type}/${tmdbId}/videos?api_key=${apiKey}`);
+        if (!response.ok) {
+            throw new Error(`TMDB request failed: ${response.status}`);
+        }
+        const data = await response.json();
+        const results = data.results || [];
+        const preferred = results.find(video => video.site === 'YouTube' && video.type === 'Trailer')
+            || results.find(video => video.site === 'YouTube' && video.type === 'Teaser')
+            || results.find(video => video.site === 'YouTube');
+        return preferred?.key || null;
     },
 
     async getSheedysPicks() {
