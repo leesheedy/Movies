@@ -31,6 +31,7 @@ const ExploreModule = {
             'tt0120663'
         ],
         customCovers: {
+            tt0137523: 'https://i.imgur.com/lQqO9Cn.jpeg',
             tt0389860: 'https://i.imgur.com/4mvTQP5.jpeg'
         }
     },
