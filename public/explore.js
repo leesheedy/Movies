@@ -75,20 +75,48 @@ const ExploreModule = {
         if (!container) return;
         
         container.innerHTML = `
-            <div class="explore-header">
-                <h1>🌍 Explore Curated Lists</h1>
-                <p class="explore-subtitle">Jump into the hand-picked collections below.</p>
+            <div class="explore-shell">
+                <section class="explore-hero">
+                    <div class="explore-hero-content">
+                        <span class="explore-hero-badge">Curated Discoveries</span>
+                        <h1>Explore what’s next</h1>
+                        <p class="explore-subtitle">Hand-picked collections, bold picks, and fresh recommendations made for your next watch.</p>
+                        <div class="explore-hero-metrics">
+                            <div class="explore-metric">
+                                <span class="explore-metric-label">Collections</span>
+                                <span class="explore-metric-value">4</span>
+                            </div>
+                            <div class="explore-metric">
+                                <span class="explore-metric-label">Updated</span>
+                                <span class="explore-metric-value">Weekly</span>
+                            </div>
+                            <div class="explore-metric">
+                                <span class="explore-metric-label">Mood</span>
+                                <span class="explore-metric-value">Cinematic</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="explore-hero-panel">
+                        <div class="explore-hero-panel-content">
+                            <p class="explore-panel-eyebrow">Now spotlighting</p>
+                            <h2 id="exploreSpotlightCollection">Loading...</h2>
+                            <p class="explore-spotlight-title" id="exploreSpotlightTitle">Selecting a featured pick.</p>
+                            <button class="explore-spotlight-btn" id="exploreSpotlightBtn" type="button">
+                                <span class="explore-spotlight-btn-icon">▶</span>
+                                Big Play
+                            </button>
+                        </div>
+                        <div class="explore-hero-gradient"></div>
+                    </div>
+                </section>
+                <section class="explore-curated">
+                    <div class="explore-curated-header">
+                        <h2>Curated Collections</h2>
+                        <p>Scroll through the latest hand-picked lists from the Mitta crew.</p>
+                    </div>
+                    <div id="exploreCuratedSections" class="explore-curated-grid"></div>
+                </section>
             </div>
-            <div class="explore-nav">
-                <span class="explore-nav-label">Quick jumps</span>
-                <div class="explore-nav-links">
-                    <a href="#sheedys-selections" class="explore-nav-link">Sheedy's Selections</a>
-                    <a href="#digbys-flix" class="explore-nav-link">Digby's Flix</a>
-                    <a href="#ryans-recommendations" class="explore-nav-link">Ryan's Recommendations</a>
-                    <a href="#parkers-picks" class="explore-nav-link">Parker's Picks</a>
-                </div>
-            </div>
-            <div id="exploreCuratedSections" class="explore-curated"></div>
         `;
 
         this.renderCuratedSections();
@@ -135,12 +163,53 @@ const ExploreModule = {
                 title: "🎬 Parker's Picks",
                 message: 'Coming soon.'
             }));
+
+            this.updateSpotlight({
+                collections: [
+                    { title: "✨ Sheedy's Selections", items: sheedysSelections, type: 'movie' },
+                    { title: "🎥 Digby's Flix", items: digbysFlix, type: 'movie' }
+                ]
+            });
         } catch (error) {
             console.error('Failed to render curated lists:', error);
             container.innerHTML = '<p class="explore-error">Failed to load curated lists. Please try again.</p>';
         } finally {
             showLoading(false);
         }
+    },
+
+    updateSpotlight({ collections }) {
+        const collectionTitle = document.getElementById('exploreSpotlightCollection');
+        const movieTitle = document.getElementById('exploreSpotlightTitle');
+        const playButton = document.getElementById('exploreSpotlightBtn');
+
+        if (!collectionTitle || !movieTitle || !playButton) return;
+
+        const availableCollections = collections.filter(collection => collection.items && collection.items.length > 0);
+        if (availableCollections.length === 0) {
+            collectionTitle.textContent = 'Curated Collections';
+            movieTitle.textContent = 'No featured picks available right now.';
+            playButton.disabled = true;
+            return;
+        }
+
+        const collection = availableCollections[Math.floor(Math.random() * availableCollections.length)];
+        const item = collection.items[Math.floor(Math.random() * collection.items.length)];
+        const itemTitle = item?.title || item?.name || 'Featured pick';
+
+        collectionTitle.textContent = collection.title;
+        movieTitle.textContent = itemTitle;
+        playButton.disabled = false;
+
+        playButton.onclick = () => {
+            if (item?.tmdb_id && window.TMDBContentModule?.showTMDBDetails) {
+                window.TMDBContentModule.showTMDBDetails(item, collection.type || 'movie');
+                return;
+            }
+            if (item?.imdb_id) {
+                window.open(`https://www.imdb.com/title/${item.imdb_id}/`, '_blank', 'noopener');
+            }
+        };
     },
 
     async getDigbysFlix() {
@@ -188,16 +257,21 @@ const ExploreModule = {
         if (!items || items.length === 0) return null;
 
         const section = document.createElement('section');
-        section.className = 'explore-section netflix-section';
+        section.className = 'explore-collection';
         section.id = id;
 
         const header = document.createElement('div');
-        header.className = 'netflix-section-header explore-curated-header';
-        header.innerHTML = `<h3 class="netflix-section-title">${title}</h3>`;
+        header.className = 'explore-collection-header';
+        header.innerHTML = `
+            <div>
+                <p class="explore-collection-label">Curated list</p>
+                <h3 class="explore-collection-title">${title}</h3>
+            </div>
+        `;
         section.appendChild(header);
 
         const scrollContainer = document.createElement('div');
-        scrollContainer.className = 'netflix-scroll-container';
+        scrollContainer.className = 'netflix-scroll-container explore-collection-scroll';
 
         const row = document.createElement('div');
         row.className = 'netflix-row';
@@ -242,14 +316,17 @@ const ExploreModule = {
 
     buildComingSoonSection({ id, title, message }) {
         const section = document.createElement('section');
-        section.className = 'explore-section explore-coming-soon';
+        section.className = 'explore-collection explore-coming-soon';
         section.id = id;
 
         section.innerHTML = `
-            <div class="explore-coming-soon-header">
-                <h3>${title}</h3>
+            <div class="explore-collection-header">
+                <div>
+                    <p class="explore-collection-label">Coming soon</p>
+                    <h3 class="explore-collection-title">${title}</h3>
+                </div>
             </div>
-            <p>${message}</p>
+            <p class="explore-coming-soon-text">${message}</p>
         `;
 
         return section;
