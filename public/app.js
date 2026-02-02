@@ -2033,6 +2033,64 @@ function renderStreamSelector(streams, provider) {
     });
 }
 
+const MOVIE_INTRO_URL = 'https://i.imgur.com/ObhxmmP.mp4';
+const MOVIE_INTRO_PLAYBACK_RATE = 2;
+const MOVIE_INTRO_FADE_MS = 800;
+
+function isMoviePlayback() {
+    return state.currentMeta?.meta?.type === 'movie';
+}
+
+async function playMovieIntro() {
+    const overlay = document.getElementById('movieIntroOverlay');
+    const introVideo = document.getElementById('movieIntroVideo');
+    if (!overlay || !introVideo) return;
+    if (overlay.dataset.playing === 'true') return;
+
+    overlay.dataset.playing = 'true';
+    overlay.classList.remove('fade-out');
+    overlay.classList.add('is-visible');
+
+    introVideo.pause();
+    introVideo.src = MOVIE_INTRO_URL;
+    introVideo.currentTime = 0;
+    introVideo.playbackRate = MOVIE_INTRO_PLAYBACK_RATE;
+
+    await new Promise((resolve) => {
+        let settled = false;
+        const finish = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+        };
+        introVideo.addEventListener('ended', finish, { once: true });
+        introVideo.addEventListener('error', finish, { once: true });
+        introVideo.addEventListener('abort', finish, { once: true });
+
+        const playAttempt = introVideo.play();
+        if (playAttempt && typeof playAttempt.catch === 'function') {
+            playAttempt.catch(() => finish());
+        }
+    });
+
+    await new Promise((resolve) => {
+        let cleaned = false;
+        const cleanup = () => {
+            if (cleaned) return;
+            cleaned = true;
+            overlay.classList.remove('is-visible', 'fade-out');
+            overlay.dataset.playing = 'false';
+            introVideo.pause();
+            introVideo.removeAttribute('src');
+            introVideo.load();
+            resolve();
+        };
+        overlay.classList.add('fade-out');
+        overlay.addEventListener('transitionend', cleanup, { once: true });
+        setTimeout(cleanup, MOVIE_INTRO_FADE_MS + 200);
+    });
+}
+
 async function playStream(stream) {
     console.log('▶️ playStream called with:', {
         server: stream.server,
@@ -2051,11 +2109,15 @@ async function playStream(stream) {
     
     const video = document.getElementById('videoPlayer');
     console.log('📺 Video element:', video ? 'Found' : 'NOT FOUND');
-    
+
     // Mark video as playing
     state.isVideoPlaying = true;
-    
+
     try {
+        if (isMoviePlayback()) {
+            await playMovieIntro();
+        }
+
         let streamUrl = stream.link;
         
         // Check if stream needs extraction
