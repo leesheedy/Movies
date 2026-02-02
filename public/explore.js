@@ -91,27 +91,7 @@ const ExploreModule = {
             <div class="explore-shell">
                 <section class="explore-hero">
                     <div class="explore-hero-content">
-                        <span class="explore-hero-badge">Curated Discoveries</span>
-                        <h1>Explore what’s next</h1>
-                        <p class="explore-subtitle">Hand-picked collections, bold picks, and fresh recommendations made for your next watch.</p>
-                        <div class="explore-hero-metrics">
-                            <div class="explore-metric">
-                                <span class="explore-metric-label">Collections</span>
-                                <span class="explore-metric-value">3</span>
-                            </div>
-                            <div class="explore-metric">
-                                <span class="explore-metric-label">Updated</span>
-                                <span class="explore-metric-value">Weekly</span>
-                            </div>
-                            <div class="explore-metric">
-                                <span class="explore-metric-label">Mood</span>
-                                <span class="explore-metric-value">Cinematic</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="explore-hero-panel" id="exploreSpotlightPanel">
-                        <div class="explore-hero-backdrop" id="exploreSpotlightBackdrop" aria-hidden="true"></div>
-                        <div class="explore-hero-video" aria-hidden="true">
+                        <div class="explore-hero-video explore-hero-video-primary" id="exploreSpotlightVideoHost" aria-hidden="true">
                             <iframe
                                 id="exploreSpotlightVideo"
                                 title="Spotlight trailer"
@@ -120,6 +100,9 @@ const ExploreModule = {
                                 referrerpolicy="no-referrer"
                             ></iframe>
                         </div>
+                    </div>
+                    <div class="explore-hero-panel" id="exploreSpotlightPanel">
+                        <div class="explore-hero-backdrop" id="exploreSpotlightBackdrop" aria-hidden="true"></div>
                         <div class="explore-hero-panel-inner">
                             <div class="explore-hero-cover">
                                 <img id="exploreSpotlightPoster" alt="Spotlight cover" />
@@ -157,10 +140,11 @@ const ExploreModule = {
         showLoading(true, 'Loading curated lists...');
 
         try {
-            const [sheedysSelections, digbysFlix, ryansRecommendations] = await Promise.all([
+            const [sheedysSelections, digbysFlix, ryansRecommendations, parkersPicks] = await Promise.all([
                 window.TMDBContentModule?.getSheedysPicks?.() || [],
                 this.getDigbysFlix(),
-                this.getRyansRecommendations()
+                this.getRyansRecommendations(),
+                this.getParkersPicks()
             ]);
 
             container.innerHTML = '';
@@ -189,17 +173,20 @@ const ExploreModule = {
             });
             if (ryansSection) container.appendChild(ryansSection);
 
-            container.appendChild(this.buildComingSoonSection({
+            const parkersSection = this.buildCuratedSection({
                 id: 'parkers-picks',
                 title: "🎬 Parker's Picks",
-                message: 'Coming soon.'
-            }));
+                items: parkersPicks,
+                type: 'movie'
+            });
+            if (parkersSection) container.appendChild(parkersSection);
 
             this.updateSpotlight({
                 collections: [
                     { title: "✨ Sheedy's Selections", items: sheedysSelections, type: 'movie' },
                     { title: "🎥 Digby's Flix", items: digbysFlix, type: 'movie' },
-                    { title: "🍿 Ryan's Recommendations", items: ryansRecommendations, type: 'movie' }
+                    { title: "🍿 Ryan's Recommendations", items: ryansRecommendations, type: 'movie' },
+                    { title: "🎬 Parker's Picks", items: parkersPicks, type: 'movie' }
                 ]
             });
         } catch (error) {
@@ -218,8 +205,9 @@ const ExploreModule = {
         const backdrop = document.getElementById('exploreSpotlightBackdrop');
         const videoFrame = document.getElementById('exploreSpotlightVideo');
         const spotlightPanel = document.getElementById('exploreSpotlightPanel');
+        const videoHost = document.getElementById('exploreSpotlightVideoHost');
 
-        if (!collectionTitle || !movieTitle || !playButton || !posterImage || !backdrop || !videoFrame || !spotlightPanel) return;
+        if (!collectionTitle || !movieTitle || !playButton || !posterImage || !backdrop || !videoFrame || !spotlightPanel || !videoHost) return;
 
         const availableCollections = collections.filter(collection => collection.items && collection.items.length > 0);
         if (availableCollections.length === 0) {
@@ -230,7 +218,7 @@ const ExploreModule = {
             posterImage.alt = 'No spotlight cover available';
             backdrop.style.backgroundImage = '';
             videoFrame.src = '';
-            spotlightPanel.classList.remove('has-video');
+            videoHost.classList.remove('has-video');
             return;
         }
 
@@ -252,7 +240,7 @@ const ExploreModule = {
         backdrop.style.backgroundImage = backdropUrl ? `url('${backdropUrl}')` : '';
 
         videoFrame.src = '';
-        spotlightPanel.classList.remove('has-video');
+        videoHost.classList.remove('has-video');
 
         playButton.onclick = () => {
             if (item?.tmdb_id && window.TMDBContentModule?.showTMDBDetails) {
@@ -269,10 +257,10 @@ const ExploreModule = {
                 .then((trailerKey) => {
                     if (!trailerKey) return;
                     videoFrame.src = `https://www.youtube-nocookie.com/embed/${trailerKey}?autoplay=1&mute=1&loop=1&controls=0&playsinline=1&modestbranding=1&playlist=${trailerKey}`;
-                    spotlightPanel.classList.add('has-video');
+                    videoHost.classList.add('has-video');
                 })
                 .catch(() => {
-                    spotlightPanel.classList.remove('has-video');
+                    videoHost.classList.remove('has-video');
                 });
         }
     },
@@ -359,6 +347,32 @@ const ExploreModule = {
         return movies;
     },
 
+    async getParkersPicks() {
+        if (!window.TMDBContentModule?.fetchMovies) {
+            return [];
+        }
+
+        try {
+            const results = await window.TMDBContentModule.fetchMovies('/search/movie', {
+                query: 'Zootopia 2',
+                include_adult: false
+            });
+            if (results.length > 0) {
+                return [results[0]];
+            }
+        } catch (error) {
+            console.warn('Failed to fetch Parker pick:', error);
+        }
+
+        return [{
+            tmdb_id: null,
+            title: 'Zootopia 2',
+            poster_path: null,
+            release_date: null,
+            vote_average: null
+        }];
+    },
+
     buildCuratedSection({ id, title, items, type }) {
         if (!items || items.length === 0) return null;
 
@@ -420,23 +434,6 @@ const ExploreModule = {
         return section;
     },
 
-    buildComingSoonSection({ id, title, message }) {
-        const section = document.createElement('section');
-        section.className = 'explore-collection explore-coming-soon';
-        section.id = id;
-
-        section.innerHTML = `
-            <div class="explore-collection-header">
-                <div>
-                    <p class="explore-collection-label">Coming soon</p>
-                    <h3 class="explore-collection-title">${title}</h3>
-                </div>
-            </div>
-            <p class="explore-coming-soon-text">${message}</p>
-        `;
-
-        return section;
-    },
 
     // Render all unique genres
     renderGenres() {

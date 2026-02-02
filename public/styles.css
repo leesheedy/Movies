@@ -1886,6 +1886,12 @@ select:focus {
     overflow: hidden;
 }
 
+.explore-hero-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
 .explore-hero-content h1 {
     font-size: 48px;
     margin: 18px 0 14px;
@@ -1998,6 +2004,21 @@ select:focus {
     opacity: 0;
     transition: opacity 0.3s ease;
     pointer-events: none;
+}
+
+.explore-hero-video-primary {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 20px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.4);
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+    opacity: 0;
+}
+
+.explore-hero-video-primary.has-video {
+    opacity: 1;
 }
 
 .explore-hero-video iframe {
