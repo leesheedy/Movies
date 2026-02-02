@@ -206,6 +206,25 @@ const ExploreModule = {
         }
     },
 
+    getSpotlightMutedPreference() {
+        try {
+            const stored = window.localStorage.getItem('exploreSpotlightMuted');
+            if (stored === null) return true;
+            return stored === 'true';
+        } catch (error) {
+            console.warn('Unable to read spotlight audio preference:', error);
+            return true;
+        }
+    },
+
+    setSpotlightMutedPreference(muted) {
+        try {
+            window.localStorage.setItem('exploreSpotlightMuted', String(muted));
+        } catch (error) {
+            console.warn('Unable to save spotlight audio preference:', error);
+        }
+    },
+
     updateSpotlight({ collections }) {
         const collectionTitle = document.getElementById('exploreSpotlightCollection');
         const movieTitle = document.getElementById('exploreSpotlightTitle');
@@ -218,6 +237,8 @@ const ExploreModule = {
         const videoHost = document.getElementById('exploreSpotlightVideoHost');
 
         if (!collectionTitle || !movieTitle || !playButton || !audioButton || !posterImage || !backdrop || !videoFrame || !spotlightPanel || !videoHost) return;
+
+        this.state.spotlightMuted = this.getSpotlightMutedPreference();
 
         const availableCollections = collections.filter(collection => collection.items && collection.items.length > 0);
         if (availableCollections.length === 0) {
@@ -233,7 +254,6 @@ const ExploreModule = {
             videoFrame.src = '';
             videoHost.classList.remove('has-video');
             this.state.spotlightTrailerKey = null;
-            this.state.spotlightMuted = true;
             return;
         }
 
@@ -257,11 +277,10 @@ const ExploreModule = {
         videoFrame.src = '';
         videoHost.classList.remove('has-video');
         this.state.spotlightTrailerKey = null;
-        this.state.spotlightMuted = true;
         audioButton.disabled = true;
-        audioButton.setAttribute('aria-pressed', 'false');
-        audioButton.classList.remove('is-active');
-        audioButton.querySelector('.explore-spotlight-audio-label').textContent = 'Sound On';
+        audioButton.setAttribute('aria-pressed', String(!this.state.spotlightMuted));
+        audioButton.classList.toggle('is-active', !this.state.spotlightMuted);
+        audioButton.querySelector('.explore-spotlight-audio-label').textContent = this.state.spotlightMuted ? 'Sound On' : 'Sound Off';
 
         playButton.onclick = () => {
             if (item?.tmdb_id && window.TMDBContentModule?.showTMDBDetails) {
@@ -291,6 +310,7 @@ const ExploreModule = {
         audioButton.onclick = () => {
             if (!this.state.spotlightTrailerKey) return;
             this.state.spotlightMuted = !this.state.spotlightMuted;
+            this.setSpotlightMutedPreference(this.state.spotlightMuted);
             audioButton.setAttribute('aria-pressed', String(!this.state.spotlightMuted));
             audioButton.classList.toggle('is-active', !this.state.spotlightMuted);
             const label = audioButton.querySelector('.explore-spotlight-audio-label');
