@@ -1045,6 +1045,20 @@ function showView(viewName) {
     if (viewName !== 'player') {
         state.fullscreenExitArmed = false;
     }
+
+    const playerView = document.getElementById('playerView');
+    if (playerView) {
+        if (viewName === 'player') {
+            playerView.classList.remove('is-visible');
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    playerView.classList.add('is-visible');
+                });
+            });
+        } else {
+            playerView.classList.remove('is-visible');
+        }
+    }
 }
 
 function getImdbIdFromPath() {
