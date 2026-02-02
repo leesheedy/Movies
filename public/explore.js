@@ -17,6 +17,19 @@ const ExploreModule = {
             'tt0389860',
             'tt1045778'
         ],
+        ryansRecommendations: [
+            'tt0105665',
+            'tt0113247',
+            'tt0066921',
+            'tt0246578',
+            'tt0432283',
+            'tt2278388',
+            'tt0137523',
+            'tt0072684',
+            'tt0359950',
+            'tt0166924',
+            'tt0120663'
+        ],
         customCovers: {
             tt0389860: 'https://i.imgur.com/4mvTQP5.jpeg'
         }
@@ -84,7 +97,7 @@ const ExploreModule = {
                         <div class="explore-hero-metrics">
                             <div class="explore-metric">
                                 <span class="explore-metric-label">Collections</span>
-                                <span class="explore-metric-value">4</span>
+                                <span class="explore-metric-value">3</span>
                             </div>
                             <div class="explore-metric">
                                 <span class="explore-metric-label">Updated</span>
@@ -144,9 +157,10 @@ const ExploreModule = {
         showLoading(true, 'Loading curated lists...');
 
         try {
-            const [sheedysSelections, digbysFlix] = await Promise.all([
+            const [sheedysSelections, digbysFlix, ryansRecommendations] = await Promise.all([
                 window.TMDBContentModule?.getSheedysPicks?.() || [],
-                this.getDigbysFlix()
+                this.getDigbysFlix(),
+                this.getRyansRecommendations()
             ]);
 
             container.innerHTML = '';
@@ -167,11 +181,13 @@ const ExploreModule = {
             });
             if (digbysSection) container.appendChild(digbysSection);
 
-            container.appendChild(this.buildComingSoonSection({
+            const ryansSection = this.buildCuratedSection({
                 id: 'ryans-recommendations',
                 title: "🍿 Ryan's Recommendations",
-                message: 'Coming soon.'
-            }));
+                items: ryansRecommendations,
+                type: 'movie'
+            });
+            if (ryansSection) container.appendChild(ryansSection);
 
             container.appendChild(this.buildComingSoonSection({
                 id: 'parkers-picks',
@@ -182,7 +198,8 @@ const ExploreModule = {
             this.updateSpotlight({
                 collections: [
                     { title: "✨ Sheedy's Selections", items: sheedysSelections, type: 'movie' },
-                    { title: "🎥 Digby's Flix", items: digbysFlix, type: 'movie' }
+                    { title: "🎥 Digby's Flix", items: digbysFlix, type: 'movie' },
+                    { title: "🍿 Ryan's Recommendations", items: ryansRecommendations, type: 'movie' }
                 ]
             });
         } catch (error) {
@@ -286,6 +303,47 @@ const ExploreModule = {
                     };
                 } catch (error) {
                     console.warn('Failed to fetch Digby pick:', imdbId, error);
+                    return {
+                        tmdb_id: null,
+                        title: `IMDb ${imdbId}`,
+                        poster_path: null,
+                        release_date: null,
+                        vote_average: null,
+                        imdb_id: imdbId
+                    };
+                }
+            })
+        );
+
+        return movies;
+    },
+
+    async getRyansRecommendations() {
+        if (!window.TMDBContentModule?.fetchMovieByImdbId) {
+            return [];
+        }
+
+        const movies = await Promise.all(
+            this.curatedLists.ryansRecommendations.map(async (imdbId) => {
+                try {
+                    const movie = await window.TMDBContentModule.fetchMovieByImdbId(imdbId);
+                    if (!movie) {
+                        return {
+                            tmdb_id: null,
+                            title: `IMDb ${imdbId}`,
+                            poster_path: null,
+                            release_date: null,
+                            vote_average: null,
+                            imdb_id: imdbId
+                        };
+                    }
+                    return {
+                        ...movie,
+                        imdb_id: imdbId,
+                        customPoster: this.curatedLists.customCovers[imdbId]
+                    };
+                } catch (error) {
+                    console.warn('Failed to fetch Ryan pick:', imdbId, error);
                     return {
                         tmdb_id: null,
                         title: `IMDb ${imdbId}`,
