@@ -17,12 +17,21 @@ const TMDBContentModule = {
         };
     },
 
-    async fetchMovies(path) {
+    async fetchMovies(path, params = {}) {
         const apiKey = this.getApiKey();
         if (!apiKey) {
             throw new Error('TMDB API key missing');
         }
-        const response = await fetch(`${this.BASE_URL}${path}?api_key=${apiKey}&page=1`);
+        const [basePath, queryString = ''] = path.split('?');
+        const searchParams = new URLSearchParams(queryString);
+        searchParams.set('api_key', apiKey);
+        searchParams.set('page', '1');
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+                searchParams.set(key, String(value));
+            }
+        });
+        const response = await fetch(`${this.BASE_URL}${basePath}?${searchParams.toString()}`);
         if (!response.ok) {
             throw new Error(`TMDB request failed: ${response.status}`);
         }
@@ -43,6 +52,39 @@ const TMDBContentModule = {
     // Fetch now playing movies
     async getNowPlayingMovies() {
         return this.fetchMovies('/movie/now_playing');
+    },
+
+    // Fetch nostalgia picks
+    async getNostalgiaMovies() {
+        return this.fetchMovies('/discover/movie', {
+            'primary_release_date.gte': '1980-01-01',
+            'primary_release_date.lte': '2005-12-31',
+            sort_by: 'popularity.desc'
+        });
+    },
+
+    // Fetch horror movies
+    async getHorrorMovies() {
+        return this.fetchMovies('/discover/movie', {
+            with_genres: '27',
+            sort_by: 'popularity.desc'
+        });
+    },
+
+    // Fetch comedy movies
+    async getComedyMovies() {
+        return this.fetchMovies('/discover/movie', {
+            with_genres: '35',
+            sort_by: 'popularity.desc'
+        });
+    },
+
+    // Fetch action & adventure movies
+    async getActionAdventureMovies() {
+        return this.fetchMovies('/discover/movie', {
+            with_genres: '28,12',
+            sort_by: 'popularity.desc'
+        });
     },
 
     // Get poster URL
@@ -439,18 +481,30 @@ const TMDBContentModule = {
             const [
                 trendingMovies,
                 popularMovies,
-                nowPlaying
+                nowPlaying,
+                nostalgiaMovies,
+                horrorMovies,
+                comedyMovies,
+                actionAdventureMovies
             ] = await Promise.all([
                 this.getTrendingMovies(),
                 this.getPopularMovies(),
-                this.getNowPlayingMovies()
+                this.getNowPlayingMovies(),
+                this.getNostalgiaMovies(),
+                this.getHorrorMovies(),
+                this.getComedyMovies(),
+                this.getActionAdventureMovies()
             ]);
 
             // Render sections with endpoint info for pagination
             const sections = [
-                { title: '🔥 Trending This Week', items: trendingMovies, type: 'movie', endpoint: 'trending', region: '' },
-                { title: '✨ Popular Movies', items: popularMovies, type: 'movie', endpoint: 'popular', region: '' },
-                { title: '🎬 Now Playing', items: nowPlaying, type: 'movie', endpoint: 'now_playing', region: '' }
+                { title: '🔥 Trending Now', items: trendingMovies, type: 'movie', endpoint: 'trending', region: '' },
+                { title: '✨ Popular Picks', items: popularMovies, type: 'movie', endpoint: 'popular', region: '' },
+                { title: '🎬 Now Playing in Theaters', items: nowPlaying, type: 'movie', endpoint: 'now_playing', region: '' },
+                { title: '🕰️ Nostalgia', items: nostalgiaMovies, type: 'movie', endpoint: 'discover', region: '' },
+                { title: '👻 Horror After Dark', items: horrorMovies, type: 'movie', endpoint: 'discover', region: '' },
+                { title: '😂 Comedy & More', items: comedyMovies, type: 'movie', endpoint: 'discover', region: '' },
+                { title: '⚡ Action & Adventure', items: actionAdventureMovies, type: 'movie', endpoint: 'discover', region: '' }
             ];
 
             sections.forEach(({ title, items, type, endpoint, region }) => {
