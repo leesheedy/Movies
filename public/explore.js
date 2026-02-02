@@ -97,8 +97,8 @@ const ExploreModule = {
                                 id="exploreSpotlightVideo"
                                 title="Spotlight trailer"
                                 loading="lazy"
-                                allow="autoplay; fullscreen"
-                                referrerpolicy="no-referrer"
+                                allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+                                referrerpolicy="origin"
                             ></iframe>
                         </div>
                     </div>
@@ -257,13 +257,29 @@ const ExploreModule = {
             window.TMDBContentModule.fetchTrailerKey(item.tmdb_id, collection.type || 'movie')
                 .then((trailerKey) => {
                     if (!trailerKey) return;
-                    videoFrame.src = `https://www.youtube-nocookie.com/embed/${trailerKey}?autoplay=1&mute=1&loop=1&controls=0&playsinline=1&modestbranding=1&playlist=${trailerKey}`;
+                    videoFrame.src = this.buildYouTubeEmbedUrl(trailerKey);
                     videoHost.classList.add('has-video');
                 })
                 .catch(() => {
                     videoHost.classList.remove('has-video');
                 });
         }
+    },
+
+    buildYouTubeEmbedUrl(videoKey) {
+        const origin = encodeURIComponent(window.location.origin || '');
+        const params = new URLSearchParams({
+            autoplay: '1',
+            mute: '1',
+            loop: '1',
+            controls: '0',
+            playsinline: '1',
+            modestbranding: '1',
+            rel: '0',
+            playlist: videoKey,
+            origin
+        });
+        return `https://www.youtube-nocookie.com/embed/${videoKey}?${params.toString()}`;
     },
 
     async getDigbysFlix() {
