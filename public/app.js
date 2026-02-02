@@ -3391,10 +3391,6 @@ function stopVideo() {
 async function loadExplorePage() {
     showLoading(true, 'Loading Explore...');
     try {
-        if (isTmdbOnlyMode()) {
-            showError('Explore is unavailable in TMDB-only mode. Use Home or Search instead.');
-            return;
-        }
         // Initialize explore module if not already done
         if (window.ExploreModule && state.providers.length > 0) {
             await window.ExploreModule.init(state.providers);
