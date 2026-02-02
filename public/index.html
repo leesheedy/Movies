@@ -99,7 +99,12 @@
                     <div id="playerContent">
                         <div id="playerMeta" class="player-meta"></div>
                         <div id="providerSelector" class="provider-selector"></div>
-                        <video id="videoPlayer" class="video-player" controls></video>
+                        <div class="video-stage">
+                            <video id="videoPlayer" class="video-player" controls></video>
+                            <div id="movieIntroOverlay" class="movie-intro-overlay" aria-hidden="true">
+                                <video id="movieIntroVideo" class="movie-intro-video" preload="auto"></video>
+                            </div>
+                        </div>
                         <div id="tmdbPlayerContainer" class="tmdb-player-container" style="display: none;">
                             <div id="tmdbPlayerMessage" class="tmdb-player-message"></div>
                             <div id="tmdbIframeContainer" class="tmdb-iframe-container"></div>
