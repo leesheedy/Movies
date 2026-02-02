@@ -1711,6 +1711,8 @@ body {
     
     .netflix-section-title {
         font-size: 18px;
+        letter-spacing: 0.4px;
+        padding-left: 12px;
     }
     
     .search-input-header {
@@ -2131,10 +2133,28 @@ select:focus {
 }
 
 .netflix-section-title {
-    font-size: 20px;
-    font-weight: 700;
+    font-size: 22px;
+    font-weight: 800;
     color: var(--text-color);
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
     margin: 0;
+    position: relative;
+    padding-left: 14px;
+    text-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.netflix-section-title::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 65%;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--primary-color), #8a5cff);
+    box-shadow: 0 0 12px rgba(138, 92, 255, 0.45);
 }
 
 .netflix-view-all {
