@@ -25,6 +25,8 @@ const state = {
 // Expose state and API_BASE globally for modules
 window.state = state;
 
+let detailsParallaxCleanup = null;
+
 // API Base URL
 const API_BASE = window.location.origin;
 window.API_BASE = API_BASE;
@@ -1650,36 +1652,143 @@ async function reloadCatalogSection(provider, catalogItemId, page) {
     }
 }
 
+function formatRuntime(value) {
+    if (!value) return null;
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        const hours = Math.floor(value / 60);
+        const minutes = Math.round(value % 60);
+        if (hours > 0) return `${hours}h ${minutes}m`;
+        return `${minutes}m`;
+    }
+    if (typeof value === 'string') return value;
+    return null;
+}
+
+function getDetailsMetaPieces(meta) {
+    const pieces = [];
+    const year = meta?.year || (meta?.releaseDate ? new Date(meta.releaseDate).getFullYear() : null);
+    if (year) pieces.push(String(year));
+    if (meta?.type) pieces.push(meta.type === 'tv' ? 'TV Series' : 'Movie');
+    const runtime = formatRuntime(meta?.runtime || meta?.duration);
+    if (runtime) pieces.push(runtime);
+    if (meta?.rating) pieces.push(`★ ${meta.rating}`);
+    return pieces;
+}
+
+function setupDetailsHeroParallax(hero) {
+    if (detailsParallaxCleanup) {
+        detailsParallaxCleanup();
+        detailsParallaxCleanup = null;
+    }
+    if (!hero) return;
+    let rafId = null;
+    const update = () => {
+        const rect = hero.getBoundingClientRect();
+        const progress = rect.top / Math.max(window.innerHeight, 1);
+        const offset = Math.max(-10, Math.min(10, -progress * 10));
+        hero.style.setProperty('--details-backdrop-shift', `${50 + offset}%`);
+        rafId = null;
+    };
+    const onScroll = () => {
+        if (rafId) return;
+        rafId = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    detailsParallaxCleanup = () => {
+        window.removeEventListener('scroll', onScroll);
+        window.removeEventListener('resize', onScroll);
+        if (rafId) cancelAnimationFrame(rafId);
+    };
+}
+
+function setupSynopsisToggle(container) {
+    const wrap = container.querySelector('.details-synopsis-wrap');
+    const synopsis = container.querySelector('.details-synopsis');
+    const toggle = container.querySelector('.details-synopsis-toggle');
+    if (!wrap || !synopsis || !toggle) return;
+
+    const updateToggleVisibility = () => {
+        const shouldShow = synopsis.scrollHeight > synopsis.clientHeight + 8;
+        toggle.style.display = shouldShow ? 'inline-flex' : 'none';
+    };
+
+    toggle.addEventListener('click', () => {
+        const isExpanded = wrap.classList.toggle('is-expanded');
+        toggle.textContent = isExpanded ? 'Show less' : 'More';
+        requestAnimationFrame(updateToggleVisibility);
+    });
+
+    requestAnimationFrame(updateToggleVisibility);
+}
+
 async function renderDetails(meta, provider) {
     const container = document.getElementById('detailsContent');
-    
+    const backdropUrl = meta?.backdrop || meta?.background || meta?.image || '';
+    const metaPieces = getDetailsMetaPieces(meta);
+
     container.innerHTML = `
-        <div class="details-content">
-            <img class="details-poster" src="${meta.image}" alt="${meta.title}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22450%22%3E%3Crect width=%22300%22 height=%22450%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Poster%3C/text%3E%3C/svg%3E'" />
-            <div class="details-info">
-                <h1>${meta.title}</h1>
-                <div class="details-meta">
-                    <span class="meta-item">Type: ${meta.type || 'N/A'}</span>
-                    ${meta.rating ? `<span class="meta-item">⭐ ${meta.rating}</span>` : ''}
-                    ${meta.imdbId ? `<span class="meta-item">IMDb: ${meta.imdbId}</span>` : ''}
+        <section class="details-hero" style="--details-backdrop: url('${backdropUrl}')">
+            <div class="details-hero-content">
+                <div class="details-poster-card">
+                    <img class="details-poster" src="${meta.image}" alt="${meta.title}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22450%22%3E%3Crect width=%22300%22 height=%22450%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Poster%3C/text%3E%3C/svg%3E'" />
                 </div>
-                <p class="details-synopsis">${meta.synopsis || 'No synopsis available.'}</p>
-                ${meta.tags && meta.tags.length > 0 ? `
-                    <div class="details-tags">
-                        ${meta.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                <div class="details-info">
+                    <h1 class="details-title">${meta.title}</h1>
+                    ${metaPieces.length ? `
+                        <div class="details-meta-row">
+                            ${metaPieces.map(item => `<span class="meta-item">${item}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                    <div class="details-actions">
+                        <button class="details-btn details-btn-play" type="button" id="detailsPlayBtn">
+                            <span class="details-btn-icon">▶</span>
+                            Play
+                        </button>
+                        <button class="details-btn details-btn-ghost" type="button" aria-label="Add to list">
+                            <span aria-hidden="true">＋</span>
+                        </button>
+                        <button class="details-btn details-btn-ghost" type="button" aria-label="Like">
+                            <span aria-hidden="true">❤</span>
+                        </button>
+                        <button class="details-btn details-btn-ghost" type="button" aria-label="Share">
+                            <span aria-hidden="true">⤴</span>
+                        </button>
                     </div>
-                ` : ''}
-                ${meta.cast && meta.cast.length > 0 ? `
-                    <div class="details-cast">
-                        <h3>Cast:</h3>
-                        <p style="color: #b3b3b3;">${meta.cast.join(', ')}</p>
+                    <div class="details-synopsis-wrap">
+                        <p class="details-synopsis">${meta.synopsis || 'No synopsis available.'}</p>
+                        <button class="details-synopsis-toggle" type="button">More</button>
                     </div>
-                ` : ''}
-                <div id="seasonSelector"></div>
+                    ${meta.tags && meta.tags.length > 0 ? `
+                        <div class="details-tags">
+                            ${meta.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                    ${meta.cast && meta.cast.length > 0 ? `
+                        <div class="details-cast">
+                            <h3>Cast</h3>
+                            <p>${meta.cast.join(', ')}</p>
+                        </div>
+                    ` : ''}
+                    <div id="seasonSelector"></div>
+                </div>
             </div>
-        </div>
-        <div id="tmdbRecommendations" style="margin-top: 40px;"></div>
+        </section>
+        <div id="tmdbRecommendations" class="details-section"></div>
     `;
+
+    const playBtn = container.querySelector('#detailsPlayBtn');
+    if (playBtn) {
+        playBtn.addEventListener('click', () => {
+            if (state.currentMeta?.link) {
+                loadPlaybackDetails(provider, state.currentMeta.link, { autoPlay: true });
+            }
+        });
+    }
+
+    setupDetailsHeroParallax(container.querySelector('.details-hero'));
+    setupSynopsisToggle(container);
     
     // Render seasons/episodes
     if (meta.linkList && meta.linkList.length > 0) {
