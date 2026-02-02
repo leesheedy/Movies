@@ -729,7 +729,86 @@ function updateImdbRoute(imdbId) {
     window.history.pushState({ imdbId }, '', newUrl);
 }
 
-function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
+function formatRuntime(runtime) {
+    const minutes = Number(runtime);
+    if (!Number.isFinite(minutes) || minutes <= 0) return '';
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    if (hours > 0) {
+        return `${hours}h ${remainder}m`;
+    }
+    return `${remainder}m`;
+}
+
+function buildPlayerMetaMarkup({ title, posterUrl, backdropUrl, metadataItems, overview }) {
+    const safeTitle = title || 'Movie';
+    const metaMarkup = metadataItems.length
+        ? `<div class="player-meta-row">${metadataItems.map(item => `<span>${item}</span>`).join('')}</div>`
+        : '';
+    const safeOverview = overview || 'No description available.';
+    const showMore = safeOverview.length > 180;
+    return `
+        <div class="player-hero" style="--hero-image: url('${backdropUrl}');">
+            <div class="player-hero-content">
+                <div class="player-poster-card" aria-hidden="true">
+                    <img src="${posterUrl}" alt="${safeTitle}" />
+                </div>
+                <div class="player-hero-info">
+                    <h1 class="player-title">${safeTitle}</h1>
+                    ${metaMarkup}
+                    <div class="player-actions">
+                        <button class="player-btn primary" type="button">
+                            <span class="btn-icon">▶</span>
+                            <span class="btn-label">Play</span>
+                        </button>
+                        <button class="player-btn secondary" type="button" aria-label="Add to list">＋</button>
+                        <button class="player-btn secondary" type="button" aria-label="Like">❤</button>
+                        <button class="player-btn secondary" type="button" aria-label="Share">⤴</button>
+                    </div>
+                    <div class="player-description${showMore ? '' : ' is-expanded'}">
+                        <div class="player-description-body">
+                            <p>${safeOverview}</p>
+                        </div>
+                        ${showMore ? '<button class="player-more-btn" type="button">More</button>' : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function setupPlayerMetaInteractions(container) {
+    if (!container) return;
+    const moreBtn = container.querySelector('.player-more-btn');
+    if (moreBtn) {
+        moreBtn.addEventListener('click', () => {
+            const description = container.querySelector('.player-description');
+            if (!description) return;
+            const expanded = description.classList.toggle('is-expanded');
+            moreBtn.textContent = expanded ? 'Less' : 'More';
+        });
+    }
+    const hero = container.querySelector('.player-hero');
+    if (hero) {
+        if (state.playerParallaxHandler) {
+            window.removeEventListener('scroll', state.playerParallaxHandler);
+        }
+        let frame = null;
+        const handler = () => {
+            if (frame) return;
+            frame = window.requestAnimationFrame(() => {
+                const offset = window.scrollY * 0.08;
+                hero.style.setProperty('--hero-offset', `${offset}px`);
+                frame = null;
+            });
+        };
+        state.playerParallaxHandler = handler;
+        handler();
+        window.addEventListener('scroll', handler, { passive: true });
+    }
+}
+
+function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId, backdropPath, overview, voteAverage, runtime, mediaType }) {
     const playerMeta = document.getElementById('playerMeta');
     const videoPlayer = document.getElementById('videoPlayer');
     const tmdbContainer = document.getElementById('tmdbPlayerContainer');
@@ -748,10 +827,25 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
     if (playerEpisodes) playerEpisodes.innerHTML = '';
 
     if (playerMeta) {
-        playerMeta.innerHTML = `
-            <h1>${title || 'Movie'}</h1>
-            <p>${releaseDate ? `Release: ${releaseDate}` : ''}</p>
-        `;
+        const year = releaseDate ? releaseDate.split('-')[0] : '';
+        const rating = voteAverage ? `★ ${Number(voteAverage).toFixed(1)}` : '';
+        const runtimeLabel = formatRuntime(runtime);
+        const mediaLabel = mediaType === 'tv' ? 'TV Series' : 'Movie';
+        const metadataItems = [year, mediaLabel, runtimeLabel, rating].filter(Boolean);
+        const posterUrl = posterPath
+            ? `https://image.tmdb.org/t/p/w500${posterPath}`
+            : 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E';
+        const backdropUrl = backdropPath
+            ? `https://image.tmdb.org/t/p/w1280${backdropPath}`
+            : posterUrl;
+        playerMeta.innerHTML = buildPlayerMetaMarkup({
+            title,
+            posterUrl,
+            backdropUrl,
+            metadataItems,
+            overview
+        });
+        setupPlayerMetaInteractions(playerMeta);
     }
 
     if (tmdbContainer) {
@@ -833,14 +927,35 @@ async function openTMDBMovie(item) {
     if (!tmdbId) return;
     showLoading(true, 'Resolving IMDb ID...');
     const imdbId = await resolveImdbId(tmdbId);
+    let details = null;
+    try {
+        const TMDB_API_KEY = getTmdbApiKey();
+        if (TMDB_API_KEY) {
+            const mediaType = item?.media_type || (item?.title ? 'movie' : 'tv');
+            const response = await fetch(`https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${TMDB_API_KEY}`);
+            if (response.ok) {
+                details = await response.json();
+                details.media_type = mediaType;
+            }
+        }
+    } catch (error) {
+        console.warn('Failed to fetch TMDB details:', error);
+    }
     showLoading(false);
     state.currentMeta = null;
+    const metaSource = details || item || {};
+    const runtime = details?.runtime || (Array.isArray(details?.episode_run_time) ? details.episode_run_time[0] : null);
     updateImdbRoute(imdbId);
     renderTmdbPlayer({
-        title: item?.title || item?.name || 'Movie',
-        posterPath: item?.poster_path,
-        releaseDate: item?.release_date,
-        imdbId
+        title: metaSource?.title || metaSource?.name || 'Movie',
+        posterPath: metaSource?.poster_path,
+        releaseDate: metaSource?.release_date || metaSource?.first_air_date,
+        imdbId,
+        backdropPath: metaSource?.backdrop_path,
+        overview: metaSource?.overview,
+        voteAverage: metaSource?.vote_average,
+        runtime,
+        mediaType: metaSource?.media_type
     });
     showView('player');
 }
@@ -852,7 +967,12 @@ async function openImdbRoute(imdbId) {
         title: `IMDb ${imdbId}`,
         posterPath: null,
         releaseDate: null,
-        imdbId
+        imdbId,
+        backdropPath: null,
+        overview: null,
+        voteAverage: null,
+        runtime: null,
+        mediaType: 'movie'
     });
     showView('player');
 }
@@ -1694,10 +1814,16 @@ function renderPlayerMeta(meta) {
     resetTmdbPlayer();
     const container = document.getElementById('playerMeta');
     if (!container) return;
-    container.innerHTML = `
-        <h1>${meta.title}</h1>
-        <p>${meta.synopsis || 'No synopsis available.'}</p>
-    `;
+    const metadataItems = [meta.year, meta.type, meta.runtime, meta.rating].filter(Boolean);
+    const posterUrl = meta.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E';
+    container.innerHTML = buildPlayerMetaMarkup({
+        title: meta.title,
+        posterUrl,
+        backdropUrl: posterUrl,
+        metadataItems,
+        overview: meta.synopsis
+    });
+    setupPlayerMetaInteractions(container);
 }
 
 function renderPlayerEpisodes(linkList, provider, type) {
