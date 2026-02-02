@@ -2,6 +2,40 @@
 const TMDBContentModule = {
     BASE_URL: 'https://api.themoviedb.org/3',
     IMAGE_BASE: 'https://image.tmdb.org/t/p',
+    SHEEDYS_PICKS_IMDB_IDS: [
+        'tt2872732',
+        'tt0816692',
+        'tt5727208',
+        'tt7939766',
+        'tt15398776',
+        'tt0443706',
+        'tt4332232',
+        'tt7131622',
+        'tt0409459',
+        'tt1210166',
+        'tt2005151',
+        'tt0118971',
+        'tt0133093',
+        'tt0949731',
+        'tt7923220',
+        'tt1711425',
+        'tt26581740',
+        'tt27714946',
+        'tt0280590',
+        'tt3011894',
+        'tt2977158',
+        'tt0765010',
+        'tt0209144',
+        'tt9495224',
+        'tt0945513',
+        'tt0808279',
+        'tt0364569',
+        'tt8228288',
+        'tt7917178',
+        'tt0356150',
+        'tt0349903',
+        'tt1392214'
+    ],
 
     getApiKey() {
         return window.TMDBConfig?.ensureApiKey?.() || '';
@@ -47,6 +81,59 @@ const TMDBContentModule = {
     // Fetch popular movies
     async getPopularMovies() {
         return this.fetchMovies('/movie/popular');
+    },
+
+    shuffleItems(items) {
+        const shuffled = [...items];
+        for (let i = shuffled.length - 1; i > 0; i -= 1) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+    },
+
+    async fetchMovieByImdbId(imdbId) {
+        const apiKey = this.getApiKey();
+        if (!apiKey) {
+            throw new Error('TMDB API key missing');
+        }
+        const response = await fetch(`${this.BASE_URL}/find/${imdbId}?api_key=${apiKey}&external_source=imdb_id`);
+        if (!response.ok) {
+            throw new Error(`TMDB request failed: ${response.status}`);
+        }
+        const data = await response.json();
+        const movie = (data.movie_results || [])[0];
+        return movie ? this.normalizeMovie(movie) : null;
+    },
+
+    async getSheedysPicks() {
+        const picks = await Promise.all(
+            this.SHEEDYS_PICKS_IMDB_IDS.map(async imdbId => {
+                try {
+                    const movie = await this.fetchMovieByImdbId(imdbId);
+                    return movie || {
+                        tmdb_id: null,
+                        title: `IMDb ${imdbId}`,
+                        poster_path: null,
+                        release_date: null,
+                        vote_average: null,
+                        imdb_id: imdbId
+                    };
+                } catch (error) {
+                    console.warn('Failed to fetch Sheedy pick:', imdbId, error);
+                    return {
+                        tmdb_id: null,
+                        title: `IMDb ${imdbId}`,
+                        poster_path: null,
+                        release_date: null,
+                        vote_average: null,
+                        imdb_id: imdbId
+                    };
+                }
+            })
+        );
+
+        return this.shuffleItems(picks);
     },
 
     // Fetch now playing movies
@@ -373,6 +460,25 @@ const TMDBContentModule = {
         try {
             let url = '';
             const { type, endpoint, region } = this.currentSection;
+            if (endpoint === 'sheedys_picks') {
+                const items = await this.getSheedysPicks();
+                grid.innerHTML = '';
+                items.forEach(item => {
+                    const card = window.renderPostCard({
+                        title: item.title || item.name,
+                        image: this.getPosterUrl(item.poster_path),
+                        link: item.tmdb_id ? item.tmdb_id.toString() : item.id?.toString()
+                    }, 'tmdb');
+                    
+                    card.onclick = () => this.showTMDBDetails(item, type);
+                    grid.appendChild(card);
+                });
+                if (pagination) {
+                    pagination.innerHTML = '';
+                }
+                this.currentSection.page = 1;
+                return;
+            }
             
             const apiKey = this.getApiKey();
             if (!apiKey) {
@@ -480,7 +586,7 @@ const TMDBContentModule = {
         try {
             const [
                 trendingMovies,
-                popularMovies,
+                sheedysPicks,
                 nowPlaying,
                 nostalgiaMovies,
                 horrorMovies,
@@ -488,7 +594,7 @@ const TMDBContentModule = {
                 actionAdventureMovies
             ] = await Promise.all([
                 this.getTrendingMovies(),
-                this.getPopularMovies(),
+                this.getSheedysPicks(),
                 this.getNowPlayingMovies(),
                 this.getNostalgiaMovies(),
                 this.getHorrorMovies(),
@@ -499,7 +605,7 @@ const TMDBContentModule = {
             // Render sections with endpoint info for pagination
             const sections = [
                 { title: '🔥 Trending Now', items: trendingMovies, type: 'movie', endpoint: 'trending', region: '' },
-                { title: '✨ Popular Picks', items: popularMovies, type: 'movie', endpoint: 'popular', region: '' },
+                { title: "✨ Sheedy's Picks", items: sheedysPicks, type: 'movie', endpoint: 'sheedys_picks', region: '' },
                 { title: '🎬 Now Playing in Theaters', items: nowPlaying, type: 'movie', endpoint: 'now_playing', region: '' },
                 { title: '🕰️ Nostalgia', items: nostalgiaMovies, type: 'movie', endpoint: 'discover', region: '' },
                 { title: '👻 Horror After Dark', items: horrorMovies, type: 'movie', endpoint: 'discover', region: '' },
