@@ -2319,6 +2319,59 @@ select:focus {
     }
 }
 
+@media (min-width: 1400px) {
+    .explore-shell {
+        gap: 64px;
+    }
+
+    .explore-hero {
+        padding: 56px;
+        gap: 48px;
+    }
+
+    .explore-hero-content h1 {
+        font-size: 60px;
+    }
+
+    .explore-subtitle {
+        font-size: 22px;
+        max-width: 640px;
+    }
+
+    .explore-hero-panel {
+        padding: 36px;
+    }
+
+    .explore-hero-panel-inner {
+        grid-template-columns: minmax(0, 180px) minmax(0, 1fr);
+        gap: 22px;
+    }
+
+    .explore-hero-cover {
+        width: 180px;
+    }
+
+    .explore-hero-panel h2 {
+        font-size: 38px;
+    }
+
+    .explore-spotlight-title {
+        font-size: 24px;
+    }
+
+    .explore-curated-header h2 {
+        font-size: 36px;
+    }
+
+    .explore-collection {
+        padding: 30px;
+    }
+
+    .explore-collection-title {
+        font-size: 28px;
+    }
+}
+
 /* Genre Count Badge */
 .genre-count {
     display: inline-block;

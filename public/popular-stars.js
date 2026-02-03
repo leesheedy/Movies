@@ -87,6 +87,11 @@ const PopularStarsModule = {
                 </div>
             </div>
         `;
+
+        const scrollContainer = starsSection.querySelector('.popular-stars-scroll-container');
+        if (window.enableEdgeScroll) {
+            window.enableEdgeScroll(scrollContainer);
+        }
     },
 
     openViewAllPage() {

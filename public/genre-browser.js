@@ -75,6 +75,11 @@ const GenreBrowserModule = {
                 </div>
             </div>
         `;
+
+        const scrollContainer = genreSection.querySelector('.genre-cards-scroll-container');
+        if (window.enableEdgeScroll) {
+            window.enableEdgeScroll(scrollContainer);
+        }
     },
 
     getGenreImage(genreName) {

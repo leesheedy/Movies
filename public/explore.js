@@ -541,6 +541,9 @@ const ExploreModule = {
 
         const scrollContainer = document.createElement('div');
         scrollContainer.className = 'netflix-scroll-container explore-collection-scroll';
+        if (window.enableEdgeScroll) {
+            window.enableEdgeScroll(scrollContainer);
+        }
 
         const row = document.createElement('div');
         row.className = 'netflix-row';
