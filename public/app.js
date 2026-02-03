@@ -612,12 +612,22 @@ const adBlockConfig = {
     ],
     elementSelectors: [
         '[id^="ad-"]',
-        '[id*=" ad-"]',
-        '[id*="ads"]',
+        '[id^="ads-"]',
+        '[id$="-ad"]',
+        '[id$="-ads"]',
+        '[id*="-ad-"]',
+        '[id*="-ads-"]',
         '[id*="sponsor"]',
         '[class^="ad-"]',
+        '[class^="ads-"]',
+        '[class$="-ad"]',
+        '[class$="-ads"]',
         '[class*=" ad-"]',
-        '[class*="ads"]',
+        '[class*=" ads-"]',
+        '[class*="-ad-"]',
+        '[class*="-ads-"]',
+        '[class~="ad"]',
+        '[class~="ads"]',
         '[class*="sponsor"]',
         '[class*="banner"]',
         '[class*="promo"]',
@@ -704,7 +714,7 @@ function matchRule(rule, url) {
             return false;
         }
     }
-    const escaped = cleaned.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+    const escaped = cleaned.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(escaped.replace(/\\\*/g, '.*').replace(/\\\^/g, '(?:$|[\\/?#:&=])'), 'i');
     return regex.test(url);
 }
