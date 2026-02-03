@@ -12,6 +12,7 @@ const ExploreModule = {
         spotlightMuted: true,
         spotlightTrailerPaused: false,
         spotlightTrailerSrc: '',
+        spotlightCollections: [],
         spotlightObserver: null,
         spotlightScrollHandler: null,
     },
@@ -128,6 +129,10 @@ const ExploreModule = {
                                         <span class="explore-spotlight-audio-icon">🔈</span>
                                         <span class="explore-spotlight-audio-label">Sound On</span>
                                     </button>
+                                    <button class="explore-spotlight-shuffle-btn" id="exploreSpotlightShuffleBtn" type="button">
+                                        <span class="explore-spotlight-shuffle-icon">🔀</span>
+                                        Shuffle
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -235,15 +240,17 @@ const ExploreModule = {
         const movieTitle = document.getElementById('exploreSpotlightTitle');
         const playButton = document.getElementById('exploreSpotlightBtn');
         const audioButton = document.getElementById('exploreSpotlightAudioBtn');
+        const shuffleButton = document.getElementById('exploreSpotlightShuffleBtn');
         const posterImage = document.getElementById('exploreSpotlightPoster');
         const backdrop = document.getElementById('exploreSpotlightBackdrop');
         const videoFrame = document.getElementById('exploreSpotlightVideo');
         const spotlightPanel = document.getElementById('exploreSpotlightPanel');
         const videoHost = document.getElementById('exploreSpotlightVideoHost');
 
-        if (!collectionTitle || !movieTitle || !playButton || !audioButton || !posterImage || !backdrop || !videoFrame || !spotlightPanel || !videoHost) return;
+        if (!collectionTitle || !movieTitle || !playButton || !audioButton || !shuffleButton || !posterImage || !backdrop || !videoFrame || !spotlightPanel || !videoHost) return;
 
         this.state.spotlightMuted = this.getSpotlightMutedPreference();
+        this.state.spotlightCollections = collections;
 
         const availableCollections = collections.filter(collection => collection.items && collection.items.length > 0);
         if (availableCollections.length === 0) {
@@ -251,6 +258,7 @@ const ExploreModule = {
             movieTitle.textContent = 'No featured picks available right now.';
             playButton.disabled = true;
             audioButton.disabled = true;
+            shuffleButton.disabled = true;
             audioButton.setAttribute('aria-pressed', 'false');
             audioButton.classList.remove('is-active');
             posterImage.src = '';
@@ -269,6 +277,7 @@ const ExploreModule = {
         collectionTitle.textContent = collection.title;
         movieTitle.textContent = itemTitle;
         playButton.disabled = false;
+        shuffleButton.disabled = false;
 
         const poster = item?.customPoster || window.TMDBContentModule?.getPosterUrl?.(item?.poster_path);
         posterImage.src = poster || '';
@@ -298,6 +307,10 @@ const ExploreModule = {
             if (item?.imdb_id) {
                 window.open(`https://www.imdb.com/title/${item.imdb_id}/`, '_blank', 'noopener');
             }
+        };
+        shuffleButton.onclick = () => {
+            if (!this.state.spotlightCollections?.length) return;
+            this.updateSpotlight({ collections: this.state.spotlightCollections });
         };
 
         if (item?.tmdb_id && window.TMDBContentModule?.fetchTrailerKey) {
@@ -401,17 +414,23 @@ const ExploreModule = {
     pauseSpotlightTrailer(videoFrame) {
         if (this.state.spotlightTrailerPaused) return;
         this.state.spotlightTrailerPaused = true;
-        if (videoFrame) {
-            videoFrame.src = 'about:blank';
-        }
+        this.sendSpotlightPlayerCommand(videoFrame, 'pauseVideo');
     },
 
     resumeSpotlightTrailer(videoFrame) {
         if (!this.state.spotlightTrailerPaused) return;
         this.state.spotlightTrailerPaused = false;
-        if (videoFrame && this.state.spotlightTrailerSrc) {
-            videoFrame.src = this.state.spotlightTrailerSrc;
-        }
+        this.sendSpotlightPlayerCommand(videoFrame, 'playVideo');
+    },
+
+    sendSpotlightPlayerCommand(videoFrame, command) {
+        if (!videoFrame || !videoFrame.contentWindow) return;
+        const message = JSON.stringify({
+            event: 'command',
+            func: command,
+            args: []
+        });
+        videoFrame.contentWindow.postMessage(message, '*');
     },
 
     async getDigbysFlix() {
