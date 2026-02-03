@@ -44,6 +44,7 @@ const cacheStore = {
 const TMDB_IMDB_CACHE_KEY = 'tmdb_imdb_cache_v1';
 const tmdbImdbCache = new Map();
 const PROFILE_STORAGE_KEY = 'mitta_active_profile_v1';
+const PROFILE_SETTINGS_KEY = 'mitta_profile_settings_v1';
 const profiles = [
     { id: 'guest', name: 'Guest', avatar: 'G' },
     { id: 'digby', name: 'Digby', avatar: 'D' },
@@ -52,6 +53,47 @@ const profiles = [
     { id: 'issy', name: 'Issy', avatar: 'I' },
     { id: 'renee', name: 'Renee', avatar: 'R' }
 ];
+const profileSettings = loadProfileSettings();
+let activeProfileId = null;
+
+function loadProfileSettings() {
+    try {
+        const raw = localStorage.getItem(PROFILE_SETTINGS_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (error) {
+        console.warn('Failed to load profile settings:', error);
+        return {};
+    }
+}
+
+function saveProfileSettings() {
+    try {
+        localStorage.setItem(PROFILE_SETTINGS_KEY, JSON.stringify(profileSettings));
+    } catch (error) {
+        console.warn('Failed to save profile settings:', error);
+    }
+}
+
+function resolveProfile(profile) {
+    const settings = profileSettings[profile.id] || {};
+    return {
+        ...profile,
+        name: settings.name || profile.name,
+        avatar: settings.avatar || profile.avatar,
+        accentColor: settings.accentColor || ''
+    };
+}
+
+function updateProfileAccent(profile) {
+    const accent = profile.accentColor || '';
+    if (accent) {
+        document.documentElement.style.setProperty('--profile-accent', accent);
+    } else {
+        document.documentElement.style.removeProperty('--profile-accent');
+    }
+}
 
 function getAestDateParts() {
     const formatter = new Intl.DateTimeFormat('en-AU', {
@@ -102,12 +144,14 @@ function saveActiveProfile(profileId) {
 function applyProfile(profile) {
     const profileName = document.getElementById('profileName');
     const profileAvatar = document.getElementById('profileAvatar');
+    const resolved = resolveProfile(profile);
     if (profileName) {
-        profileName.textContent = profile.name;
+        profileName.textContent = resolved.name;
     }
     if (profileAvatar) {
-        profileAvatar.textContent = profile.avatar;
+        profileAvatar.textContent = resolved.avatar;
     }
+    updateProfileAccent(resolved);
 }
 
 function renderProfileGate(profile, gate) {
@@ -115,36 +159,109 @@ function renderProfileGate(profile, gate) {
     if (!profileList) return;
     profileList.innerHTML = '';
     profiles.forEach(item => {
-        const card = document.createElement('button');
-        card.type = 'button';
+        const resolved = resolveProfile(item);
+        const card = document.createElement('div');
         card.className = 'profile-card';
         card.setAttribute('data-profile-id', item.id);
+
+        const selectButton = document.createElement('button');
+        selectButton.type = 'button';
+        selectButton.className = 'profile-card-button';
         if (item.id === profile.id) {
-            card.setAttribute('aria-pressed', 'true');
+            selectButton.setAttribute('aria-pressed', 'true');
         }
-        card.innerHTML = `
-            <div class="profile-card-avatar">${item.avatar}</div>
-            <div class="profile-card-name">${item.name}</div>
+        selectButton.innerHTML = `
+            <div class="profile-card-avatar">${resolved.avatar}</div>
+            <div class="profile-card-name">${resolved.name}</div>
         `;
-        card.addEventListener('click', () => {
+        selectButton.addEventListener('click', () => {
             saveActiveProfile(item.id);
+            activeProfileId = item.id;
             applyProfile(item);
             gate.setAttribute('hidden', 'true');
+            setSettingsTriggerVisibility(true);
         });
+
+        card.appendChild(selectButton);
         profileList.appendChild(card);
     });
+}
+
+function openProfileSettings(profileId) {
+    const modal = document.getElementById('profileSettingsModal');
+    const form = document.getElementById('profileSettingsForm');
+    const displayNameInput = document.getElementById('profileDisplayName');
+    const avatarInput = document.getElementById('profileAvatarInput');
+    const accentInput = document.getElementById('profileAccent');
+    const autoplayInput = document.getElementById('profileAutoplay');
+    const subtitleInput = document.getElementById('profileSubtitleSize');
+    const audioInput = document.getElementById('profileAudioLang');
+    const maturityInput = document.getElementById('profileMaturity');
+    if (!modal || !form || !displayNameInput || !avatarInput || !accentInput || !autoplayInput) return;
+
+    const baseProfile = profiles.find(item => item.id === profileId);
+    if (!baseProfile) return;
+    const resolved = resolveProfile(baseProfile);
+    const settings = profileSettings[profileId] || {};
+
+    form.setAttribute('data-profile-id', profileId);
+    displayNameInput.value = resolved.name;
+    avatarInput.value = resolved.avatar;
+    accentInput.value = settings.accentColor || '#e50914';
+    autoplayInput.value = settings.autoplay || 'on';
+    if (subtitleInput) {
+        subtitleInput.value = settings.subtitleSize || 'medium';
+    }
+    if (audioInput) {
+        audioInput.value = settings.audioLang || 'en';
+    }
+    if (maturityInput) {
+        maturityInput.value = settings.maturity || 'all';
+    }
+
+    modal.removeAttribute('hidden');
+    displayNameInput.focus();
+}
+
+function closeProfileSettings() {
+    const modal = document.getElementById('profileSettingsModal');
+    if (modal) {
+        modal.setAttribute('hidden', 'true');
+    }
+}
+
+function normaliseAvatar(value, fallback) {
+    const trimmed = value.trim();
+    if (trimmed) {
+        return trimmed.slice(0, 2).toUpperCase();
+    }
+    return fallback;
+}
+
+function setSettingsTriggerVisibility(visible) {
+    const trigger = document.getElementById('profileSettingsTrigger');
+    if (!trigger) return;
+    if (visible) {
+        trigger.removeAttribute('hidden');
+    } else {
+        trigger.setAttribute('hidden', 'true');
+    }
 }
 
 function initProfileGate() {
     const gate = document.getElementById('profileGate');
     if (!gate) return;
     const activeProfile = loadActiveProfile();
+    activeProfileId = activeProfile.id;
     applyProfile(activeProfile);
     renderProfileGate(activeProfile, gate);
-    if (!localStorage.getItem(PROFILE_STORAGE_KEY)) {
+    const hasStoredProfile = Boolean(localStorage.getItem(PROFILE_STORAGE_KEY));
+    setSettingsTriggerVisibility(hasStoredProfile);
+    if (!hasStoredProfile) {
         gate.removeAttribute('hidden');
     }
     const profileChip = document.getElementById('profileChip');
+    const settingsTrigger = document.getElementById('profileSettingsTrigger');
     if (profileChip) {
         profileChip.addEventListener('click', () => {
             const selected = loadActiveProfile();
@@ -153,11 +270,99 @@ function initProfileGate() {
             gate.removeAttribute('hidden');
         });
     }
+    if (settingsTrigger) {
+        settingsTrigger.addEventListener('click', () => {
+            if (!activeProfileId) return;
+            openProfileSettings(activeProfileId);
+        });
+    }
     gate.addEventListener('click', (event) => {
         if (event.target === gate) {
             gate.setAttribute('hidden', 'true');
         }
     });
+
+    const modal = document.getElementById('profileSettingsModal');
+    const closeButton = document.getElementById('profileSettingsClose');
+    const resetButton = document.getElementById('profileSettingsReset');
+    const settingsForm = document.getElementById('profileSettingsForm');
+
+    if (closeButton) {
+        closeButton.addEventListener('click', closeProfileSettings);
+    }
+
+    if (modal) {
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closeProfileSettings();
+            }
+        });
+    }
+
+    if (resetButton) {
+        resetButton.addEventListener('click', () => {
+            if (!settingsForm) return;
+            const profileId = settingsForm.getAttribute('data-profile-id');
+            if (!profileId) return;
+            delete profileSettings[profileId];
+            saveProfileSettings();
+            const baseProfile = profiles.find(item => item.id === profileId);
+            if (baseProfile && profileId === activeProfileId) {
+                applyProfile(baseProfile);
+            }
+            const selected = loadActiveProfile();
+            renderProfileGate(selected, gate);
+            closeProfileSettings();
+        });
+    }
+
+    if (settingsForm) {
+        settingsForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const profileId = settingsForm.getAttribute('data-profile-id');
+            if (!profileId) return;
+            const baseProfile = profiles.find(item => item.id === profileId);
+            if (!baseProfile) return;
+
+            const displayNameInput = document.getElementById('profileDisplayName');
+            const avatarInput = document.getElementById('profileAvatarInput');
+            const accentInput = document.getElementById('profileAccent');
+            const autoplayInput = document.getElementById('profileAutoplay');
+            const subtitleInput = document.getElementById('profileSubtitleSize');
+            const audioInput = document.getElementById('profileAudioLang');
+            const maturityInput = document.getElementById('profileMaturity');
+
+            const displayName = displayNameInput ? displayNameInput.value.trim() : '';
+            const avatarValue = avatarInput ? avatarInput.value : '';
+            const accentColor = accentInput ? accentInput.value : '';
+            const autoplay = autoplayInput ? autoplayInput.value : 'on';
+            const subtitleSize = subtitleInput ? subtitleInput.value : 'medium';
+            const audioLang = audioInput ? audioInput.value : 'en';
+            const maturity = maturityInput ? maturityInput.value : 'all';
+
+            const resolvedName = displayName || baseProfile.name;
+            const resolvedAvatar = normaliseAvatar(avatarValue, baseProfile.avatar);
+
+            profileSettings[profileId] = {
+                name: resolvedName,
+                avatar: resolvedAvatar,
+                accentColor,
+                autoplay,
+                subtitleSize,
+                audioLang,
+                maturity
+            };
+            saveProfileSettings();
+
+            if (profileId === activeProfileId) {
+                applyProfile(baseProfile);
+            }
+
+            const selected = loadActiveProfile();
+            renderProfileGate(selected, gate);
+            closeProfileSettings();
+        });
+    }
 }
 
 function loadTmdbImdbCache() {
