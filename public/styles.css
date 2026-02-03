@@ -1945,6 +1945,51 @@ body[data-theme="newyear"] .seasonal-decor .decor-newyear {
     }
 }
 
+@media (max-width: 900px) {
+    .header-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+        height: auto;
+        padding-top: 16px;
+        padding-bottom: 16px;
+    }
+
+    .header-left,
+    .header-right {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .header-right {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .main-nav {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .search-icon-container {
+        flex: 1 1 100%;
+        min-width: min(100%, 360px);
+    }
+
+    .search-input-header {
+        width: 100%;
+    }
+
+    .search-input-header:focus {
+        width: 100%;
+    }
+
+    .provider-select-compact {
+        flex: 1 1 160px;
+        min-width: 160px;
+    }
+}
+
 @media (max-width: 768px) {
     .header-container {
         padding: 0 20px;
@@ -2778,12 +2823,99 @@ select:focus {
         padding: 28px;
     }
 
+    .explore-hero-panel {
+        padding: 22px;
+    }
+
+    .explore-hero-panel-inner {
+        grid-template-columns: minmax(0, 120px) minmax(0, 1fr);
+        align-items: center;
+    }
+
     .explore-hero-content h1 {
         font-size: 36px;
     }
 
     .explore-curated-header h2 {
         font-size: 26px;
+    }
+}
+
+@media (max-width: 640px) {
+    .explore-hero {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        padding: 24px;
+    }
+
+    .explore-hero-content {
+        order: 2;
+    }
+
+    .explore-hero-panel {
+        order: 1;
+    }
+
+    .explore-hero-panel-inner {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        text-align: center;
+    }
+
+    .explore-hero-cover {
+        width: 120px;
+        margin: 0 auto;
+    }
+
+    .explore-spotlight-controls {
+        justify-content: center;
+    }
+
+    .explore-spotlight-btn,
+    .explore-spotlight-audio-btn,
+    .explore-spotlight-shuffle-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .explore-hero-video-primary {
+        max-height: 220px;
+    }
+
+    .explore-curated-header h2 {
+        font-size: 24px;
+    }
+
+    .explore-collection {
+        padding: 18px;
+    }
+
+    .explore-collection-title {
+        font-size: 20px;
+    }
+}
+
+@media (max-height: 820px) and (min-width: 900px) {
+    .explore-hero {
+        padding: 28px;
+        gap: 24px;
+    }
+
+    .explore-hero-video-primary {
+        max-height: 360px;
+    }
+
+    .explore-hero-panel {
+        padding: 22px;
+    }
+
+    .explore-hero-panel-inner {
+        grid-template-columns: minmax(0, 120px) minmax(0, 1fr);
+    }
+
+    .explore-hero-panel h2 {
+        font-size: 28px;
     }
 }
 
