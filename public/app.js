@@ -598,6 +598,10 @@ function initAdBlocker() {
         if (isExternalUrl(normalizedUrl)) {
             const allowedByUser = consumeExternalNavigationAllowance();
             const fromEmbed = Date.now() - lastEmbedInteractionAt < 1500;
+            if (fromEmbed) {
+                console.warn(`🛑 Adblock: blocked embed ${context}`, normalizedUrl);
+                return { allowed: false, normalizedUrl, soften: context === 'popup' };
+            }
             if (!allowedByUser) {
                 console.warn(`🛑 Adblock: blocked external ${context}`, normalizedUrl);
                 return { allowed: false, normalizedUrl, soften: fromEmbed && context === 'popup' };
