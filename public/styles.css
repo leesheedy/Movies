@@ -27,6 +27,114 @@ body {
         radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.08), transparent 35%);
 }
 
+/* Seasonal Themes */
+body[data-theme="valentines"] {
+    --primary-color: #ff4d8d;
+    --secondary-color: #190a12;
+    --bg-dark: #0e070b;
+    --bg-card: #241017;
+    --text-color: #ffe7f1;
+    --text-muted: #f3b5cc;
+    --accent-glow: rgba(255, 77, 141, 0.55);
+    --bg-hover: rgba(255, 255, 255, 0.2);
+    background-image: radial-gradient(circle at 10% 20%, rgba(255, 77, 141, 0.35), transparent 45%),
+        radial-gradient(circle at 80% 10%, rgba(255, 170, 200, 0.2), transparent 40%);
+}
+
+body[data-theme="christmas"] {
+    --primary-color: #d91c2b;
+    --secondary-color: #07160f;
+    --bg-dark: #050d09;
+    --bg-card: #0f2418;
+    --text-color: #e9fff5;
+    --text-muted: #b2d4c1;
+    --accent-glow: rgba(217, 28, 43, 0.45);
+    --bg-hover: rgba(255, 255, 255, 0.18);
+    background-image: radial-gradient(circle at 15% 15%, rgba(14, 94, 54, 0.45), transparent 45%),
+        radial-gradient(circle at 80% 20%, rgba(217, 28, 43, 0.25), transparent 50%);
+}
+
+body[data-theme="newyear"] {
+    --primary-color: #f7c948;
+    --secondary-color: #0b1022;
+    --bg-dark: #060914;
+    --bg-card: #151c35;
+    --text-color: #f6f5ff;
+    --text-muted: #c6c8e0;
+    --accent-glow: rgba(247, 201, 72, 0.45);
+    --bg-hover: rgba(255, 255, 255, 0.2);
+    background-image: radial-gradient(circle at 20% 20%, rgba(247, 201, 72, 0.25), transparent 45%),
+        radial-gradient(circle at 85% 15%, rgba(123, 184, 255, 0.25), transparent 45%);
+}
+
+body[data-theme="halloween"] {
+    --primary-color: #ff7a1a;
+    --secondary-color: #130712;
+    --bg-dark: #09040a;
+    --bg-card: #1f0f24;
+    --text-color: #ffe7d6;
+    --text-muted: #f2b48c;
+    --accent-glow: rgba(255, 122, 26, 0.55);
+    --bg-hover: rgba(255, 255, 255, 0.22);
+    background-image: radial-gradient(circle at 10% 15%, rgba(142, 68, 173, 0.45), transparent 45%),
+        radial-gradient(circle at 85% 20%, rgba(255, 122, 26, 0.35), transparent 40%),
+        radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.08), transparent 35%);
+}
+
+.seasonal-decor {
+    position: relative;
+    display: block;
+    min-height: 140px;
+    margin-bottom: 12px;
+    pointer-events: none;
+}
+
+.seasonal-decor .decor {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 12px 8px;
+    color: var(--primary-color);
+    opacity: 0.9;
+}
+
+.seasonal-decor .decor-icon {
+    width: 80px;
+    height: 80px;
+    filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.35));
+}
+
+.seasonal-decor .decor-icon-lg {
+    width: 120px;
+    height: 120px;
+}
+
+body[data-theme="halloween"] .seasonal-decor .decor-halloween,
+body[data-theme="valentines"] .seasonal-decor .decor-valentines,
+body[data-theme="christmas"] .seasonal-decor .decor-christmas,
+body[data-theme="newyear"] .seasonal-decor .decor-newyear {
+    display: flex;
+}
+
+body[data-theme="halloween"] .seasonal-decor .decor-halloween {
+    color: #ff8a24;
+}
+
+body[data-theme="valentines"] .seasonal-decor .decor-valentines {
+    color: #ff6fa7;
+}
+
+body[data-theme="christmas"] .seasonal-decor .decor-christmas {
+    color: #c7ffe3;
+}
+
+body[data-theme="newyear"] .seasonal-decor .decor-newyear {
+    color: #f7d26a;
+}
+
 .container {
     max-width: min(1800px, 96vw);
     margin: 0 auto;

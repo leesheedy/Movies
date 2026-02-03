@@ -53,6 +53,41 @@ const profiles = [
     { id: 'renee', name: 'Renee', avatar: 'R' }
 ];
 
+function getAestDateParts() {
+    const formatter = new Intl.DateTimeFormat('en-AU', {
+        timeZone: 'Australia/Sydney',
+        month: 'numeric',
+        day: 'numeric'
+    });
+    const parts = formatter.formatToParts(new Date());
+    const lookup = parts.reduce((acc, part) => {
+        if (part.type !== 'literal') {
+            acc[part.type] = Number(part.value);
+        }
+        return acc;
+    }, {});
+    return { month: lookup.month, day: lookup.day };
+}
+
+function resolveSeasonalTheme() {
+    const { month, day } = getAestDateParts();
+    if (month === 2 && day === 14) return 'valentines';
+    if (month === 10 && day === 31) return 'halloween';
+    if (month === 12 && day >= 24 && day <= 26) return 'christmas';
+    if ((month === 12 && day === 31) || (month === 1 && day === 1)) return 'newyear';
+    return null;
+}
+
+function applySeasonalTheme() {
+    const theme = resolveSeasonalTheme();
+    if (!document.body) return;
+    if (theme) {
+        document.body.setAttribute('data-theme', theme);
+    } else {
+        document.body.removeAttribute('data-theme');
+    }
+}
+
 function loadActiveProfile() {
     const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
     if (!raw) return profiles[0];
@@ -2998,6 +3033,7 @@ async function loadPlayer(provider, link, type, options = {}) {
 async function init() {
     console.log('🎬 Vega Providers Web Player Initialized');
 
+    applySeasonalTheme();
     initAdBlocker();
     loadTmdbImdbCache();
     initProfileGate();
