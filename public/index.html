@@ -20,6 +20,67 @@
                 <p class="profile-gate-footer">You can switch profiles any time from the header.</p>
             </div>
         </div>
+        <div id="profileSettingsModal" class="profile-settings-modal" role="dialog" aria-modal="true" aria-labelledby="profileSettingsTitle" hidden>
+            <div class="profile-settings-content">
+                <div class="profile-settings-header">
+                    <h3 id="profileSettingsTitle" class="profile-settings-title">Profile settings</h3>
+                    <button id="profileSettingsClose" class="profile-settings-close" type="button" aria-label="Close profile settings">✕</button>
+                </div>
+                <form id="profileSettingsForm">
+                    <div class="profile-settings-grid">
+                        <div class="profile-settings-field">
+                            <label for="profileDisplayName">Display name</label>
+                            <input id="profileDisplayName" name="displayName" type="text" maxlength="16" autocomplete="off" />
+                        </div>
+                        <div class="profile-settings-field">
+                            <label for="profileAvatarInput">Avatar initials</label>
+                            <input id="profileAvatarInput" name="avatar" type="text" maxlength="2" autocomplete="off" />
+                        </div>
+                        <div class="profile-settings-field">
+                            <label for="profileAccent">Accent colour</label>
+                            <input id="profileAccent" name="accentColor" type="color" />
+                        </div>
+                        <div class="profile-settings-field">
+                            <label for="profileAutoplay">Autoplay trailers</label>
+                            <select id="profileAutoplay" name="autoplay">
+                                <option value="on">On</option>
+                                <option value="off">Off</option>
+                            </select>
+                        </div>
+                        <div class="profile-settings-field">
+                            <label for="profileSubtitleSize">Subtitle size</label>
+                            <select id="profileSubtitleSize" name="subtitleSize">
+                                <option value="small">Small</option>
+                                <option value="medium">Medium</option>
+                                <option value="large">Large</option>
+                            </select>
+                        </div>
+                        <div class="profile-settings-field">
+                            <label for="profileAudioLang">Audio language</label>
+                            <select id="profileAudioLang" name="audioLang">
+                                <option value="en">English</option>
+                                <option value="es">Spanish</option>
+                                <option value="fr">French</option>
+                                <option value="de">German</option>
+                            </select>
+                        </div>
+                        <div class="profile-settings-field">
+                            <label for="profileMaturity">Maturity rating</label>
+                            <select id="profileMaturity" name="maturity">
+                                <option value="all">All titles</option>
+                                <option value="pg">PG</option>
+                                <option value="m">M</option>
+                                <option value="ma15">MA15+</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="profile-settings-actions">
+                        <button id="profileSettingsReset" class="profile-settings-reset" type="button">Reset</button>
+                        <button class="profile-settings-save" type="submit">Save changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
         <!-- Header -->
         <header class="header">
             <div class="header-container">
@@ -50,10 +111,18 @@
                     <select id="providerSelect" class="provider-select-compact">
                         <option value="vidsrc">Vidsrc (IMDB)</option>
                     </select>
-                    <button id="profileChip" class="profile-chip" type="button" aria-label="Profile">
-                        <span id="profileAvatar" class="profile-avatar">G</span>
-                        <span id="profileName" class="profile-name">Guest</span>
-                    </button>
+                    <div class="profile-controls">
+                        <button id="profileChip" class="profile-chip" type="button" aria-label="Profile">
+                            <span id="profileAvatar" class="profile-avatar">G</span>
+                            <span id="profileName" class="profile-name">Guest</span>
+                        </button>
+                        <button id="profileSettingsTrigger" class="profile-settings-trigger" type="button" aria-label="Profile settings" hidden>
+                            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3 1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8 1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
         </header>

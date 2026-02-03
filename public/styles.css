@@ -16,6 +16,7 @@
     --bg-hover: rgba(255, 255, 255, 0.15);
     --glass-bg: rgba(10, 10, 10, 0.7);
     --accent-glow: rgba(229, 9, 20, 0.45);
+    --profile-accent: var(--primary-color);
 }
 
 body {
@@ -720,6 +721,12 @@ body[data-theme="newyear"] .seasonal-decor .decor-newyear {
     transition: background-color 0.3s;
 }
 
+.profile-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .profile-chip {
     display: inline-flex;
     align-items: center;
@@ -727,7 +734,7 @@ body[data-theme="newyear"] .seasonal-decor .decor-newyear {
     padding: 4px 12px 4px 6px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid color-mix(in srgb, var(--profile-accent) 45%, rgba(255, 255, 255, 0.12));
     font-size: 12px;
     color: var(--text-color);
     cursor: pointer;
@@ -749,6 +756,32 @@ body[data-theme="newyear"] .seasonal-decor .decor-newyear {
     align-items: center;
     justify-content: center;
     font-weight: 700;
+}
+
+.profile-settings-trigger {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(10, 10, 10, 0.65);
+    color: var(--text-color);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.profile-settings-trigger:hover,
+.profile-settings-trigger:focus-visible {
+    border-color: color-mix(in srgb, var(--profile-accent) 60%, rgba(255, 255, 255, 0.2));
+    background: rgba(18, 18, 18, 0.9);
+    transform: scale(1.02);
+}
+
+.profile-settings-trigger svg {
+    width: 16px;
+    height: 16px;
 }
 
 .profile-gate {
@@ -803,6 +836,7 @@ body[data-theme="newyear"] .seasonal-decor .decor-newyear {
 }
 
 .profile-card {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -812,15 +846,31 @@ body[data-theme="newyear"] .seasonal-decor .decor-newyear {
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.05);
     color: var(--text-color);
+}
+
+.profile-card-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: inherit;
     cursor: pointer;
     transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
 .profile-card:hover,
-.profile-card:focus-visible {
+.profile-card:focus-within {
     transform: translateY(-4px);
     border-color: rgba(255, 255, 255, 0.25);
     background: rgba(255, 255, 255, 0.12);
+}
+
+.profile-card-button:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--profile-accent) 70%, transparent);
+    outline-offset: 4px;
 }
 
 .profile-card-avatar {
@@ -832,12 +882,108 @@ body[data-theme="newyear"] .seasonal-decor .decor-newyear {
     justify-content: center;
     font-size: 28px;
     font-weight: 700;
-    background: rgba(255, 255, 255, 0.16);
+    background: color-mix(in srgb, var(--profile-accent) 35%, rgba(255, 255, 255, 0.1));
 }
 
 .profile-card-name {
     font-size: 14px;
     font-weight: 600;
+}
+
+.profile-settings-modal {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1000;
+}
+
+.profile-settings-modal[hidden] {
+    display: none;
+}
+
+.profile-settings-content {
+    width: min(520px, 92vw);
+    background: rgba(20, 20, 20, 0.98);
+    border-radius: 22px;
+    padding: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.55);
+    text-align: left;
+}
+
+.profile-settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.profile-settings-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+}
+
+.profile-settings-close {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.profile-settings-grid {
+    display: grid;
+    gap: 16px;
+}
+
+.profile-settings-field label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.profile-settings-field input,
+.profile-settings-field select {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(8, 8, 8, 0.8);
+    padding: 10px 12px;
+    color: var(--text-color);
+    font-size: 14px;
+}
+
+.profile-settings-actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.profile-settings-actions button {
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 10px 18px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.profile-settings-save {
+    background: var(--profile-accent);
+    color: #0a0a0a;
+    border-color: transparent;
+}
+
+.profile-settings-reset {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-color);
 }
 
 .profile-gate-footer {
