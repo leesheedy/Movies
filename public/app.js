@@ -826,31 +826,30 @@ function buildVidsrcEmbedUrl(imdbId) {
     return `https://vidsrc-embed.ru/embed/movie/${imdbId}?autoplay=1`;
 }
 
-function buildTmdbTvEmbedUrl(tvId, season, episode) {
-    return `https://2embed.cc/embed/tv?tmdb=${tvId}&season=${season}&episode=${episode}`;
+function buildTmdbTvEmbedSources(tvId, season, episode) {
+    return [
+        `https://2embed.cc/embed/tv?tmdb=${tvId}&season=${season}&episode=${episode}`,
+        `https://vidsrc.to/embed/tv/${tvId}/${season}/${episode}`
+    ];
 }
 
 function renderTmdbIframe(embedUrl) {
     const tmdbMessage = document.getElementById('tmdbPlayerMessage');
     const tmdbIframeContainer = document.getElementById('tmdbIframeContainer');
+    const sources = Array.isArray(embedUrl) ? embedUrl.filter(Boolean) : [embedUrl].filter(Boolean);
 
     if (tmdbIframeContainer) {
         tmdbIframeContainer.innerHTML = '';
     }
 
-    if (!embedUrl) {
+    if (sources.length === 0) {
         if (tmdbMessage) {
             tmdbMessage.textContent = 'Source unavailable';
         }
         return;
     }
 
-    if (tmdbMessage) {
-        tmdbMessage.textContent = 'Loading player...';
-    }
-
     const iframe = document.createElement('iframe');
-    iframe.src = embedUrl;
     iframe.setAttribute('allow', 'autoplay; fullscreen');
     iframe.setAttribute('loading', 'lazy');
     iframe.addEventListener('pointerdown', () => {
@@ -858,10 +857,37 @@ function renderTmdbIframe(embedUrl) {
     });
 
     let fallbackTimeout = null;
+    let currentIndex = 0;
+
     const showFallback = () => {
         if (tmdbMessage) {
             tmdbMessage.textContent = 'Playback failed to load. Please try again later.';
         }
+    };
+
+    const handleFailure = () => {
+        if (currentIndex < sources.length - 1) {
+            if (tmdbMessage) {
+                tmdbMessage.textContent = 'Trying alternate source...';
+            }
+            loadSource(currentIndex + 1);
+            return;
+        }
+        showFallback();
+    };
+
+    const loadSource = (index) => {
+        currentIndex = index;
+        const nextUrl = sources[index];
+        if (!nextUrl) return;
+        iframe.src = nextUrl;
+        if (tmdbMessage) {
+            tmdbMessage.textContent = 'Loading player...';
+        }
+        if (fallbackTimeout) {
+            clearTimeout(fallbackTimeout);
+        }
+        fallbackTimeout = setTimeout(handleFailure, 8000);
     };
 
     iframe.addEventListener('load', () => {
@@ -873,12 +899,12 @@ function renderTmdbIframe(embedUrl) {
         }
     });
 
-    iframe.addEventListener('error', showFallback);
-    fallbackTimeout = setTimeout(showFallback, 8000);
+    iframe.addEventListener('error', handleFailure);
 
     if (tmdbIframeContainer) {
         tmdbIframeContainer.appendChild(iframe);
     }
+    loadSource(0);
 }
 
 const adBlockConfig = {
@@ -1443,12 +1469,12 @@ function playTmdbEpisode() {
     if (!tmdbTvState.tvId || tmdbTvState.seasonNumber == null || tmdbTvState.episodeNumber == null) {
         return;
     }
-    const embedUrl = buildTmdbTvEmbedUrl(
+    const embedSources = buildTmdbTvEmbedSources(
         tmdbTvState.tvId,
         tmdbTvState.seasonNumber,
         tmdbTvState.episodeNumber
     );
-    renderTmdbIframe(embedUrl);
+    renderTmdbIframe(embedSources);
     updateTmdbTvMeta();
     populateTmdbEpisodeSelect();
     updateTmdbEpisodeButtons();
