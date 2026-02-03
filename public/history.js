@@ -256,147 +256,161 @@ const HistoryModule = {
 };
 
 // Load History Page
-function loadHistoryPage() {
-    console.log('📜 Loading History page...');
-    
-    if (window.showView) {
-        showView('history');
-    }
-    
-    if (window.updateNavLinks) {
-        updateNavLinks('history');
-    }
-    
-    const container = document.getElementById('historyContent');
-    if (!container) return;
-    
-    const history = HistoryModule.getHistory();
-    
-    container.innerHTML = `
-        <div class="content-header">
-            <h1>📜 Watch History</h1>
-            <p class="content-subtitle">Your viewing history and progress</p>
-            ${history.length > 0 ? `
-                <button onclick="HistoryModule.clearAllHistory()" class="history-clear-btn" style="margin-top: 20px;">Clear All History</button>
+function buildHistoryCard(item, activeTab) {
+    const progressPercent = item.duration > 0
+        ? Math.round((item.progress / item.duration) * 100)
+        : 0;
+    const date = new Date(item.lastWatched).toLocaleDateString();
+    const time = new Date(item.lastWatched).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const card = document.createElement('div');
+    card.className = 'history-full-card';
+    card.innerHTML = `
+        <img src="${item.image}" alt="${item.title}" />
+        <div class="history-full-card-info">
+            <h4>${item.title}</h4>
+            <p class="history-full-provider">📦 ${item.provider}</p>
+            <p class="history-full-date">Last watched: ${date} at ${time}</p>
+            ${progressPercent > 0 ? `
+                <div class="history-full-progress">
+                    <div class="history-full-progress-bar">
+                        <div class="history-full-progress-fill" style="width: ${progressPercent}%"></div>
+                    </div>
+                    <span>${progressPercent}% watched</span>
+                </div>
             ` : ''}
+            <div class="history-full-actions">
+                <button onclick="loadDetails('${item.provider}', '${item.link}', { autoPlay: true })" class="history-full-play-btn">▶ Continue</button>
+                <button onclick="HistoryModule.removeFromHistory('${item.id}'); loadHistoryPage('${activeTab}');" class="history-full-remove-btn">Remove</button>
+            </div>
         </div>
-        <div id="historyGrid" class="history-full-grid"></div>
     `;
-    
-    const grid = document.getElementById('historyGrid');
-    
-    if (history.length === 0) {
-        grid.innerHTML = `
-            <div style="text-align: center; padding: 60px 20px;">
-                <h2 style="color: var(--text-muted); font-size: 24px; margin-bottom: 10px;">No Watch History</h2>
-                <p style="color: var(--text-muted);">Start watching content to build your history</p>
+
+    return card;
+}
+
+function renderHistoryPanel(panel, items, emptyTitle, emptySubtitle, activeTab) {
+    panel.innerHTML = '';
+    if (items.length === 0) {
+        panel.innerHTML = `
+            <div class="history-empty">
+                <h2>${emptyTitle}</h2>
+                <p>${emptySubtitle}</p>
             </div>
         `;
         return;
     }
-    
-    history.forEach(item => {
-        const progressPercent = item.duration > 0 
-            ? Math.round((item.progress / item.duration) * 100) 
-            : 0;
-        const date = new Date(item.lastWatched).toLocaleDateString();
-        const time = new Date(item.lastWatched).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        
-        const card = document.createElement('div');
-        card.className = 'history-full-card';
-        card.innerHTML = `
-            <img src="${item.image}" alt="${item.title}" />
-            <div class="history-full-card-info">
-                <h4>${item.title}</h4>
-                <p class="history-full-provider">📦 ${item.provider}</p>
-                <p class="history-full-date">Last watched: ${date} at ${time}</p>
-                ${progressPercent > 0 ? `
-                    <div class="history-full-progress">
-                        <div class="history-full-progress-bar">
-                            <div class="history-full-progress-fill" style="width: ${progressPercent}%"></div>
-                        </div>
-                        <span>${progressPercent}% watched</span>
-                    </div>
-                ` : ''}
-                <div class="history-full-actions">
-                    <button onclick="loadDetails('${item.provider}', '${item.link}', { autoPlay: true })" class="history-full-play-btn">▶ Continue</button>
-                    <button onclick="HistoryModule.removeFromHistory('${item.id}'); loadHistoryPage();" class="history-full-remove-btn">Remove</button>
+
+    const grid = document.createElement('div');
+    grid.className = 'history-full-grid';
+    items.forEach(item => {
+        grid.appendChild(buildHistoryCard(item, activeTab));
+    });
+    panel.appendChild(grid);
+}
+
+function setHistoryTab(container, tabName) {
+    const tabs = container.querySelectorAll('.history-tab');
+    const panels = container.querySelectorAll('.history-panel');
+
+    tabs.forEach(tab => {
+        const isActive = tab.dataset.tab === tabName;
+        tab.classList.toggle('is-active', isActive);
+        tab.setAttribute('aria-selected', String(isActive));
+    });
+
+    panels.forEach(panel => {
+        const isActive = panel.dataset.panel === tabName;
+        panel.classList.toggle('is-active', isActive);
+        panel.setAttribute('aria-hidden', String(!isActive));
+    });
+}
+
+function loadHistoryPage(activeTab = 'history') {
+    console.log('📜 Loading History page...');
+
+    if (window.showView) {
+        showView('history');
+    }
+
+    if (window.updateNavLinks) {
+        updateNavLinks('history');
+    }
+
+    const container = document.getElementById('historyContent');
+    if (!container) return;
+
+    const fullHistory = HistoryModule.getHistory();
+    const continueHistory = HistoryModule.getContinueWatching();
+
+    container.innerHTML = `
+        <div class="history-hub">
+            <div class="history-hero">
+                <div>
+                    <p class="history-eyebrow">Your Library</p>
+                    <h1>Watch History</h1>
+                    <p class="content-subtitle">Jump back into unfinished titles or relive your full watch history.</p>
+                </div>
+                <div class="history-hero-actions">
+                    ${fullHistory.length > 0 ? `
+                        <button onclick="clearHistoryAndRefresh('${activeTab}')" class="history-clear-btn history-clear-inline">Clear All History</button>
+                    ` : ''}
                 </div>
             </div>
-        `;
-        
-        grid.appendChild(card);
+            <div class="history-tabs" role="tablist" aria-label="History sections">
+                <button class="history-tab" data-tab="continue" role="tab" aria-selected="false">Continue Watching</button>
+                <button class="history-tab" data-tab="history" role="tab" aria-selected="false">Full History</button>
+            </div>
+            <div class="history-tab-panels">
+                <section class="history-panel" data-panel="continue" role="tabpanel" aria-hidden="true"></section>
+                <section class="history-panel" data-panel="history" role="tabpanel" aria-hidden="true"></section>
+            </div>
+        </div>
+    `;
+
+    const continuePanel = container.querySelector('[data-panel="continue"]');
+    const historyPanel = container.querySelector('[data-panel="history"]');
+
+    if (continuePanel) {
+        renderHistoryPanel(
+            continuePanel,
+            continueHistory,
+            'Nothing to continue',
+            'Start watching to build your continue list.',
+            'continue'
+        );
+    }
+
+    if (historyPanel) {
+        renderHistoryPanel(
+            historyPanel,
+            fullHistory,
+            'No Watch History',
+            'Start watching content to build your history.',
+            'history'
+        );
+    }
+
+    const tabs = container.querySelectorAll('.history-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            setHistoryTab(container, tab.dataset.tab);
+        });
     });
+
+    setHistoryTab(container, activeTab);
+}
+
+function clearHistoryAndRefresh(activeTab = 'history') {
+    if (confirm('Are you sure you want to clear all watch history?')) {
+        HistoryModule.clearHistory();
+        loadHistoryPage(activeTab);
+    }
 }
 
 function loadContinueWatchingPage() {
     console.log('▶️ Loading Continue Watching page...');
-
-    if (window.showView) {
-        showView('continue');
-    }
-
-    if (window.updateNavLinks) {
-        updateNavLinks('continue');
-    }
-
-    const container = document.getElementById('continueContent');
-    if (!container) return;
-
-    const history = HistoryModule.getContinueWatching();
-
-    container.innerHTML = `
-        <div class="content-header">
-            <h1>▶️ Continue Watching</h1>
-            <p class="content-subtitle">Pick up right where you left off</p>
-        </div>
-        <div id="continueGrid" class="history-full-grid"></div>
-    `;
-
-    const grid = document.getElementById('continueGrid');
-
-    if (history.length === 0) {
-        grid.innerHTML = `
-            <div style="text-align: center; padding: 60px 20px;">
-                <h2 style="color: var(--text-muted); font-size: 24px; margin-bottom: 10px;">Nothing to continue</h2>
-                <p style="color: var(--text-muted);">Start watching to build your continue list.</p>
-            </div>
-        `;
-        return;
-    }
-
-    history.forEach(item => {
-        const progressPercent = item.duration > 0
-            ? Math.round((item.progress / item.duration) * 100)
-            : 0;
-        const date = new Date(item.lastWatched).toLocaleDateString();
-        const time = new Date(item.lastWatched).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-        const card = document.createElement('div');
-        card.className = 'history-full-card';
-        card.innerHTML = `
-            <img src="${item.image}" alt="${item.title}" />
-            <div class="history-full-card-info">
-                <h4>${item.title}</h4>
-                <p class="history-full-provider">📦 ${item.provider}</p>
-                <p class="history-full-date">Last watched: ${date} at ${time}</p>
-                ${progressPercent > 0 ? `
-                    <div class="history-full-progress">
-                        <div class="history-full-progress-bar">
-                            <div class="history-full-progress-fill" style="width: ${progressPercent}%"></div>
-                        </div>
-                        <span>${progressPercent}% watched</span>
-                    </div>
-                ` : ''}
-                <div class="history-full-actions">
-                    <button onclick="loadDetails('${item.provider}', '${item.link}', { autoPlay: true })" class="history-full-play-btn">▶ Continue</button>
-                    <button onclick="HistoryModule.removeFromHistory('${item.id}'); loadContinueWatchingPage();" class="history-full-remove-btn">Remove</button>
-                </div>
-            </div>
-        `;
-
-        grid.appendChild(card);
-    });
+    loadHistoryPage('continue');
 }
 
 // Make functions globally accessible
