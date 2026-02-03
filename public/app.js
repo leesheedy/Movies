@@ -4421,6 +4421,17 @@ async function loadTVShowsPage() {
     showLoading(true, 'Loading TV Shows...');
     try {
         if (isTmdbOnlyMode()) {
+            const tvContainer = document.getElementById('tvShowsContent');
+            if (!tvContainer) {
+                showError('TV Shows module not available. Please refresh the page.');
+                return;
+            }
+            if (window.TMDBContentModule?.renderTvSections) {
+                await window.TMDBContentModule.renderTvSections(tvContainer);
+                showView('tvshows');
+                updateNavLinks('tvshows');
+                return;
+            }
             showError('TV Shows is unavailable in TMDB-only mode. Use Home or Search instead.');
             return;
         }

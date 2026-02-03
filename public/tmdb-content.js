@@ -52,6 +52,17 @@ const TMDBContentModule = {
         };
     },
 
+    normalizeTv(item) {
+        return {
+            tmdb_id: item.id,
+            name: item.name,
+            poster_path: item.poster_path,
+            backdrop_path: item.backdrop_path,
+            first_air_date: item.first_air_date,
+            vote_average: item.vote_average
+        };
+    },
+
     async fetchMovies(path, params = {}) {
         const apiKey = this.getApiKey();
         if (!apiKey) {
@@ -74,6 +85,28 @@ const TMDBContentModule = {
         return (data.results || []).slice(0, 20).map(item => this.normalizeMovie(item));
     },
 
+    async fetchTv(path, params = {}) {
+        const apiKey = this.getApiKey();
+        if (!apiKey) {
+            throw new Error('TMDB API key missing');
+        }
+        const [basePath, queryString = ''] = path.split('?');
+        const searchParams = new URLSearchParams(queryString);
+        searchParams.set('api_key', apiKey);
+        searchParams.set('page', '1');
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+                searchParams.set(key, String(value));
+            }
+        });
+        const response = await fetch(`${this.BASE_URL}${basePath}?${searchParams.toString()}`);
+        if (!response.ok) {
+            throw new Error(`TMDB request failed: ${response.status}`);
+        }
+        const data = await response.json();
+        return (data.results || []).slice(0, 20).map(item => this.normalizeTv(item));
+    },
+
     // Fetch trending movies (week)
     async getTrendingMovies() {
         return this.fetchMovies('/trending/movie/week');
@@ -82,6 +115,26 @@ const TMDBContentModule = {
     // Fetch popular movies
     async getPopularMovies() {
         return this.fetchMovies('/movie/popular');
+    },
+
+    // Fetch trending TV shows (week)
+    async getTrendingTvShows() {
+        return this.fetchTv('/trending/tv/week');
+    },
+
+    // Fetch popular TV shows
+    async getPopularTvShows() {
+        return this.fetchTv('/tv/popular');
+    },
+
+    // Fetch top rated TV shows
+    async getTopRatedTvShows() {
+        return this.fetchTv('/tv/top_rated');
+    },
+
+    // Fetch TV shows airing today
+    async getAiringTodayTvShows() {
+        return this.fetchTv('/tv/airing_today');
     },
 
     shuffleItems(items) {
@@ -515,11 +568,17 @@ const TMDBContentModule = {
                 url = `${this.BASE_URL}/${type}/popular?api_key=${apiKey}${region ? `&region=${region}` : ''}&page=${page}`;
             } else if (endpoint === 'now_playing') {
                 url = `${this.BASE_URL}/movie/now_playing?api_key=${apiKey}&region=${region}&page=${page}`;
+            } else if (endpoint === 'top_rated') {
+                url = `${this.BASE_URL}/${type}/top_rated?api_key=${apiKey}&page=${page}`;
+            } else if (endpoint === 'airing_today' && type === 'tv') {
+                url = `${this.BASE_URL}/tv/airing_today?api_key=${apiKey}&page=${page}`;
             }
             
             const response = await fetch(url);
             const data = await response.json();
-            const items = (data.results || []).slice(0, 20).map(item => this.normalizeMovie(item));
+            const items = (data.results || []).slice(0, 20).map(item => (
+                type === 'tv' ? this.normalizeTv(item) : this.normalizeMovie(item)
+            ));
             
             // Render items
             grid.innerHTML = '';
@@ -663,6 +722,39 @@ const TMDBContentModule = {
             if (container) {
                 container.appendChild(this.renderRetrySection());
             }
+        }
+    },
+
+    // Render TMDB TV sections for the TV Shows page
+    async renderTvSections(container) {
+        if (!container) return;
+        console.log('📺 Loading TMDB TV shows sections...');
+
+        try {
+            const [trending, popular, topRated, airingToday] = await Promise.all([
+                this.getTrendingTvShows(),
+                this.getPopularTvShows(),
+                this.getTopRatedTvShows(),
+                this.getAiringTodayTvShows()
+            ]);
+
+            const sections = [
+                { title: '🔥 Trending TV', items: trending, type: 'tv', endpoint: 'trending', region: '' },
+                { title: '⭐ Popular TV', items: popular, type: 'tv', endpoint: 'popular', region: '' },
+                { title: '🏆 Top Rated', items: topRated, type: 'tv', endpoint: 'top_rated', region: '' },
+                { title: '📡 Airing Today', items: airingToday, type: 'tv', endpoint: 'airing_today', region: '' }
+            ];
+
+            container.innerHTML = '';
+            sections.forEach(({ title, items, type, endpoint, region }) => {
+                const section = this.renderTMDBSection(title, items, type, endpoint, region);
+                if (section) {
+                    container.appendChild(section);
+                }
+            });
+        } catch (error) {
+            console.error('Failed to render TMDB TV sections:', error);
+            container.appendChild(this.renderRetrySection());
         }
     }
 };
