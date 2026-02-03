@@ -600,23 +600,70 @@ const adBlockConfig = {
         'propellerads',
         'mgid',
         'zedo',
-        'adsrvr'
+        'adsrvr',
+        'criteo',
+        'adroll',
+        'openx',
+        'rubiconproject',
+        'smartadserver',
+        'casalemedia',
+        'scorecardresearch',
+        'revcontent'
     ],
     elementSelectors: [
         '[id^="ad-"]',
         '[id*=" ad-"]',
         '[id*="ads"]',
+        '[id*="sponsor"]',
         '[class^="ad-"]',
         '[class*=" ad-"]',
         '[class*="ads"]',
         '[class*="sponsor"]',
-        '[id*="sponsor"]',
+        '[class*="banner"]',
+        '[class*="promo"]',
         '.adsbox',
         '.ad-banner',
         '.ad-container',
         '.banner-ad',
         '.sponsored',
-        'iframe[src*="ads"]'
+        '.sponsor',
+        'iframe[src*="ads"]',
+        'iframe[src*="adservice"]',
+        'script[src*="ads"]'
+    ],
+    filterRules: [
+        '||doubleclick.net^',
+        '||googlesyndication.com^',
+        '||googleadservices.com^',
+        '||adservice.google.com^',
+        '||adnxs.com^',
+        '||adzerk.net^',
+        '||taboola.com^',
+        '||outbrain.com^',
+        '||popads.net^',
+        '||propellerads.com^',
+        '||mgid.com^',
+        '||zedo.com^',
+        '||adsrvr.org^',
+        '||criteo.com^',
+        '||adroll.com^',
+        '||openx.net^',
+        '||rubiconproject.com^',
+        '||smartadserver.com^',
+        '||casalemedia.com^',
+        '||scorecardresearch.com^',
+        '||revcontent.com^',
+        '*/ads/*',
+        '*/adservice/*',
+        '*/banner/*',
+        '*/sponsor/*',
+        '*/sponsored/*',
+        '*/analytics/*'
+    ],
+    allowRules: [
+        '@@||stripe.com^',
+        '@@||js.stripe.com^',
+        '@@||maps.googleapis.com^'
     ]
 };
 
@@ -626,13 +673,57 @@ function isAdHost(hostname) {
     return adBlockConfig.hostKeywords.some(keyword => host.includes(keyword));
 }
 
+function normalizeUrlForMatching(url) {
+    if (!url) return '';
+    try {
+        return new URL(url, window.location.href).toString();
+    } catch (error) {
+        return String(url);
+    }
+}
+
+function tokenizeRule(rule) {
+    const isAllow = rule.startsWith('@@');
+    const rawRule = isAllow ? rule.slice(2) : rule;
+    const startsWithDomain = rawRule.startsWith('||');
+    const cleaned = rawRule.replace(/^\|\|/, '');
+    return { isAllow, startsWithDomain, rule: cleaned };
+}
+
+function matchRule(rule, url) {
+    const { startsWithDomain, rule: cleaned } = tokenizeRule(rule);
+    if (!cleaned) return false;
+    if (startsWithDomain) {
+        try {
+            const parsed = new URL(url, window.location.href);
+            const host = parsed.hostname.toLowerCase();
+            const domain = cleaned.replace(/\^$/, '').toLowerCase();
+            if (!domain) return false;
+            return host === domain || host.endsWith(`.${domain}`);
+        } catch (error) {
+            return false;
+        }
+    }
+    const escaped = cleaned.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped.replace(/\\\*/g, '.*').replace(/\\\^/g, '(?:$|[\\/?#:&=])'), 'i');
+    return regex.test(url);
+}
+
+function matchesFilterRules(url) {
+    const normalized = normalizeUrlForMatching(url);
+    if (!normalized) return false;
+    const allowMatch = adBlockConfig.allowRules.some((rule) => matchRule(rule, normalized));
+    if (allowMatch) return false;
+    return adBlockConfig.filterRules.some((rule) => matchRule(rule, normalized));
+}
+
 function isAdUrl(url) {
     if (!url) return false;
     try {
         const parsed = new URL(url, window.location.href);
-        return isAdHost(parsed.hostname);
+        return isAdHost(parsed.hostname) || matchesFilterRules(parsed.toString());
     } catch (error) {
-        return false;
+        return matchesFilterRules(url);
     }
 }
 
@@ -817,6 +908,65 @@ function initAdBlocker() {
     });
     observer.observe(document.documentElement, { childList: true, subtree: true });
     blockAdElements(document);
+
+    const shouldBlockRequest = (url, context) => {
+        const normalizedUrl = normalizeUrlForMatching(url);
+        if (!normalizedUrl) return false;
+        if (matchesFilterRules(normalizedUrl) || isAdUrl(normalizedUrl)) {
+            console.warn(`🛑 Adblock: blocked ${context}`, normalizedUrl);
+            return true;
+        }
+        return false;
+    };
+
+    const originalFetch = window.fetch?.bind(window);
+    if (originalFetch) {
+        window.fetch = (input, init) => {
+            const url = typeof input === 'string' ? input : input?.url;
+            if (shouldBlockRequest(url, 'fetch')) {
+                return Promise.reject(new Error('Blocked by adblock'));
+            }
+            return originalFetch(input, init);
+        };
+    }
+
+    const originalXhrOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+        if (shouldBlockRequest(url, 'xhr')) {
+            this.abort();
+            return;
+        }
+        return originalXhrOpen.call(this, method, url, ...rest);
+    };
+
+    const originalSendBeacon = navigator.sendBeacon?.bind(navigator);
+    if (originalSendBeacon) {
+        navigator.sendBeacon = (url, data) => {
+            if (shouldBlockRequest(url, 'beacon')) return false;
+            return originalSendBeacon(url, data);
+        };
+    }
+
+    const patchAttribute = (prototype, attribute, context) => {
+        if (!prototype) return;
+        const descriptor = Object.getOwnPropertyDescriptor(prototype, attribute);
+        if (!descriptor?.set) return;
+        Object.defineProperty(prototype, attribute, {
+            get: descriptor.get,
+            set: function (value) {
+                if (shouldBlockRequest(value, context)) {
+                    this.removeAttribute?.(attribute);
+                    return;
+                }
+                descriptor.set.call(this, value);
+            }
+        });
+    };
+
+    patchAttribute(HTMLImageElement.prototype, 'src', 'image');
+    patchAttribute(HTMLIFrameElement.prototype, 'src', 'iframe');
+    patchAttribute(HTMLScriptElement.prototype, 'src', 'script');
+    patchAttribute(HTMLLinkElement.prototype, 'href', 'link');
 }
 
 async function resolveImdbId(tmdbId) {
