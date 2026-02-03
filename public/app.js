@@ -43,6 +43,87 @@ const cacheStore = {
 
 const TMDB_IMDB_CACHE_KEY = 'tmdb_imdb_cache_v1';
 const tmdbImdbCache = new Map();
+const PROFILE_STORAGE_KEY = 'mitta_active_profile_v1';
+const profiles = [
+    { id: 'guest', name: 'Guest', avatar: 'G' },
+    { id: 'digby', name: 'Digby', avatar: 'D' },
+    { id: 'lee', name: 'Lee', avatar: 'L' },
+    { id: 'ryan', name: 'Ryan', avatar: 'R' },
+    { id: 'issy', name: 'Issy', avatar: 'I' },
+    { id: 'renee', name: 'Renee', avatar: 'R' }
+];
+
+function loadActiveProfile() {
+    const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+    if (!raw) return profiles[0];
+    const match = profiles.find(profile => profile.id === raw);
+    return match || profiles[0];
+}
+
+function saveActiveProfile(profileId) {
+    localStorage.setItem(PROFILE_STORAGE_KEY, profileId);
+}
+
+function applyProfile(profile) {
+    const profileName = document.getElementById('profileName');
+    const profileAvatar = document.getElementById('profileAvatar');
+    if (profileName) {
+        profileName.textContent = profile.name;
+    }
+    if (profileAvatar) {
+        profileAvatar.textContent = profile.avatar;
+    }
+}
+
+function renderProfileGate(profile, gate) {
+    const profileList = document.getElementById('profileList');
+    if (!profileList) return;
+    profileList.innerHTML = '';
+    profiles.forEach(item => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'profile-card';
+        card.setAttribute('data-profile-id', item.id);
+        if (item.id === profile.id) {
+            card.setAttribute('aria-pressed', 'true');
+        }
+        card.innerHTML = `
+            <div class="profile-card-avatar">${item.avatar}</div>
+            <div class="profile-card-name">${item.name}</div>
+        `;
+        card.addEventListener('click', () => {
+            saveActiveProfile(item.id);
+            applyProfile(item);
+            gate.setAttribute('hidden', 'true');
+        });
+        profileList.appendChild(card);
+    });
+}
+
+function initProfileGate() {
+    const gate = document.getElementById('profileGate');
+    if (!gate) return;
+    const activeProfile = loadActiveProfile();
+    applyProfile(activeProfile);
+    renderProfileGate(activeProfile, gate);
+    if (!localStorage.getItem(PROFILE_STORAGE_KEY)) {
+        gate.removeAttribute('hidden');
+    }
+    const profileChip = document.getElementById('profileChip');
+    if (profileChip) {
+        profileChip.addEventListener('click', () => {
+            const selected = loadActiveProfile();
+            applyProfile(selected);
+            renderProfileGate(selected, gate);
+            gate.removeAttribute('hidden');
+        });
+    }
+    gate.addEventListener('click', (event) => {
+        if (event.target === gate) {
+            gate.setAttribute('hidden', 'true');
+        }
+    });
+}
 
 function loadTmdbImdbCache() {
     try {
@@ -2919,6 +3000,7 @@ async function init() {
 
     initAdBlocker();
     loadTmdbImdbCache();
+    initProfileGate();
     initBackNavigationHandlers();
     
     // Load providers
