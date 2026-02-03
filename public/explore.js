@@ -10,6 +10,10 @@ const ExploreModule = {
         genreContentPosts: [], // Store all loaded posts for genre view
         spotlightTrailerKey: null,
         spotlightMuted: true,
+        spotlightTrailerPaused: false,
+        spotlightTrailerSrc: '',
+        spotlightObserver: null,
+        spotlightScrollHandler: null,
     },
     curatedLists: {
         digbysFlix: [
@@ -101,6 +105,7 @@ const ExploreModule = {
                                 loading="lazy"
                                 allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
                                 referrerpolicy="origin"
+                                allowfullscreen
                             ></iframe>
                         </div>
                     </div>
@@ -274,9 +279,12 @@ const ExploreModule = {
             : poster;
         backdrop.style.backgroundImage = backdropUrl ? `url('${backdropUrl}')` : '';
 
+        this.clearSpotlightAutoPause();
         videoFrame.src = '';
         videoHost.classList.remove('has-video');
         this.state.spotlightTrailerKey = null;
+        this.state.spotlightTrailerPaused = false;
+        this.state.spotlightTrailerSrc = '';
         audioButton.disabled = true;
         audioButton.setAttribute('aria-pressed', String(!this.state.spotlightMuted));
         audioButton.classList.toggle('is-active', !this.state.spotlightMuted);
@@ -297,9 +305,12 @@ const ExploreModule = {
                 .then((trailerKey) => {
                     if (!trailerKey) return;
                     this.state.spotlightTrailerKey = trailerKey;
-                    videoFrame.src = this.buildYouTubeEmbedUrl(trailerKey, this.state.spotlightMuted);
+                    this.state.spotlightTrailerPaused = false;
+                    this.state.spotlightTrailerSrc = this.buildYouTubeEmbedUrl(trailerKey, this.state.spotlightMuted, true);
+                    videoFrame.src = this.state.spotlightTrailerSrc;
                     videoHost.classList.add('has-video');
                     audioButton.disabled = false;
+                    this.setupSpotlightAutoPause(videoHost, videoFrame);
                 })
                 .catch(() => {
                     videoHost.classList.remove('has-video');
@@ -317,14 +328,17 @@ const ExploreModule = {
             if (label) {
                 label.textContent = this.state.spotlightMuted ? 'Sound On' : 'Sound Off';
             }
-            videoFrame.src = this.buildYouTubeEmbedUrl(this.state.spotlightTrailerKey, this.state.spotlightMuted);
+            this.state.spotlightTrailerSrc = this.buildYouTubeEmbedUrl(this.state.spotlightTrailerKey, this.state.spotlightMuted, true);
+            if (!this.state.spotlightTrailerPaused) {
+                videoFrame.src = this.state.spotlightTrailerSrc;
+            }
         };
     },
 
-    buildYouTubeEmbedUrl(videoKey, muted = true) {
+    buildYouTubeEmbedUrl(videoKey, muted = true, autoplay = true) {
         const origin = encodeURIComponent(window.location.origin || '');
         const params = new URLSearchParams({
-            autoplay: '1',
+            autoplay: autoplay ? '1' : '0',
             mute: muted ? '1' : '0',
             loop: '1',
             controls: '0',
@@ -332,9 +346,72 @@ const ExploreModule = {
             modestbranding: '1',
             rel: '0',
             playlist: videoKey,
-            origin
+            origin,
+            enablejsapi: '1'
         });
         return `https://www.youtube-nocookie.com/embed/${videoKey}?${params.toString()}`;
+    },
+
+    setupSpotlightAutoPause(videoHost, videoFrame) {
+        if (!videoHost || !videoFrame) return;
+        this.clearSpotlightAutoPause();
+
+        const handleVisibility = (isVisible) => {
+            if (!this.state.spotlightTrailerKey) return;
+            if (!isVisible) {
+                this.pauseSpotlightTrailer(videoFrame);
+            } else {
+                this.resumeSpotlightTrailer(videoFrame);
+            }
+        };
+
+        if ('IntersectionObserver' in window) {
+            this.state.spotlightObserver = new IntersectionObserver(
+                (entries) => {
+                    const entry = entries[0];
+                    handleVisibility(entry?.isIntersecting && entry.intersectionRatio > 0.25);
+                },
+                { threshold: [0, 0.25, 0.6, 1] }
+            );
+            this.state.spotlightObserver.observe(videoHost);
+        } else {
+            this.state.spotlightScrollHandler = () => {
+                window.requestAnimationFrame(() => {
+                    const rect = videoHost.getBoundingClientRect();
+                    const inView = rect.bottom > 0 && rect.top < window.innerHeight * 0.75;
+                    handleVisibility(inView);
+                });
+            };
+            window.addEventListener('scroll', this.state.spotlightScrollHandler, { passive: true });
+            this.state.spotlightScrollHandler();
+        }
+    },
+
+    clearSpotlightAutoPause() {
+        if (this.state.spotlightObserver) {
+            this.state.spotlightObserver.disconnect();
+            this.state.spotlightObserver = null;
+        }
+        if (this.state.spotlightScrollHandler) {
+            window.removeEventListener('scroll', this.state.spotlightScrollHandler);
+            this.state.spotlightScrollHandler = null;
+        }
+    },
+
+    pauseSpotlightTrailer(videoFrame) {
+        if (this.state.spotlightTrailerPaused) return;
+        this.state.spotlightTrailerPaused = true;
+        if (videoFrame) {
+            videoFrame.src = 'about:blank';
+        }
+    },
+
+    resumeSpotlightTrailer(videoFrame) {
+        if (!this.state.spotlightTrailerPaused) return;
+        this.state.spotlightTrailerPaused = false;
+        if (videoFrame && this.state.spotlightTrailerSrc) {
+            videoFrame.src = this.state.spotlightTrailerSrc;
+        }
     },
 
     async getDigbysFlix() {
