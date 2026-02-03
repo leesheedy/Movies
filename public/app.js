@@ -1039,7 +1039,6 @@ function showView(viewName) {
         movies: 'moviesView',
         tvshows: 'tvShowsView',
         history: 'historyView',
-        continue: 'continueView',
     };
     const viewId = viewMap[viewName];
     if (viewId) {
@@ -3093,25 +3092,6 @@ async function init() {
         });
     }
 
-    const continueBtn = document.getElementById('continueBtn');
-    if (continueBtn) {
-        continueBtn.addEventListener('click', () => {
-            if (window.loadContinueWatchingPage) {
-                loadContinueWatchingPage();
-            }
-        });
-    }
-
-    const continueBackBtn = document.getElementById('continueBackBtn');
-    if (continueBackBtn) {
-        continueBackBtn.addEventListener('click', () => {
-            if (state.selectedProvider) {
-                loadHomePage();
-                updateNavLinks('home');
-            }
-        });
-    }
-    
     // Header search input
     const searchInputHeader = document.getElementById('searchInputHeader');
     if (searchInputHeader) {
@@ -3170,8 +3150,7 @@ function updateNavLinks(active) {
         explore: 'exploreBtn',
         movies: 'moviesBtn',
         tvshows: 'tvShowsBtn',
-        history: 'historyBtn',
-        continue: 'continueBtn'
+        history: 'historyBtn'
     };
     
     if (navMap[active]) {
