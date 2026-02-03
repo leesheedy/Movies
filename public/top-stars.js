@@ -50,6 +50,11 @@ const TopStarsModule = {
                 </div>
             </div>
         `;
+
+        const scrollContainer = starsSection.querySelector('.top-stars-scroll-container');
+        if (window.enableEdgeScroll) {
+            window.enableEdgeScroll(scrollContainer);
+        }
     },
 
     openStarPage(starName) {

@@ -3740,6 +3740,71 @@ async function renderHeroBanner(provider, catalogData) {
     }
 }
 
+function enableEdgeScroll(container, options = {}) {
+    if (!container || container.dataset.edgeScroll === 'true') return;
+
+    const state = {
+        direction: 0,
+        rafId: null,
+        speed: options.speed || 12
+    };
+
+    container.dataset.edgeScroll = 'true';
+
+    const getEdgeZone = () => Math.min(120, container.clientWidth * 0.18);
+
+    const stopScroll = () => {
+        state.direction = 0;
+        if (state.rafId) {
+            cancelAnimationFrame(state.rafId);
+            state.rafId = null;
+        }
+    };
+
+    const startScroll = () => {
+        if (state.rafId) return;
+        const step = () => {
+            if (!state.direction) {
+                state.rafId = null;
+                return;
+            }
+            container.scrollLeft += state.direction * state.speed;
+            state.rafId = requestAnimationFrame(step);
+        };
+        state.rafId = requestAnimationFrame(step);
+    };
+
+    const handlePointerMove = (event) => {
+        if (event.pointerType && event.pointerType !== 'mouse' && event.pointerType !== 'pen') return;
+        if (container.scrollWidth <= container.clientWidth) return;
+
+        const rect = container.getBoundingClientRect();
+        const offsetX = event.clientX - rect.left;
+        const edgeZone = getEdgeZone();
+        let nextDirection = 0;
+
+        if (offsetX < edgeZone) {
+            nextDirection = -1;
+        } else if (offsetX > rect.width - edgeZone) {
+            nextDirection = 1;
+        }
+
+        if (nextDirection !== state.direction) {
+            state.direction = nextDirection;
+            if (state.direction === 0) {
+                stopScroll();
+            } else {
+                startScroll();
+            }
+        }
+    };
+
+    container.addEventListener('pointermove', handlePointerMove);
+    container.addEventListener('pointerleave', stopScroll);
+    container.addEventListener('pointerup', stopScroll);
+    container.addEventListener('pointercancel', stopScroll);
+}
+
 // Render Netflix-style horizontal scrolling section
 async function renderNetflixSection(provider, catalogItem) {
     try {
@@ -3761,6 +3826,7 @@ async function renderNetflixSection(provider, catalogItem) {
         
         const scrollContainer = document.createElement('div');
         scrollContainer.className = 'netflix-scroll-container';
+        enableEdgeScroll(scrollContainer);
         
         const row = document.createElement('div');
         row.className = 'netflix-row';
@@ -3805,3 +3871,4 @@ window.reloadCatalogSection = reloadCatalogSection;
 window.renderHeroBanner = renderHeroBanner;
 window.renderNetflixSection = renderNetflixSection;
 window.openBestMatchForTitle = openBestMatchForTitle;
+window.enableEdgeScroll = enableEdgeScroll;
