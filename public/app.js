@@ -704,7 +704,7 @@ function matchRule(rule, url) {
             return false;
         }
     }
-    const escaped = cleaned.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+    const escaped = cleaned.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(escaped.replace(/\\\*/g, '.*').replace(/\\\^/g, '(?:$|[\\/?#:&=])'), 'i');
     return regex.test(url);
 }
