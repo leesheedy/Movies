@@ -15,6 +15,7 @@ const ExploreModule = {
         spotlightCollections: [],
         spotlightObserver: null,
         spotlightScrollHandler: null,
+        spotlightScrollTargets: [],
     },
     curatedLists: {
         digbysFlix: [
@@ -402,7 +403,15 @@ const ExploreModule = {
                 handleVisibility(ratio > 0.25);
             });
         };
-        window.addEventListener('scroll', this.state.spotlightScrollHandler, { passive: true });
+        const scrollTargets = new Set([window]);
+        const exploreView = document.getElementById('exploreView');
+        const exploreContent = document.getElementById('exploreContent');
+        if (exploreView) scrollTargets.add(exploreView);
+        if (exploreContent) scrollTargets.add(exploreContent);
+        this.state.spotlightScrollTargets = Array.from(scrollTargets);
+        this.state.spotlightScrollTargets.forEach((target) => {
+            target.addEventListener('scroll', this.state.spotlightScrollHandler, { passive: true });
+        });
         this.state.spotlightScrollHandler();
     },
 
@@ -412,8 +421,11 @@ const ExploreModule = {
             this.state.spotlightObserver = null;
         }
         if (this.state.spotlightScrollHandler) {
-            window.removeEventListener('scroll', this.state.spotlightScrollHandler);
+            (this.state.spotlightScrollTargets || [window]).forEach((target) => {
+                target.removeEventListener('scroll', this.state.spotlightScrollHandler);
+            });
             this.state.spotlightScrollHandler = null;
+            this.state.spotlightScrollTargets = [];
         }
     },
 
