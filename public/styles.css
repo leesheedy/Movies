@@ -568,6 +568,77 @@ body[data-theme="newyear"] .seasonal-decor .decor-newyear {
     border: 0;
 }
 
+.tmdb-tv-controls {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: rgba(15, 15, 15, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 14px 16px;
+}
+
+.tmdb-tv-header h2 {
+    font-size: 20px;
+    margin: 0 0 6px;
+}
+
+.tmdb-tv-episode-meta {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin: 0;
+}
+
+.tmdb-tv-selects {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.tmdb-tv-selects label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.tmdb-tv-selects select {
+    min-width: 160px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-color);
+}
+
+.tmdb-tv-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.tmdb-episode-btn {
+    border-radius: 999px;
+    padding: 8px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(229, 9, 20, 0.15);
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tmdb-episode-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.tmdb-episode-btn:hover:not(:disabled) {
+    background: rgba(229, 9, 20, 0.35);
+    border-color: rgba(229, 9, 20, 0.6);
+}
+
 .search-results-grid {
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 20px;

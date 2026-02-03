@@ -184,7 +184,7 @@
                         <div class="search-menu-header">
                             <div class="search-menu-title">
                                 <h2 id="searchMenuTitle">Search Results</h2>
-                                <p class="search-menu-subtitle">Search TMDB movies</p>
+                                <p class="search-menu-subtitle">Search TMDB movies and TV shows</p>
                             </div>
                         </div>
                         <div class="search-menu-summary">
@@ -230,6 +230,26 @@
                         <div id="tmdbPlayerContainer" class="tmdb-player-container" style="display: none;">
                             <div id="tmdbPlayerMessage" class="tmdb-player-message"></div>
                             <div id="tmdbIframeContainer" class="tmdb-iframe-container"></div>
+                            <div id="tmdbTvControls" class="tmdb-tv-controls" hidden>
+                                <div class="tmdb-tv-header">
+                                    <h2 id="tmdbTvTitle">TV Show</h2>
+                                    <p id="tmdbTvEpisodeMeta" class="tmdb-tv-episode-meta"></p>
+                                </div>
+                                <div class="tmdb-tv-selects">
+                                    <label>
+                                        Season
+                                        <select id="tmdbSeasonSelect"></select>
+                                    </label>
+                                    <label>
+                                        Episode
+                                        <select id="tmdbEpisodeSelect"></select>
+                                    </label>
+                                </div>
+                                <div class="tmdb-tv-actions">
+                                    <button id="tmdbPrevEpisode" class="tmdb-episode-btn" type="button">Prev</button>
+                                    <button id="tmdbNextEpisode" class="tmdb-episode-btn" type="button">Next</button>
+                                </div>
+                            </div>
                         </div>
                         <div id="streamSelector" class="stream-selector"></div>
                         <div id="playerEpisodes" class="player-episodes"></div>

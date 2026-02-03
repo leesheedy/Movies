@@ -275,6 +275,11 @@ const TMDBContentModule = {
 
     // Show TMDB item details and search in all providers
     async showTMDBDetails(item, type, skipSearch = false) {
+        const mediaType = type === 'tv' ? 'tv' : 'movie';
+        if (mediaType === 'tv' && typeof window.openTMDBTvShow === 'function') {
+            window.openTMDBTvShow(item);
+            return;
+        }
         if (typeof window.openTMDBMovie === 'function') {
             window.openTMDBMovie(item);
         }

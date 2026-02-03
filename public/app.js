@@ -8,6 +8,7 @@ const state = {
     searchQuery: '',
     searchResults: [],
     searchProviderFilter: 'all',
+    searchMediaFilter: 'all',
     currentPage: 1,
     currentFilter: '', // Track current filter for pagination
     retryCount: 0,
@@ -540,14 +541,42 @@ function scoreSearchResult(title, normalizedQuery) {
 }
 
 function applySearchProviderFilter(results) {
+    if (!Array.isArray(results)) return [];
+    if (state.searchMediaFilter === 'movie') {
+        return results.filter(result => result.media_type === 'movie');
+    }
+    if (state.searchMediaFilter === 'tv') {
+        return results.filter(result => result.media_type === 'tv');
+    }
     return results;
 }
 
 function renderSearchProviderFilters() {
     const filtersEl = document.getElementById('searchProviderFilters');
-    if (filtersEl) {
-        filtersEl.innerHTML = '';
-    }
+    if (!filtersEl) return;
+    filtersEl.innerHTML = '';
+
+    const filters = [
+        { id: 'all', label: 'All' },
+        { id: 'movie', label: 'Movies' },
+        { id: 'tv', label: 'TV Shows' }
+    ];
+
+    filters.forEach(filter => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'provider-filter-btn';
+        if (state.searchMediaFilter === filter.id) {
+            button.classList.add('is-active');
+        }
+        button.textContent = filter.label;
+        button.addEventListener('click', () => {
+            state.searchMediaFilter = filter.id;
+            renderSearchProviderFilters();
+            renderSearchResults(state.searchResults);
+        });
+        filtersEl.appendChild(button);
+    });
 }
 
 function getTmdbPosterUrl(path) {
@@ -580,7 +609,9 @@ function renderSearchResults(results) {
             link: String(result.tmdb_id),
             tmdbId: result.tmdb_id,
             release_date: result.release_date,
+            first_air_date: result.first_air_date,
             poster_path: result.poster_path,
+            media_type: result.media_type,
             provider: 'tmdb'
         };
         resultsContainer.appendChild(renderPostCard(cardData, 'tmdb', { animateOnSelect: true, searchSource: 'menu' }));
@@ -616,7 +647,12 @@ function handleSearchSelection({ provider, link, tmdbItem, source = 'menu', card
 
         queueFullscreenRequest();
         if (tmdbItem) {
-            openTMDBMovie(tmdbItem);
+            const mediaType = tmdbItem.media_type === 'tv' ? 'tv' : 'movie';
+            if (mediaType === 'tv' && typeof openTMDBTvShow === 'function') {
+                openTMDBTvShow(tmdbItem);
+            } else {
+                openTMDBMovie(tmdbItem);
+            }
         } else {
             loadPlaybackDetails(provider, link, { autoPlay: true });
         }
@@ -788,6 +824,61 @@ window.openPlaybackTab = openPlaybackTab;
 
 function buildVidsrcEmbedUrl(imdbId) {
     return `https://vidsrc-embed.ru/embed/movie/${imdbId}?autoplay=1`;
+}
+
+function buildTmdbTvEmbedUrl(tvId, season, episode) {
+    return `https://2embed.cc/embed/tv?tmdb=${tvId}&season=${season}&episode=${episode}`;
+}
+
+function renderTmdbIframe(embedUrl) {
+    const tmdbMessage = document.getElementById('tmdbPlayerMessage');
+    const tmdbIframeContainer = document.getElementById('tmdbIframeContainer');
+
+    if (tmdbIframeContainer) {
+        tmdbIframeContainer.innerHTML = '';
+    }
+
+    if (!embedUrl) {
+        if (tmdbMessage) {
+            tmdbMessage.textContent = 'Source unavailable';
+        }
+        return;
+    }
+
+    if (tmdbMessage) {
+        tmdbMessage.textContent = 'Loading player...';
+    }
+
+    const iframe = document.createElement('iframe');
+    iframe.src = embedUrl;
+    iframe.setAttribute('allow', 'autoplay; fullscreen');
+    iframe.setAttribute('loading', 'lazy');
+    iframe.addEventListener('pointerdown', () => {
+        window.registerEmbedInteraction?.();
+    });
+
+    let fallbackTimeout = null;
+    const showFallback = () => {
+        if (tmdbMessage) {
+            tmdbMessage.textContent = 'Playback failed to load. Please try again later.';
+        }
+    };
+
+    iframe.addEventListener('load', () => {
+        if (tmdbMessage) {
+            tmdbMessage.textContent = '';
+        }
+        if (fallbackTimeout) {
+            clearTimeout(fallbackTimeout);
+        }
+    });
+
+    iframe.addEventListener('error', showFallback);
+    fallbackTimeout = setTimeout(showFallback, 8000);
+
+    if (tmdbIframeContainer) {
+        tmdbIframeContainer.appendChild(iframe);
+    }
 }
 
 const adBlockConfig = {
@@ -1220,8 +1311,291 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
     const playerMeta = document.getElementById('playerMeta');
     const videoPlayer = document.getElementById('videoPlayer');
     const tmdbContainer = document.getElementById('tmdbPlayerContainer');
-    const tmdbMessage = document.getElementById('tmdbPlayerMessage');
-    const tmdbIframeContainer = document.getElementById('tmdbIframeContainer');
+    const providerSelector = document.getElementById('providerSelector');
+    const streamSelector = document.getElementById('streamSelector');
+    const playerEpisodes = document.getElementById('playerEpisodes');
+    const tmdbTvControls = document.getElementById('tmdbTvControls');
+
+    if (videoPlayer) {
+        videoPlayer.pause?.();
+        videoPlayer.style.display = 'none';
+    }
+    if (providerSelector) providerSelector.innerHTML = '';
+    if (streamSelector) streamSelector.innerHTML = '';
+    if (playerEpisodes) playerEpisodes.innerHTML = '';
+
+    if (tmdbTvControls) {
+        tmdbTvControls.hidden = true;
+    }
+    resetTmdbTvState();
+
+    if (playerMeta) {
+        playerMeta.innerHTML = `
+            <h1>${title || 'Movie'}</h1>
+            <p>${releaseDate ? `Release: ${releaseDate}` : ''}</p>
+        `;
+    }
+
+    if (tmdbContainer) {
+        tmdbContainer.style.display = 'block';
+    }
+
+    const embedUrl = imdbId ? buildVidsrcEmbedUrl(imdbId) : '';
+    renderTmdbIframe(embedUrl);
+
+    attemptPlayerFullscreen();
+}
+
+function resetTmdbTvState() {
+    tmdbTvState.tvId = null;
+    tmdbTvState.title = '';
+    tmdbTvState.seasons = [];
+    tmdbTvState.seasonNumber = null;
+    tmdbTvState.episodes = [];
+    tmdbTvState.episodeNumber = null;
+    if (tmdbTvState.messageHandler) {
+        window.removeEventListener('message', tmdbTvState.messageHandler);
+        tmdbTvState.messageHandler = null;
+    }
+}
+
+function updateTmdbTvControlsVisibility(visible) {
+    const tmdbTvControls = document.getElementById('tmdbTvControls');
+    if (tmdbTvControls) {
+        tmdbTvControls.hidden = !visible;
+    }
+}
+
+function updateTmdbTvMeta() {
+    const titleEl = document.getElementById('tmdbTvTitle');
+    const metaEl = document.getElementById('tmdbTvEpisodeMeta');
+    if (titleEl) {
+        titleEl.textContent = tmdbTvState.title || 'TV Show';
+    }
+    if (metaEl) {
+        const seasonText = tmdbTvState.seasonNumber != null ? `Season ${tmdbTvState.seasonNumber}` : '';
+        const episode = tmdbTvState.episodes.find(item => item.episode_number === tmdbTvState.episodeNumber);
+        const episodeText = tmdbTvState.episodeNumber != null ? `Episode ${tmdbTvState.episodeNumber}` : '';
+        const titleText = episode?.name ? `• ${episode.name}` : '';
+        const baseText = [seasonText, episodeText].filter(Boolean).join(' ');
+        metaEl.textContent = `${baseText} ${titleText}`.trim();
+    }
+}
+
+function updateTmdbEpisodeButtons() {
+    const prevBtn = document.getElementById('tmdbPrevEpisode');
+    const nextBtn = document.getElementById('tmdbNextEpisode');
+    if (!prevBtn || !nextBtn) return;
+
+    const episodeIndex = tmdbTvState.episodes.findIndex(
+        item => item.episode_number === tmdbTvState.episodeNumber
+    );
+    const hasPrevEpisode = episodeIndex > 0;
+    const hasNextEpisode = episodeIndex >= 0 && episodeIndex < tmdbTvState.episodes.length - 1;
+    const currentSeasonIndex = tmdbTvState.seasons.findIndex(
+        season => season.season_number === tmdbTvState.seasonNumber
+    );
+    const hasPrevSeason = currentSeasonIndex > 0;
+    const hasNextSeason = currentSeasonIndex >= 0 && currentSeasonIndex < tmdbTvState.seasons.length - 1;
+
+    prevBtn.disabled = !(hasPrevEpisode || hasPrevSeason);
+    nextBtn.disabled = !(hasNextEpisode || hasNextSeason);
+}
+
+function populateTmdbSeasonSelect() {
+    const seasonSelect = document.getElementById('tmdbSeasonSelect');
+    if (!seasonSelect) return;
+    seasonSelect.innerHTML = '';
+
+    tmdbTvState.seasons.forEach(season => {
+        const option = document.createElement('option');
+        option.value = String(season.season_number);
+        option.textContent = season.name || `Season ${season.season_number}`;
+        if (season.episode_count) {
+            option.textContent += ` (${season.episode_count} eps)`;
+        }
+        seasonSelect.appendChild(option);
+    });
+
+    if (tmdbTvState.seasonNumber != null) {
+        seasonSelect.value = String(tmdbTvState.seasonNumber);
+    }
+}
+
+function populateTmdbEpisodeSelect() {
+    const episodeSelect = document.getElementById('tmdbEpisodeSelect');
+    if (!episodeSelect) return;
+    episodeSelect.innerHTML = '';
+
+    tmdbTvState.episodes.forEach(episode => {
+        const option = document.createElement('option');
+        option.value = String(episode.episode_number);
+        option.textContent = `E${episode.episode_number} · ${episode.name || 'Episode'}`;
+        episodeSelect.appendChild(option);
+    });
+
+    if (tmdbTvState.episodeNumber != null) {
+        episodeSelect.value = String(tmdbTvState.episodeNumber);
+    }
+}
+
+function playTmdbEpisode() {
+    if (!tmdbTvState.tvId || tmdbTvState.seasonNumber == null || tmdbTvState.episodeNumber == null) {
+        return;
+    }
+    const embedUrl = buildTmdbTvEmbedUrl(
+        tmdbTvState.tvId,
+        tmdbTvState.seasonNumber,
+        tmdbTvState.episodeNumber
+    );
+    renderTmdbIframe(embedUrl);
+    updateTmdbTvMeta();
+    populateTmdbEpisodeSelect();
+    updateTmdbEpisodeButtons();
+}
+
+async function fetchTmdbTvDetails(tvId) {
+    const apiKey = getTmdbApiKey();
+    if (!apiKey) {
+        throw new Error('TMDB API key missing');
+    }
+    const response = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${apiKey}`);
+    if (!response.ok) {
+        throw new Error(`TMDB TV details failed: ${response.status}`);
+    }
+    return response.json();
+}
+
+async function fetchTmdbSeasonDetails(tvId, seasonNumber) {
+    const apiKey = getTmdbApiKey();
+    if (!apiKey) {
+        throw new Error('TMDB API key missing');
+    }
+    const response = await fetch(`https://api.themoviedb.org/3/tv/${tvId}/season/${seasonNumber}?api_key=${apiKey}`);
+    if (!response.ok) {
+        throw new Error(`TMDB season details failed: ${response.status}`);
+    }
+    return response.json();
+}
+
+async function loadTmdbSeason(tvId, seasonNumber, options = {}) {
+    const seasonData = await fetchTmdbSeasonDetails(tvId, seasonNumber);
+    tmdbTvState.episodes = Array.isArray(seasonData.episodes) ? seasonData.episodes : [];
+    tmdbTvState.seasonNumber = seasonNumber;
+    if (tmdbTvState.episodes.length === 0) {
+        renderTmdbIframe('');
+        const tmdbMessage = document.getElementById('tmdbPlayerMessage');
+        if (tmdbMessage) {
+            tmdbMessage.textContent = 'No episodes available for this season yet.';
+        }
+        populateTmdbSeasonSelect();
+        populateTmdbEpisodeSelect();
+        updateTmdbEpisodeButtons();
+        return;
+    }
+    const desiredEpisode = options.episodeNumber;
+    const hasDesired = tmdbTvState.episodes.some(
+        episode => episode.episode_number === desiredEpisode
+    );
+    tmdbTvState.episodeNumber = hasDesired
+        ? desiredEpisode
+        : (tmdbTvState.episodes[0]?.episode_number ?? null);
+    populateTmdbSeasonSelect();
+    populateTmdbEpisodeSelect();
+    playTmdbEpisode();
+}
+
+async function nextTmdbEpisode() {
+    const currentIndex = tmdbTvState.episodes.findIndex(
+        item => item.episode_number === tmdbTvState.episodeNumber
+    );
+    if (currentIndex >= 0 && currentIndex < tmdbTvState.episodes.length - 1) {
+        tmdbTvState.episodeNumber = tmdbTvState.episodes[currentIndex + 1].episode_number;
+        playTmdbEpisode();
+        return;
+    }
+
+    const seasonIndex = tmdbTvState.seasons.findIndex(
+        season => season.season_number === tmdbTvState.seasonNumber
+    );
+    if (seasonIndex >= 0 && seasonIndex < tmdbTvState.seasons.length - 1) {
+        const nextSeason = tmdbTvState.seasons[seasonIndex + 1];
+        await loadTmdbSeason(tmdbTvState.tvId, nextSeason.season_number);
+    }
+}
+
+async function prevTmdbEpisode() {
+    const currentIndex = tmdbTvState.episodes.findIndex(
+        item => item.episode_number === tmdbTvState.episodeNumber
+    );
+    if (currentIndex > 0) {
+        tmdbTvState.episodeNumber = tmdbTvState.episodes[currentIndex - 1].episode_number;
+        playTmdbEpisode();
+        return;
+    }
+
+    const seasonIndex = tmdbTvState.seasons.findIndex(
+        season => season.season_number === tmdbTvState.seasonNumber
+    );
+    if (seasonIndex > 0) {
+        const prevSeason = tmdbTvState.seasons[seasonIndex - 1];
+        await loadTmdbSeason(tmdbTvState.tvId, prevSeason.season_number, {
+            episodeNumber: prevSeason.episode_count
+        });
+    }
+}
+
+function attachTmdbTvListeners() {
+    const seasonSelect = document.getElementById('tmdbSeasonSelect');
+    const episodeSelect = document.getElementById('tmdbEpisodeSelect');
+    const prevBtn = document.getElementById('tmdbPrevEpisode');
+    const nextBtn = document.getElementById('tmdbNextEpisode');
+
+    if (seasonSelect) {
+        seasonSelect.onchange = () => {
+            const newSeason = Number(seasonSelect.value);
+            if (Number.isNaN(newSeason)) return;
+            loadTmdbSeason(tmdbTvState.tvId, newSeason);
+        };
+    }
+
+    if (episodeSelect) {
+        episodeSelect.onchange = () => {
+            const newEpisode = Number(episodeSelect.value);
+            if (Number.isNaN(newEpisode)) return;
+            tmdbTvState.episodeNumber = newEpisode;
+            playTmdbEpisode();
+        };
+    }
+
+    if (prevBtn) {
+        prevBtn.onclick = () => prevTmdbEpisode();
+    }
+
+    if (nextBtn) {
+        nextBtn.onclick = () => nextTmdbEpisode();
+    }
+}
+
+function setupTmdbTvMessageListener() {
+    if (tmdbTvState.messageHandler) {
+        window.removeEventListener('message', tmdbTvState.messageHandler);
+    }
+    tmdbTvState.messageHandler = (event) => {
+        const data = event?.data;
+        if (!data) return;
+        const eventType = data.event || data.type || data.action;
+        if (eventType === 'ended' || eventType === 'videoEnded' || eventType === 'episodeEnded') {
+            nextTmdbEpisode();
+        }
+    };
+    window.addEventListener('message', tmdbTvState.messageHandler);
+}
+
+async function renderTmdbTvPlayer({ tmdbId, title, firstAirDate }) {
+    const playerMeta = document.getElementById('playerMeta');
+    const videoPlayer = document.getElementById('videoPlayer');
+    const tmdbContainer = document.getElementById('tmdbPlayerContainer');
     const providerSelector = document.getElementById('providerSelector');
     const streamSelector = document.getElementById('streamSelector');
     const playerEpisodes = document.getElementById('playerEpisodes');
@@ -1236,8 +1610,8 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
 
     if (playerMeta) {
         playerMeta.innerHTML = `
-            <h1>${title || 'Movie'}</h1>
-            <p>${releaseDate ? `Release: ${releaseDate}` : ''}</p>
+            <h1>${title || 'TV Show'}</h1>
+            <p>${firstAirDate ? `First Air Date: ${firstAirDate}` : ''}</p>
         `;
     }
 
@@ -1245,51 +1619,32 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
         tmdbContainer.style.display = 'block';
     }
 
-    if (tmdbIframeContainer) {
-        tmdbIframeContainer.innerHTML = '';
-    }
+    resetTmdbTvState();
+    tmdbTvState.tvId = tmdbId;
+    tmdbTvState.title = title || 'TV Show';
 
-    if (!imdbId) {
+    const details = await fetchTmdbTvDetails(tmdbId);
+    const seasons = Array.isArray(details.seasons) ? details.seasons : [];
+    tmdbTvState.seasons = seasons
+        .filter(season => season.season_number !== null && season.episode_count)
+        .sort((a, b) => a.season_number - b.season_number);
+
+    const initialSeason = tmdbTvState.seasons.find(season => season.season_number > 0)
+        || tmdbTvState.seasons[0];
+
+    updateTmdbTvControlsVisibility(true);
+    populateTmdbSeasonSelect();
+    attachTmdbTvListeners();
+    setupTmdbTvMessageListener();
+
+    if (initialSeason) {
+        await loadTmdbSeason(tmdbId, initialSeason.season_number);
+    } else {
+        renderTmdbIframe('');
+        const tmdbMessage = document.getElementById('tmdbPlayerMessage');
         if (tmdbMessage) {
-            tmdbMessage.textContent = 'Source unavailable';
+            tmdbMessage.textContent = 'No episodes available for this show yet.';
         }
-        return;
-    }
-
-    if (tmdbMessage) {
-        tmdbMessage.textContent = 'Loading player...';
-    }
-
-    const embedUrl = buildVidsrcEmbedUrl(imdbId);
-    const iframe = document.createElement('iframe');
-    iframe.src = embedUrl;
-    iframe.setAttribute('allow', 'autoplay; fullscreen');
-    iframe.setAttribute('loading', 'lazy');
-    iframe.addEventListener('pointerdown', () => {
-        window.registerEmbedInteraction?.();
-    });
-
-    let fallbackTimeout = null;
-    const showFallback = () => {
-        if (tmdbMessage) {
-            tmdbMessage.textContent = 'Playback failed to load. Please try again later.';
-        }
-    };
-
-    iframe.addEventListener('load', () => {
-        if (tmdbMessage) {
-            tmdbMessage.textContent = '';
-        }
-        if (fallbackTimeout) {
-            clearTimeout(fallbackTimeout);
-        }
-    });
-
-    iframe.addEventListener('error', showFallback);
-    fallbackTimeout = setTimeout(showFallback, 8000);
-
-    if (tmdbIframeContainer) {
-        tmdbIframeContainer.appendChild(iframe);
     }
 
     attemptPlayerFullscreen();
@@ -1300,6 +1655,7 @@ function resetTmdbPlayer() {
     const tmdbMessage = document.getElementById('tmdbPlayerMessage');
     const tmdbIframeContainer = document.getElementById('tmdbIframeContainer');
     const videoPlayer = document.getElementById('videoPlayer');
+    const tmdbTvControls = document.getElementById('tmdbTvControls');
 
     if (tmdbContainer) {
         tmdbContainer.style.display = 'none';
@@ -1310,6 +1666,10 @@ function resetTmdbPlayer() {
     if (tmdbIframeContainer) {
         tmdbIframeContainer.innerHTML = '';
     }
+    if (tmdbTvControls) {
+        tmdbTvControls.hidden = true;
+    }
+    resetTmdbTvState();
     if (videoPlayer) {
         videoPlayer.style.display = 'block';
     }
@@ -1332,6 +1692,26 @@ async function openTMDBMovie(item) {
     showView('player');
 }
 
+async function openTMDBTvShow(item) {
+    const tmdbId = item?.tmdb_id || item?.id;
+    if (!tmdbId) return;
+    showLoading(true, 'Loading TV show...');
+    try {
+        state.currentMeta = null;
+        await renderTmdbTvPlayer({
+            tmdbId,
+            title: item?.title || item?.name || 'TV Show',
+            firstAirDate: item?.first_air_date || item?.release_date || ''
+        });
+        showView('player');
+    } catch (error) {
+        console.error('Failed to load TMDB TV show:', error);
+        showError('Failed to load TV show: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
 async function openImdbRoute(imdbId) {
     if (!imdbId) return;
     state.currentMeta = null;
@@ -1345,6 +1725,7 @@ async function openImdbRoute(imdbId) {
 }
 
 window.openTMDBMovie = openTMDBMovie;
+window.openTMDBTvShow = openTMDBTvShow;
 
 function syncHeaderSearchInput(value) {
     const searchInputHeader = document.getElementById('searchInputHeader');
@@ -1926,12 +2307,16 @@ function renderPostCard(post, provider, options = {}) {
     const displayProvider = post.provider || provider;
     const postTitle = getPostTitle(post);
     const postImage = getPostImage(post);
+    const mediaType = post.media_type || post.mediaType;
+    const providerLabel = displayProvider === 'tmdb' && mediaType
+        ? `TMDB • ${mediaType === 'tv' ? 'TV' : 'Movie'}`
+        : displayProvider;
     
     card.innerHTML = `
         <img src="${postImage}" alt="${postTitle}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
         <div class="post-card-content">
             <h3>${postTitle}</h3>
-            <span class="provider-badge">${displayProvider}</span>
+            <span class="provider-badge">${providerLabel}</span>
         </div>
     `;
     
@@ -1947,7 +2332,9 @@ function renderPostCard(post, provider, options = {}) {
                     tmdb_id: post.tmdbId || post.link,
                     title: postTitle,
                     poster_path: post.poster_path || null,
-                    release_date: post.release_date || null
+                    release_date: post.release_date || null,
+                    first_air_date: post.first_air_date || null,
+                    media_type: mediaType || null
                 } : null,
                 source: options.searchSource || 'page',
                 card
@@ -1956,12 +2343,19 @@ function renderPostCard(post, provider, options = {}) {
         }
         if (isTmdb) {
             queueFullscreenRequest();
-            openTMDBMovie({
+            const tmdbPayload = {
                 tmdb_id: post.tmdbId || post.link,
                 title: postTitle,
                 poster_path: post.poster_path || null,
-                release_date: post.release_date || null
-            });
+                release_date: post.release_date || null,
+                first_air_date: post.first_air_date || null,
+                media_type: mediaType || null
+            };
+            if (mediaType === 'tv' && typeof openTMDBTvShow === 'function') {
+                openTMDBTvShow(tmdbPayload);
+            } else {
+                openTMDBMovie(tmdbPayload);
+            }
             return;
         }
         queueFullscreenRequest();
@@ -3144,27 +3538,67 @@ async function performSearch(queryOverride = '', options = {}) {
         if (!apiKey) {
             throw new Error('TMDB API key missing');
         }
+        const [movieResponse, tvResponse] = await Promise.allSettled([
+            fetch(`https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}`),
+            fetch(`https://api.themoviedb.org/3/search/tv?api_key=${apiKey}&query=${encodeURIComponent(query)}`)
+        ]);
 
-        const response = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}`);
-        if (!response.ok) {
-            throw new Error(`TMDB search failed: ${response.status}`);
+        const movieResults = [];
+        const movieOk = movieResponse.status === 'fulfilled' && movieResponse.value.ok;
+        if (movieOk) {
+            const data = await movieResponse.value.json();
+            (data.results || []).slice(0, 20).forEach(item => {
+                movieResults.push({
+                    tmdb_id: item.id,
+                    title: item.title,
+                    poster_path: item.poster_path,
+                    release_date: item.release_date,
+                    media_type: 'movie'
+                });
+            });
         }
-        const data = await response.json();
-        const results = (data.results || []).slice(0, 20).map(item => ({
-            tmdb_id: item.id,
-            title: item.title,
-            poster_path: item.poster_path,
-            release_date: item.release_date
-        }));
+
+        const tvResults = [];
+        const tvOk = tvResponse.status === 'fulfilled' && tvResponse.value.ok;
+        if (tvOk) {
+            const data = await tvResponse.value.json();
+            (data.results || []).slice(0, 20).forEach(item => {
+                tvResults.push({
+                    tmdb_id: item.id,
+                    title: item.name,
+                    poster_path: item.poster_path,
+                    release_date: item.first_air_date,
+                    first_air_date: item.first_air_date,
+                    media_type: 'tv'
+                });
+            });
+        }
+
+        if (!movieOk && !tvOk) {
+            throw new Error('TMDB search failed: request error');
+        }
+
+        const combined = [...movieResults, ...tvResults]
+            .map(result => ({
+                ...result,
+                score: scoreSearchResult(result.title, normalizedQuery)
+            }))
+            .sort((a, b) => b.score - a.score);
+
+        const results = combined.slice(0, 30);
 
         if (requestId !== state.searchRequestId) {
             return;
         }
 
         state.searchResults = results;
+        state.searchMediaFilter = 'all';
 
         if (summaryEl) {
+            const movieCount = results.filter(result => result.media_type === 'movie').length;
+            const tvCount = results.filter(result => result.media_type === 'tv').length;
             summaryEl.textContent = `${results.length} result${results.length === 1 ? '' : 's'} found on TMDB.`;
+            summaryEl.textContent += ` ${movieCount} movie${movieCount === 1 ? '' : 's'}, ${tvCount} TV show${tvCount === 1 ? '' : 's'}.`;
             if (source === 'header') {
                 summaryEl.textContent += ' Results update as you type.';
             }
@@ -3659,6 +4093,16 @@ const tmdbDetailsData = {
     similarPage: 1,
     recommendedTotal: 0,
     similarTotal: 0
+};
+
+const tmdbTvState = {
+    tvId: null,
+    title: '',
+    seasons: [],
+    seasonNumber: null,
+    episodes: [],
+    episodeNumber: null,
+    messageHandler: null
 };
 
 // Load TMDB recommendations for details page
