@@ -620,11 +620,25 @@ const TMDBContentModule = {
                 this.getActionAdventureMovies()
             ]);
 
+            const trendingIds = new Set(trendingMovies.map((movie) => movie.id));
+            const nonTrendingNowPlaying = [];
+            const trendingNowPlaying = [];
+
+            nowPlaying.forEach((movie) => {
+                if (trendingIds.has(movie.id)) {
+                    trendingNowPlaying.push(movie);
+                } else {
+                    nonTrendingNowPlaying.push(movie);
+                }
+            });
+
+            const orderedNowPlaying = [...nonTrendingNowPlaying, ...trendingNowPlaying];
+
             // Render sections with endpoint info for pagination
             const sections = [
                 { title: '🔥 Trending Now', items: trendingMovies, type: 'movie', endpoint: 'trending', region: '' },
                 { title: "✨ Sheedy's Picks", items: sheedysPicks, type: 'movie', endpoint: 'sheedys_picks', region: '' },
-                { title: '🎬 Now Playing in Theaters', items: nowPlaying, type: 'movie', endpoint: 'now_playing', region: '' },
+                { title: '🎬 Now Playing in Theaters', items: orderedNowPlaying, type: 'movie', endpoint: 'now_playing', region: '' },
                 { title: '🕰️ Nostalgia', items: nostalgiaMovies, type: 'movie', endpoint: 'discover', region: '' },
                 { title: '👻 Horror After Dark', items: horrorMovies, type: 'movie', endpoint: 'discover', region: '' },
                 { title: '😂 Comedy & More', items: comedyMovies, type: 'movie', endpoint: 'discover', region: '' },
