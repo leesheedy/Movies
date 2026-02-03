@@ -369,6 +369,13 @@ const ExploreModule = {
         if (!videoHost || !videoFrame) return;
         this.clearSpotlightAutoPause();
 
+        const getVisibilityRatio = () => {
+            const rect = videoHost.getBoundingClientRect();
+            const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+            if (rect.height <= 0) return 0;
+            return Math.max(0, Math.min(1, visibleHeight / rect.height));
+        };
+
         const handleVisibility = (isVisible) => {
             if (!this.state.spotlightTrailerKey) return;
             if (!isVisible) {
@@ -387,17 +394,16 @@ const ExploreModule = {
                 { threshold: [0, 0.25, 0.6, 1] }
             );
             this.state.spotlightObserver.observe(videoHost);
-        } else {
-            this.state.spotlightScrollHandler = () => {
-                window.requestAnimationFrame(() => {
-                    const rect = videoHost.getBoundingClientRect();
-                    const inView = rect.bottom > 0 && rect.top < window.innerHeight * 0.75;
-                    handleVisibility(inView);
-                });
-            };
-            window.addEventListener('scroll', this.state.spotlightScrollHandler, { passive: true });
-            this.state.spotlightScrollHandler();
         }
+
+        this.state.spotlightScrollHandler = () => {
+            window.requestAnimationFrame(() => {
+                const ratio = getVisibilityRatio();
+                handleVisibility(ratio > 0.25);
+            });
+        };
+        window.addEventListener('scroll', this.state.spotlightScrollHandler, { passive: true });
+        this.state.spotlightScrollHandler();
     },
 
     clearSpotlightAutoPause() {
