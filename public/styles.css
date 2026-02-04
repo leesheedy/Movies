@@ -552,6 +552,51 @@ body[data-theme="newyear"] .seasonal-decor .decor-newyear {
     margin-bottom: 12px;
 }
 
+.tmdb-player-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tmdb-player-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.tmdb-player-btn {
+    appearance: none;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: transparent;
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tmdb-player-btn:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.tmdb-player-btn.is-active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0c1116;
+}
+
+.tmdb-player-status {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
 .tmdb-iframe-container {
     position: relative;
     padding-top: 56.25%;
@@ -566,6 +611,79 @@ body[data-theme="newyear"] .seasonal-decor .decor-newyear {
     width: 100%;
     height: 100%;
     border: 0;
+}
+
+.adblock-prompt {
+    margin: 0 0 16px;
+    padding: 16px;
+    border-radius: 14px;
+    background: rgba(20, 31, 41, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+}
+
+.adblock-prompt__content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.adblock-prompt__title {
+    margin: 0 0 4px;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text);
+}
+
+.adblock-prompt__body {
+    margin: 0;
+    color: var(--text-muted);
+}
+
+.adblock-prompt__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.adblock-btn {
+    appearance: none;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-weight: 600;
+    cursor: pointer;
+    background: transparent;
+    color: var(--text);
+    transition: all 0.2s ease;
+}
+
+.adblock-btn:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.adblock-btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0c1116;
+}
+
+.adblock-btn.ghost {
+    border-color: transparent;
+    color: var(--text-muted);
+}
+
+@media (max-width: 720px) {
+    .adblock-prompt__content {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .tmdb-player-actions {
+        width: 100%;
+    }
 }
 
 .tmdb-tv-controls {
