@@ -217,6 +217,20 @@
                     
                     <!-- Error Message (Player Only) -->
                     <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+                    <div id="adblockPrompt" class="adblock-prompt" hidden>
+                        <div class="adblock-prompt__content">
+                            <div>
+                                <p class="adblock-prompt__title">Annoying ads or redirects?</p>
+                                <p class="adblock-prompt__body">For the best experience on MittaMovies, install uBlock Origin — free &amp; open-source.</p>
+                            </div>
+                            <div class="adblock-prompt__actions">
+                                <button id="adblockInstallBtn" class="adblock-btn primary" type="button">Install uBlock Origin</button>
+                                <button id="adblockBraveBtn" class="adblock-btn" type="button">Try Brave Browser</button>
+                                <button id="adblockDismissBtn" class="adblock-btn ghost" type="button">Continue anyway</button>
+                            </div>
+                        </div>
+                    </div>
                     
                     <div id="playerContent">
                         <div id="playerMeta" class="player-meta"></div>
@@ -229,6 +243,13 @@
                         </div>
                         <div id="tmdbPlayerContainer" class="tmdb-player-container" style="display: none;">
                             <div id="tmdbPlayerMessage" class="tmdb-player-message"></div>
+                            <div id="tmdbPlayerToolbar" class="tmdb-player-toolbar" hidden>
+                                <div class="tmdb-player-actions">
+                                    <button id="tmdbDirectBtn" class="tmdb-player-btn is-active" type="button">Direct Player</button>
+                                    <button id="tmdbCleanBtn" class="tmdb-player-btn" type="button">Clean Player (Beta)</button>
+                                </div>
+                                <p id="tmdbCleanStatus" class="tmdb-player-status">Best effort clean mode. Falls back automatically if the proxy fails.</p>
+                            </div>
                             <div id="tmdbIframeContainer" class="tmdb-iframe-container"></div>
                             <div id="tmdbTvControls" class="tmdb-tv-controls" hidden>
                                 <div class="tmdb-tv-header">

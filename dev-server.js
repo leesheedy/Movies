@@ -7,6 +7,104 @@ const os = require("os");
 const axios = require("axios");
 const cheerio = require("cheerio");
 
+const CLEAN_EMBED_SCRIPT_BLOCKLIST = [
+  "doubleclick",
+  "googlesyndication",
+  "googleadservices",
+  "adservice",
+  "adsystem",
+  "adnxs",
+  "adzerk",
+  "taboola",
+  "outbrain",
+  "popads",
+  "propellerads",
+  "mgid",
+  "zedo",
+  "adsrvr",
+  "criteo",
+  "adroll",
+  "openx",
+  "rubiconproject",
+  "smartadserver",
+  "casalemedia",
+  "scorecardresearch",
+  "revcontent",
+];
+
+const CLEAN_EMBED_REDIRECT_PATTERNS = [
+  /window\.open/i,
+  /location\.assign/i,
+  /location\.replace/i,
+  /top\.location/i,
+  /window\.top\.location/i,
+  /location\.href/i,
+];
+
+function sanitizeEmbedHtml(html = "") {
+  let cleaned = html.replace(/<meta[^>]+http-equiv=["']?refresh["']?[^>]*>/gi, "");
+
+  cleaned = cleaned.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, (match) => {
+    const srcMatch = match.match(/src=["']([^"']+)["']/i);
+    const src = srcMatch ? srcMatch[1] : "";
+    const sample = `${src} ${match}`.toLowerCase();
+    if (CLEAN_EMBED_SCRIPT_BLOCKLIST.some((keyword) => sample.includes(keyword))) {
+      return "";
+    }
+    if (CLEAN_EMBED_REDIRECT_PATTERNS.some((pattern) => pattern.test(sample))) {
+      return "";
+    }
+    return match;
+  });
+
+  const safetyShim = `
+    <script>
+      (() => {
+        const warn = (detail) => {
+          try { console.warn('[Clean Mode] Blocked navigation', detail); } catch (e) {}
+        };
+        try { window.open = function (url) { warn(url); return null; }; } catch (e) {}
+        try {
+          const loc = window.location;
+          const proto = Object.getPrototypeOf(loc);
+          if (proto) {
+            const assign = proto.assign?.bind(loc);
+            if (assign) proto.assign = (url) => warn(url);
+            const replace = proto.replace?.bind(loc);
+            if (replace) proto.replace = (url) => warn(url);
+            const hrefDesc = Object.getOwnPropertyDescriptor(proto, 'href');
+            if (hrefDesc?.set) {
+              Object.defineProperty(proto, 'href', {
+                get: hrefDesc.get?.bind(loc),
+                set: (url) => warn(url),
+              });
+            }
+          }
+        } catch (e) {}
+        try {
+          document.addEventListener('click', (event) => {
+            const anchor = event.target?.closest?.('a');
+            if (!anchor) return;
+            const href = anchor.getAttribute('href');
+            if (href && !href.startsWith('#')) {
+              event.preventDefault();
+              warn(href);
+            }
+          }, true);
+        } catch (e) {}
+      })();
+    </script>
+  `;
+
+  if (cleaned.includes("</head>")) {
+    cleaned = cleaned.replace("</head>", `${safetyShim}</head>`);
+  } else {
+    cleaned = safetyShim + cleaned;
+  }
+
+  return cleaned;
+}
+
 /**
  * Local development server for testing providers
  */
@@ -380,6 +478,43 @@ class DevServer {
         res.json({ streamUrl: decodedUrl });
       } catch (error) {
         console.error('Stream proxy error:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Clean embed proxy endpoint - strips ad/redirect scripts
+    this.app.get("/api/proxy/clean-embed", async (req, res) => {
+      try {
+        const { url } = req.query;
+
+        if (!url) {
+          return res.status(400).json({ error: "URL parameter is required" });
+        }
+
+        const decodedUrl = decodeURIComponent(url);
+        console.log(`Clean embed proxying from: ${decodedUrl}`);
+
+        const response = await axios.get(decodedUrl, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            Accept: "text/html,application/xhtml+xml",
+          },
+          timeout: 15000,
+          maxRedirects: 5,
+          responseType: "text",
+        });
+
+        const html = typeof response.data === "string" ? response.data : String(response.data || "");
+        const cleanedHtml = sanitizeEmbedHtml(html);
+
+        res.set({
+          "Content-Type": "text/html; charset=utf-8",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.send(cleanedHtml);
+      } catch (error) {
+        console.error("Clean embed proxy error:", error);
         res.status(500).json({ error: error.message });
       }
     });

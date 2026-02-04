@@ -21,12 +21,14 @@ const state = {
     gamepadBackPressed: false,
     gamepadPolling: false,
     externalNavigationAllowedUntil: 0,
+    cleanPlayerEnabled: false,
 };
 
 // Expose state and API_BASE globally for modules
 window.state = state;
 
 let detailsParallaxCleanup = null;
+let tmdbBaseSources = [];
 
 // API Base URL
 const API_BASE = window.location.origin;
@@ -46,6 +48,8 @@ const TMDB_IMDB_CACHE_KEY = 'tmdb_imdb_cache_v1';
 const tmdbImdbCache = new Map();
 const PROFILE_STORAGE_KEY = 'mitta_active_profile_v1';
 const PROFILE_SETTINGS_KEY = 'mitta_profile_settings_v1';
+const ADBLOCK_PROMPT_DISMISS_KEY = 'mitta_adblock_prompt_dismissed_v1';
+const ADBLOCK_PROMPT_SESSION_KEY = 'mitta_adblock_prompt_session_v1';
 const profiles = [
     { id: 'guest', name: 'Guest', avatar: 'G' },
     { id: 'digby', name: 'Digby', avatar: 'D' },
@@ -493,6 +497,82 @@ function openExternalUrl(url, options = {}) {
     return window.open(url, target, features);
 }
 
+function detectAdBlocker() {
+    return new Promise((resolve) => {
+        if (typeof document === 'undefined') {
+            resolve(false);
+            return;
+        }
+        const bait = document.createElement('div');
+        bait.className = 'adsbygoogle adblock-bait';
+        bait.style.cssText = 'position:absolute;left:-999px;top:-999px;height:10px;width:10px;';
+        document.body.appendChild(bait);
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                const style = window.getComputedStyle(bait);
+                const blocked = bait.offsetHeight === 0 || bait.offsetParent === null || style.display === 'none' || style.visibility === 'hidden';
+                bait.remove();
+                resolve(blocked);
+            }, 60);
+        });
+    });
+}
+
+function shouldShowAdblockPrompt() {
+    if (localStorage.getItem(ADBLOCK_PROMPT_DISMISS_KEY)) return false;
+    if (sessionStorage.getItem(ADBLOCK_PROMPT_SESSION_KEY)) return false;
+    return true;
+}
+
+function dismissAdblockPrompt() {
+    localStorage.setItem(ADBLOCK_PROMPT_DISMISS_KEY, '1');
+    sessionStorage.setItem(ADBLOCK_PROMPT_SESSION_KEY, '1');
+    const prompt = document.getElementById('adblockPrompt');
+    if (prompt) {
+        prompt.hidden = true;
+    }
+}
+
+async function maybeShowAdblockPrompt() {
+    if (!shouldShowAdblockPrompt()) return;
+    const prompt = document.getElementById('adblockPrompt');
+    if (!prompt) return;
+    const blocked = await detectAdBlocker();
+    if (blocked) return;
+    sessionStorage.setItem(ADBLOCK_PROMPT_SESSION_KEY, '1');
+    prompt.hidden = false;
+}
+
+function buildCleanEmbedUrl(sourceUrl) {
+    if (!sourceUrl) return '';
+    return `${API_BASE}/api/proxy/clean-embed?url=${encodeURIComponent(sourceUrl)}`;
+}
+
+function setCleanPlayerEnabled(enabled) {
+    if (state.cleanPlayerEnabled === enabled) return;
+    state.cleanPlayerEnabled = enabled;
+    updateTmdbPlayerToolbar();
+    if (tmdbBaseSources.length) {
+        renderTmdbIframe(tmdbBaseSources);
+    }
+}
+
+function updateTmdbPlayerToolbar() {
+    const toolbar = document.getElementById('tmdbPlayerToolbar');
+    const directBtn = document.getElementById('tmdbDirectBtn');
+    const cleanBtn = document.getElementById('tmdbCleanBtn');
+    if (!toolbar) return;
+    const hasSources = tmdbBaseSources.length > 0;
+    toolbar.hidden = !hasSources;
+    if (!hasSources) return;
+    if (directBtn) {
+        directBtn.classList.toggle('is-active', !state.cleanPlayerEnabled);
+    }
+    if (cleanBtn) {
+        cleanBtn.classList.toggle('is-active', state.cleanPlayerEnabled);
+    }
+}
+
 // Utility Functions
 function showLoading(show = true, message = 'Loading...') {
     const loadingEl = document.getElementById('loading');
@@ -833,7 +913,12 @@ function buildVidsrcTvFallbackUrl(tvId, season, episode) {
 function renderTmdbIframe(embedUrl) {
     const tmdbMessage = document.getElementById('tmdbPlayerMessage');
     const tmdbIframeContainer = document.getElementById('tmdbIframeContainer');
-    const sources = Array.isArray(embedUrl) ? embedUrl.filter(Boolean) : [embedUrl].filter(Boolean);
+    const baseSources = Array.isArray(embedUrl) ? embedUrl.filter(Boolean) : [embedUrl].filter(Boolean);
+    tmdbBaseSources = baseSources;
+    updateTmdbPlayerToolbar();
+
+    const cleanSources = state.cleanPlayerEnabled ? baseSources.map(buildCleanEmbedUrl).filter(Boolean) : [];
+    const sources = state.cleanPlayerEnabled ? [...cleanSources, ...baseSources] : baseSources;
 
     if (tmdbIframeContainer) {
         tmdbIframeContainer.innerHTML = '';
@@ -879,7 +964,8 @@ function renderTmdbIframe(embedUrl) {
         if (!nextUrl) return;
         iframe.src = nextUrl;
         if (tmdbMessage) {
-            tmdbMessage.textContent = 'Loading player...';
+            const usingClean = state.cleanPlayerEnabled && index < cleanSources.length;
+            tmdbMessage.textContent = usingClean ? 'Loading clean player (beta)...' : 'Loading player...';
         }
         if (fallbackTimeout) {
             clearTimeout(fallbackTimeout);
@@ -1688,6 +1774,7 @@ function resetTmdbPlayer() {
     const tmdbIframeContainer = document.getElementById('tmdbIframeContainer');
     const videoPlayer = document.getElementById('videoPlayer');
     const tmdbTvControls = document.getElementById('tmdbTvControls');
+    const tmdbToolbar = document.getElementById('tmdbPlayerToolbar');
 
     if (tmdbContainer) {
         tmdbContainer.style.display = 'none';
@@ -1698,9 +1785,13 @@ function resetTmdbPlayer() {
     if (tmdbIframeContainer) {
         tmdbIframeContainer.innerHTML = '';
     }
+    if (tmdbToolbar) {
+        tmdbToolbar.hidden = true;
+    }
     if (tmdbTvControls) {
         tmdbTvControls.hidden = true;
     }
+    tmdbBaseSources = [];
     resetTmdbTvState();
     if (videoPlayer) {
         videoPlayer.style.display = 'block';
@@ -1946,6 +2037,7 @@ function showView(viewName) {
     const playerView = document.getElementById('playerView');
     if (playerView) {
         if (viewName === 'player') {
+            maybeShowAdblockPrompt();
             playerView.classList.remove('is-visible');
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
@@ -3869,6 +3961,41 @@ async function init() {
     loadTmdbImdbCache();
     initProfileGate();
     initBackNavigationHandlers();
+
+    const adblockInstallBtn = document.getElementById('adblockInstallBtn');
+    if (adblockInstallBtn) {
+        adblockInstallBtn.addEventListener('click', () => {
+            openExternalUrl('https://ublockorigin.com/');
+        });
+    }
+
+    const adblockBraveBtn = document.getElementById('adblockBraveBtn');
+    if (adblockBraveBtn) {
+        adblockBraveBtn.addEventListener('click', () => {
+            openExternalUrl('https://brave.com/download/');
+        });
+    }
+
+    const adblockDismissBtn = document.getElementById('adblockDismissBtn');
+    if (adblockDismissBtn) {
+        adblockDismissBtn.addEventListener('click', () => {
+            dismissAdblockPrompt();
+        });
+    }
+
+    const tmdbDirectBtn = document.getElementById('tmdbDirectBtn');
+    if (tmdbDirectBtn) {
+        tmdbDirectBtn.addEventListener('click', () => {
+            setCleanPlayerEnabled(false);
+        });
+    }
+
+    const tmdbCleanBtn = document.getElementById('tmdbCleanBtn');
+    if (tmdbCleanBtn) {
+        tmdbCleanBtn.addEventListener('click', () => {
+            setCleanPlayerEnabled(true);
+        });
+    }
     
     // Load providers
     showLoading();
