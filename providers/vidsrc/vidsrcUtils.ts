@@ -30,7 +30,7 @@ export const buildVidsrcEmbedUrl = ({
   if (type === "series" && season && episode) {
     return `https://vidsrc-embed.ru/embed/tv/${imdbId}/${season}-${episode}`;
   }
-  return `https://vidsrc-embed.ru/embed/movie/${imdbId}`;
+  return `https://vidsrc.to/embed/movie/${imdbId}`;
 };
 
 export const resolveVidsrcStreams = async (
