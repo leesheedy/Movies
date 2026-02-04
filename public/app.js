@@ -2806,8 +2806,8 @@ async function renderDetails(meta, provider) {
     setupDetailsHeroParallax(container.querySelector('.details-hero'));
     setupSynopsisToggle(container);
     
-    // Render seasons/episodes
-    if (meta.linkList && meta.linkList.length > 0) {
+    // Render seasons/episodes (TV only)
+    if (meta.type !== 'movie' && meta.linkList && meta.linkList.length > 0) {
         renderSeasonSelector(meta.linkList, provider, meta.type);
     }
     
@@ -2853,6 +2853,11 @@ function renderPlayerEpisodes(linkList, provider, type) {
 
 function renderSeasonSelector(linkList, provider, type) {
     const container = document.getElementById('seasonSelector');
+    if (!container) return;
+    if (type === 'movie') {
+        container.innerHTML = '';
+        return;
+    }
     
     container.innerHTML = `
         <div class="season-selector">

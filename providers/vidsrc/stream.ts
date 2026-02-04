@@ -21,27 +21,41 @@ export const createVidsrcStream = (serverLabel: string) => {
   }): Promise<Stream[]> => {
     try {
       const payload = parsePayload(link);
+      const resolvedType = payload.type ?? type;
       const embedUrl =
         payload.embedUrl ||
         buildVidsrcEmbedUrl({
           imdbId: payload.imdbId,
-          type: payload.type ?? type,
+          type: resolvedType,
           season: payload.season,
           episode: payload.episode,
         });
 
-      if (!embedUrl) return [];
+      const candidates = embedUrl ? [embedUrl] : [];
 
-      const urls = await resolveVidsrcStreams(embedUrl, providerContext);
-      return urls.map((streamUrl) => ({
-        server: serverLabel,
-        link: streamUrl,
-        type: streamUrl.includes(".m3u8") ? "m3u8" : "mp4",
-        headers: {
-          Referer: "https://cloudnestra.com/",
-          Origin: "https://cloudnestra.com",
-        },
-      }));
+      if (resolvedType === "movie" && payload.imdbId) {
+        const fallbackMovieUrl = `https://vidsrc-embed.ru/embed/movie/${payload.imdbId}`;
+        if (!candidates.includes(fallbackMovieUrl)) {
+          candidates.push(fallbackMovieUrl);
+        }
+      }
+
+      for (const candidate of candidates) {
+        const urls = await resolveVidsrcStreams(candidate, providerContext);
+        if (urls.length > 0) {
+          return urls.map((streamUrl) => ({
+            server: serverLabel,
+            link: streamUrl,
+            type: streamUrl.includes(".m3u8") ? "m3u8" : "mp4",
+            headers: {
+              Referer: "https://cloudnestra.com/",
+              Origin: "https://cloudnestra.com",
+            },
+          }));
+        }
+      }
+
+      return [];
     } catch (err) {
       console.error("vidsrc stream error", err);
       return [];
