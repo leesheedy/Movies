@@ -822,15 +822,12 @@ function openPlaybackTab(provider, link) {
 
 window.openPlaybackTab = openPlaybackTab;
 
-function buildVidsrcEmbedUrl(imdbId) {
-    return `https://vidsrc-embed.ru/embed/movie/${imdbId}?autoplay=1`;
+function buildVidplusTvEmbedUrl(tvId, season, episode) {
+    return `https://player.vidplus.to/embed/tv/${tvId}/${season}/${episode}?autoplay=true&autonext=true`;
 }
 
-function buildTmdbTvEmbedSources(tvId, season, episode) {
-    return [
-        `https://2embed.cc/embed/tv?tmdb=${tvId}&season=${season}&episode=${episode}`,
-        `https://vidsrc.to/embed/tv/${tvId}/${season}/${episode}`
-    ];
+function buildVidsrcTvFallbackUrl(tvId, season, episode) {
+    return `https://dl.vidsrc.vip/tv/${tvId}/${season}/${episode}`;
 }
 
 function renderTmdbIframe(embedUrl) {
@@ -1337,6 +1334,7 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
     const playerMeta = document.getElementById('playerMeta');
     const videoPlayer = document.getElementById('videoPlayer');
     const tmdbContainer = document.getElementById('tmdbPlayerContainer');
+    const tmdbMessage = document.getElementById('tmdbPlayerMessage');
     const providerSelector = document.getElementById('providerSelector');
     const streamSelector = document.getElementById('streamSelector');
     const playerEpisodes = document.getElementById('playerEpisodes');
@@ -1365,9 +1363,10 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
     if (tmdbContainer) {
         tmdbContainer.style.display = 'block';
     }
-
-    const embedUrl = imdbId ? buildVidsrcEmbedUrl(imdbId) : '';
-    renderTmdbIframe(embedUrl);
+    if (tmdbMessage) {
+        tmdbMessage.textContent = 'Movie embeds are unavailable. Please select a TV show to play.';
+    }
+    renderTmdbIframe('');
 
     attemptPlayerFullscreen();
 }
@@ -1469,11 +1468,18 @@ function playTmdbEpisode() {
     if (!tmdbTvState.tvId || tmdbTvState.seasonNumber == null || tmdbTvState.episodeNumber == null) {
         return;
     }
-    const embedSources = buildTmdbTvEmbedSources(
-        tmdbTvState.tvId,
-        tmdbTvState.seasonNumber,
-        tmdbTvState.episodeNumber
-    );
+    const embedSources = [
+        buildVidplusTvEmbedUrl(
+            tmdbTvState.tvId,
+            tmdbTvState.seasonNumber,
+            tmdbTvState.episodeNumber
+        ),
+        buildVidsrcTvFallbackUrl(
+            tmdbTvState.tvId,
+            tmdbTvState.seasonNumber,
+            tmdbTvState.episodeNumber
+        )
+    ];
     renderTmdbIframe(embedSources);
     updateTmdbTvMeta();
     populateTmdbEpisodeSelect();
