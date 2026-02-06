@@ -2207,15 +2207,23 @@ async function fetchStream(provider, link, type = 'movie') {
             if (!response.ok) throw new Error('Failed to fetch stream');
             return response.json();
         })
-        .then(streams => {
+        .then(rawStreams => {
+            const streams = Array.isArray(rawStreams)
+                ? rawStreams
+                : Array.isArray(rawStreams?.streams)
+                    ? rawStreams.streams
+                    : Array.isArray(rawStreams?.data)
+                        ? rawStreams.data
+                        : [];
             console.log('✅ Streams received:', streams.length, 'options');
             streams.forEach((s, i) => {
+                const linkPreview = s?.link ? `${s.link.substring(0, 80)}...` : '[missing link]';
                 console.log(`  Stream ${i}:`, {
-                    server: s.server,
-                    type: s.type,
-                    quality: s.quality,
-                    requiresExtraction: s.requiresExtraction,
-                    linkPreview: s.link.substring(0, 80) + '...'
+                    server: s?.server,
+                    type: s?.type,
+                    quality: s?.quality,
+                    requiresExtraction: s?.requiresExtraction,
+                    linkPreview
                 });
             });
             return setCached(cacheStore.streams, cacheKey, streams);
@@ -2925,6 +2933,10 @@ async function renderEpisodes(linkItem, provider, type, containerId = 'episodesL
 function renderStreamSelector(streams, provider) {
     console.log('🎬 renderStreamSelector called', {streams, provider, streamCount: streams.length});
     const container = document.getElementById('streamSelector');
+    if (!container) {
+        console.warn('⚠️ Stream selector container not found');
+        return;
+    }
     
     if (streams.length === 0) {
         console.warn('⚠️ No streams available');
@@ -3099,12 +3111,18 @@ async function playMovieIntro() {
 }
 
 async function playStream(stream) {
+    const streamLink = stream?.link;
+    if (!streamLink) {
+        console.error('❌ playStream called without a valid stream link:', stream);
+        showError('Stream link missing. Please try another source.');
+        return;
+    }
     console.log('▶️ playStream called with:', {
         server: stream.server,
         type: stream.type,
         quality: stream.quality,
         requiresExtraction: stream.requiresExtraction,
-        linkPreview: stream.link.substring(0, 100)
+        linkPreview: streamLink.substring(0, 100)
     });
     
     // Clear any previous error messages
@@ -3125,7 +3143,7 @@ async function playStream(stream) {
             await playMovieIntro();
         }
 
-        let streamUrl = stream.link;
+        let streamUrl = streamLink;
         
         // Check if stream needs extraction
         if (stream.requiresExtraction) {
@@ -3133,7 +3151,7 @@ async function playStream(stream) {
             console.log(`⚠️ Stream requires extraction: ${stream.extractionService}`);
             
             try {
-                const extractUrl = `${API_BASE}/api/proxy/stream?url=${encodeURIComponent(stream.link)}`;
+                const extractUrl = `${API_BASE}/api/proxy/stream?url=${encodeURIComponent(streamLink)}`;
                 console.log('🔄 Calling extraction endpoint:', extractUrl);
                 const response = await fetch(extractUrl);
                 console.log('🔄 Extraction response status:', response.status);
@@ -3351,22 +3369,28 @@ async function playStream(stream) {
 }
 
 async function openExternalPlayer(stream) {
+    const streamLink = stream?.link;
+    if (!streamLink) {
+        console.error('❌ openExternalPlayer called without a valid stream link:', stream);
+        showError('Stream link missing. Please try another source.');
+        return;
+    }
     console.log('🖥️ openExternalPlayer called with:', {
         server: stream.server,
         type: stream.type,
         quality: stream.quality,
         requiresExtraction: stream.requiresExtraction,
-        linkPreview: stream.link.substring(0, 100)
+        linkPreview: streamLink.substring(0, 100)
     });
 
     showLoading(true, 'Preparing external player...');
     try {
-        let streamUrl = stream.link;
+        let streamUrl = streamLink;
 
         if (stream.requiresExtraction) {
             console.log('🔄 External player extraction required');
             try {
-                const extractUrl = `${API_BASE}/api/proxy/stream?url=${encodeURIComponent(stream.link)}`;
+                const extractUrl = `${API_BASE}/api/proxy/stream?url=${encodeURIComponent(streamLink)}`;
                 console.log('🔄 Calling extraction endpoint for external playback:', extractUrl);
                 const response = await fetch(extractUrl);
                 if (!response.ok) {
@@ -3914,10 +3938,13 @@ async function loadPlayer(provider, link, type, options = {}) {
     try {
         console.log('⏳ Fetching streams...');
         const streams = await fetchStream(provider, link, type);
-        state.currentStreams = streams;
-        console.log('📊 State updated with', streams.length, 'streams');
+        const validStreams = Array.isArray(streams)
+            ? streams.filter(stream => stream && stream.link)
+            : [];
+        state.currentStreams = validStreams;
+        console.log('📊 State updated with', validStreams.length, 'streams');
         
-        if (streams.length === 0) {
+        if (validStreams.length === 0) {
             console.error('❌ No streams available');
             if (!suppressErrors) {
                 showError('No streams available for this content. This could mean:\n- The content is temporarily unavailable\n- Try another episode or quality');
@@ -3926,13 +3953,13 @@ async function loadPlayer(provider, link, type, options = {}) {
         }
         
         console.log('🎨 Rendering stream selector...');
-        renderStreamSelector(streams, provider);
+        renderStreamSelector(validStreams, provider);
         console.log('🖥️ Switching to player view');
         showView('player');
         
         // Auto-play first stream
-        console.log('▶️ Auto-playing first stream:', streams[0]);
-        await playStream(streams[0]);
+        console.log('▶️ Auto-playing first stream:', validStreams[0]);
+        await playStream(validStreams[0]);
         showToast('Stream loaded successfully!', 'success', 1000);
         return true;
     } catch (error) {
