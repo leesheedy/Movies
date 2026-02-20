@@ -621,6 +621,36 @@ function scoreSearchResult(title, normalizedQuery) {
     return 50 + matchCount * 5;
 }
 
+function selectExactMatchResults(results, normalizedQuery) {
+    if (!Array.isArray(results) || !normalizedQuery) return [];
+    const exactMatches = results.filter(result => normalizeSearchTitle(result.title) === normalizedQuery);
+    if (exactMatches.length === 0) return [];
+
+    exactMatches.sort((a, b) => {
+        const mediaBoostA = a.media_type === 'tv' ? 1 : 0;
+        const mediaBoostB = b.media_type === 'tv' ? 1 : 0;
+        if (mediaBoostA !== mediaBoostB) {
+            return mediaBoostB - mediaBoostA;
+        }
+
+        const popularityA = Number(a.popularity) || 0;
+        const popularityB = Number(b.popularity) || 0;
+        if (popularityA !== popularityB) {
+            return popularityB - popularityA;
+        }
+
+        const voteCountA = Number(a.vote_count) || 0;
+        const voteCountB = Number(b.vote_count) || 0;
+        if (voteCountA !== voteCountB) {
+            return voteCountB - voteCountA;
+        }
+
+        return 0;
+    });
+
+    return [exactMatches[0]];
+}
+
 function applySearchProviderFilter(results) {
     if (!Array.isArray(results)) return [];
     if (state.searchMediaFilter === 'movie') {
@@ -3907,6 +3937,8 @@ async function performSearch(queryOverride = '', options = {}) {
                     title: item.title,
                     poster_path: item.poster_path,
                     release_date: item.release_date,
+                    popularity: item.popularity,
+                    vote_count: item.vote_count,
                     media_type: 'movie'
                 });
             });
@@ -3923,6 +3955,8 @@ async function performSearch(queryOverride = '', options = {}) {
                     poster_path: item.poster_path,
                     release_date: item.first_air_date,
                     first_air_date: item.first_air_date,
+                    popularity: item.popularity,
+                    vote_count: item.vote_count,
                     media_type: 'tv'
                 });
             });
@@ -3939,7 +3973,8 @@ async function performSearch(queryOverride = '', options = {}) {
             }))
             .sort((a, b) => b.score - a.score);
 
-        const results = combined.slice(0, 30);
+        const exactMatchResults = selectExactMatchResults(combined, normalizedQuery);
+        const results = exactMatchResults.length > 0 ? exactMatchResults : combined.slice(0, 30);
 
         if (requestId !== state.searchRequestId) {
             return;
