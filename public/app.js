@@ -912,7 +912,7 @@ function buildVidsrcTvFallbackUrl(tvId, season, episode) {
 }
 
 function buildVidplusMovieEmbedUrl(movieId) {
-    return `https://player.vidplus.to/embed/movie/${movieId}?autoplay=true`;
+    return `https://player.vidplus.pro/embed/movie/${movieId}?autoplay=true`;
 }
 
 function buildVidsrcMovieFallbackUrl(movieId) {
@@ -921,6 +921,14 @@ function buildVidsrcMovieFallbackUrl(movieId) {
 
 function buildVidsrcImdbMovieFallbackUrl(imdbId) {
     return `https://dl.vidsrc.vip/movie/${imdbId}`;
+}
+
+function build2EmbedTmdbMovieFallbackUrl(movieId) {
+    return `https://www.2embed.cc/embed/tmdb/movie?id=${movieId}`;
+}
+
+function build2EmbedImdbMovieFallbackUrl(imdbId) {
+    return `https://www.2embed.cc/embed/imdb/movie?id=${imdbId}`;
 }
 
 function renderTmdbIframe(embedUrl) {
@@ -1464,7 +1472,9 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId, tmdbId }) {
     }
     const embedSources = [
         tmdbId ? buildVidplusMovieEmbedUrl(tmdbId) : null,
+        tmdbId ? build2EmbedTmdbMovieFallbackUrl(tmdbId) : null,
         tmdbId ? buildVidsrcMovieFallbackUrl(tmdbId) : null,
+        imdbId ? build2EmbedImdbMovieFallbackUrl(imdbId) : null,
         imdbId ? buildVidsrcImdbMovieFallbackUrl(imdbId) : null
     ].filter(Boolean);
 
