@@ -2504,7 +2504,8 @@ function getPostImage(post) {
     if (!post) return getTmdbPosterUrl();
 
     const normalizedTitle = String(getPostTitle(post) || '').trim().toLowerCase();
-    if (normalizedTitle === 'the rookie') {
+    const normalizedOriginalTitle = String(post.original_title || post.original_name || '').trim().toLowerCase();
+    if (normalizedTitle.includes('rookie') || normalizedOriginalTitle.includes('rookie')) {
         return 'https://i.imgur.com/YP5Gdeu.jpeg';
     }
 
