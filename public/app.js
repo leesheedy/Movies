@@ -56,7 +56,8 @@ const profiles = [
     { id: 'lee', name: 'Lee', avatar: 'L' },
     { id: 'ryan', name: 'Ryan', avatar: 'R' },
     { id: 'issy', name: 'Issy', avatar: 'I' },
-    { id: 'renee', name: 'Renee', avatar: 'R' }
+    { id: 'renee', name: 'Renee', avatar: 'R' },
+    { id: 'dom-and-isla', name: 'Dom and Isla', avatar: 'DI' }
 ];
 const profileSettings = loadProfileSettings();
 let activeProfileId = null;
