@@ -127,6 +127,22 @@ const TMDBContentModule = {
         return this.fetchTv('/tv/popular');
     },
 
+    async getMoviesByGenre(genreIds) {
+        return this.fetchMovies('/discover/movie', {
+            with_genres: genreIds,
+            sort_by: 'popularity.desc',
+            include_adult: 'false'
+        });
+    },
+
+    async getTvByGenre(genreIds) {
+        return this.fetchTv('/discover/tv', {
+            with_genres: genreIds,
+            sort_by: 'popularity.desc',
+            include_adult: 'false'
+        });
+    },
+
     // Fetch top rated TV shows
     async getTopRatedTvShows() {
         return this.fetchTv('/tv/top_rated');
@@ -754,6 +770,128 @@ const TMDBContentModule = {
             });
         } catch (error) {
             console.error('Failed to render TMDB TV sections:', error);
+            container.appendChild(this.renderRetrySection());
+        }
+    },
+
+    async renderMovieSections(container) {
+        if (!container) return;
+        console.log('🎬 Loading TMDB movie sections...');
+
+        try {
+            const [
+                trending,
+                popular,
+                nowPlaying,
+                topRated,
+                comedy,
+                horror,
+                action,
+                sciFi,
+                romance,
+                animation,
+                crime,
+                documentary
+            ] = await Promise.all([
+                this.getTrendingMovies(),
+                this.getPopularMovies(),
+                this.getNowPlayingMovies(),
+                this.fetchMovies('/movie/top_rated'),
+                this.getMoviesByGenre('35'),
+                this.getMoviesByGenre('27'),
+                this.getMoviesByGenre('28,12'),
+                this.getMoviesByGenre('878'),
+                this.getMoviesByGenre('10749'),
+                this.getMoviesByGenre('16'),
+                this.getMoviesByGenre('80,53'),
+                this.getMoviesByGenre('99')
+            ]);
+
+            const sections = [
+                { title: '🔥 Trending Movies', items: trending, type: 'movie', endpoint: 'trending', region: '' },
+                { title: '⭐ Popular Movies', items: popular, type: 'movie', endpoint: 'popular', region: '' },
+                { title: '🎬 Now Playing', items: nowPlaying, type: 'movie', endpoint: 'now_playing', region: '' },
+                { title: '🏆 Top Rated Movies', items: topRated, type: 'movie', endpoint: 'top_rated', region: '' },
+                { title: '😂 Comedy Picks', items: comedy, type: 'movie', endpoint: 'discover', region: '' },
+                { title: '👻 Horror Picks', items: horror, type: 'movie', endpoint: 'discover', region: '' },
+                { title: '⚡ Action & Adventure', items: action, type: 'movie', endpoint: 'discover', region: '' },
+                { title: '🚀 Sci-Fi Worlds', items: sciFi, type: 'movie', endpoint: 'discover', region: '' },
+                { title: '💘 Romance', items: romance, type: 'movie', endpoint: 'discover', region: '' },
+                { title: '🧸 Animation', items: animation, type: 'movie', endpoint: 'discover', region: '' },
+                { title: '🕵️ Crime & Thriller', items: crime, type: 'movie', endpoint: 'discover', region: '' },
+                { title: '🎥 Documentary', items: documentary, type: 'movie', endpoint: 'discover', region: '' }
+            ];
+
+            container.innerHTML = '';
+            sections.forEach(({ title, items, type, endpoint, region }) => {
+                const section = this.renderTMDBSection(title, items, type, endpoint, region);
+                if (section) {
+                    container.appendChild(section);
+                }
+            });
+        } catch (error) {
+            console.error('Failed to render TMDB movie sections:', error);
+            container.appendChild(this.renderRetrySection());
+        }
+    },
+
+    async renderExpandedTvSections(container) {
+        if (!container) return;
+        console.log('📺 Loading expanded TMDB TV sections...');
+
+        try {
+            const [
+                trending,
+                popular,
+                topRated,
+                airingToday,
+                comedy,
+                drama,
+                crime,
+                mystery,
+                sciFi,
+                reality,
+                kids,
+                documentary
+            ] = await Promise.all([
+                this.getTrendingTvShows(),
+                this.getPopularTvShows(),
+                this.getTopRatedTvShows(),
+                this.getAiringTodayTvShows(),
+                this.getTvByGenre('35'),
+                this.getTvByGenre('18'),
+                this.getTvByGenre('80'),
+                this.getTvByGenre('9648'),
+                this.getTvByGenre('10765'),
+                this.getTvByGenre('10764'),
+                this.getTvByGenre('10762'),
+                this.getTvByGenre('99')
+            ]);
+
+            const sections = [
+                { title: '🔥 Trending TV', items: trending, type: 'tv', endpoint: 'trending', region: '' },
+                { title: '⭐ Popular TV', items: popular, type: 'tv', endpoint: 'popular', region: '' },
+                { title: '🏆 Top Rated', items: topRated, type: 'tv', endpoint: 'top_rated', region: '' },
+                { title: '📡 Airing Today', items: airingToday, type: 'tv', endpoint: 'airing_today', region: '' },
+                { title: '😂 Comedy Shows', items: comedy, type: 'tv', endpoint: 'discover', region: '' },
+                { title: '🎭 Drama Series', items: drama, type: 'tv', endpoint: 'discover', region: '' },
+                { title: '🕵️ Crime Stories', items: crime, type: 'tv', endpoint: 'discover', region: '' },
+                { title: '🧩 Mystery & Suspense', items: mystery, type: 'tv', endpoint: 'discover', region: '' },
+                { title: '🚀 Sci-Fi & Fantasy', items: sciFi, type: 'tv', endpoint: 'discover', region: '' },
+                { title: '🎤 Reality TV', items: reality, type: 'tv', endpoint: 'discover', region: '' },
+                { title: '🧒 Kids & Family', items: kids, type: 'tv', endpoint: 'discover', region: '' },
+                { title: '🎥 Documentary Series', items: documentary, type: 'tv', endpoint: 'discover', region: '' }
+            ];
+
+            container.innerHTML = '';
+            sections.forEach(({ title, items, type, endpoint, region }) => {
+                const section = this.renderTMDBSection(title, items, type, endpoint, region);
+                if (section) {
+                    container.appendChild(section);
+                }
+            });
+        } catch (error) {
+            console.error('Failed to render expanded TMDB TV sections:', error);
             container.appendChild(this.renderRetrySection());
         }
     }
