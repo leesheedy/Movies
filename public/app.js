@@ -4825,10 +4825,14 @@ async function loadExplorePage() {
 async function loadMoviesPage() {
     showLoading(true, 'Loading Movies...');
     try {
-        if (isTmdbOnlyMode()) {
-            showError('Movies is unavailable in TMDB-only mode. Use Home or Search instead.');
+        const moviesContainer = document.getElementById('moviesContent');
+        if (window.TMDBContentModule?.renderMovieSections && moviesContainer) {
+            await window.TMDBContentModule.renderMovieSections(moviesContainer);
+            showView('movies');
+            updateNavLinks('movies');
             return;
         }
+
         if (window.MoviesModule && state.providers.length > 0) {
             await window.MoviesModule.init(state.providers);
             window.MoviesModule.renderMoviesPage();
@@ -4848,21 +4852,26 @@ async function loadMoviesPage() {
 async function loadTVShowsPage() {
     showLoading(true, 'Loading TV Shows...');
     try {
-        if (isTmdbOnlyMode()) {
-            const tvContainer = document.getElementById('tvShowsContent');
-            if (!tvContainer) {
-                showError('TV Shows module not available. Please refresh the page.');
-                return;
-            }
-            if (window.TMDBContentModule?.renderTvSections) {
-                await window.TMDBContentModule.renderTvSections(tvContainer);
-                showView('tvshows');
-                updateNavLinks('tvshows');
-                return;
-            }
-            showError('TV Shows is unavailable in TMDB-only mode. Use Home or Search instead.');
+        const tvContainer = document.getElementById('tvShowsContent');
+        if (!tvContainer) {
+            showError('TV Shows module not available. Please refresh the page.');
             return;
         }
+
+        if (window.TMDBContentModule?.renderExpandedTvSections) {
+            await window.TMDBContentModule.renderExpandedTvSections(tvContainer);
+            showView('tvshows');
+            updateNavLinks('tvshows');
+            return;
+        }
+
+        if (window.TMDBContentModule?.renderTvSections) {
+            await window.TMDBContentModule.renderTvSections(tvContainer);
+            showView('tvshows');
+            updateNavLinks('tvshows');
+            return;
+        }
+
         if (window.TVShowsModule && state.providers.length > 0) {
             await window.TVShowsModule.init(state.providers);
             window.TVShowsModule.renderTVShowsPage();
