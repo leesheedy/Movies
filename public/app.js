@@ -2462,6 +2462,12 @@ function getPostTitle(post) {
 
 function getPostImage(post) {
     if (!post) return getTmdbPosterUrl();
+
+    const normalizedTitle = String(getPostTitle(post) || '').trim().toLowerCase();
+    if (normalizedTitle === 'the rookie') {
+        return 'https://i.imgur.com/YP5Gdeu.jpeg';
+    }
+
     if (post.image) return post.image;
     if (post.poster) return post.poster;
     if (post.poster_path) return getTmdbPosterUrl(post.poster_path);

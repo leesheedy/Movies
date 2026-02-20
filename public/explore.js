@@ -40,7 +40,8 @@ const ExploreModule = {
         ],
         customCovers: {
             tt0137523: 'https://i.imgur.com/lQqO9Cn.jpeg',
-            tt0389860: 'https://i.imgur.com/4mvTQP5.jpeg'
+            tt0389860: 'https://i.imgur.com/4mvTQP5.jpeg',
+            tt7587890: 'https://i.imgur.com/YP5Gdeu.jpeg'
         }
     },
 
