@@ -85,23 +85,23 @@
         <header class="header">
             <div class="header-container">
                 <div class="header-left">
-                    <div class="logo-container">
-                        <span class="logo-mark">MM</span>
-                        <h1 class="logo-text">Mitta</h1>
-                    </div>
+                    <button id="profileChip" class="profile-chip" type="button" aria-label="Profile">
+                        <span id="profileAvatar" class="profile-avatar">G</span>
+                        <span id="profileName" class="profile-name">Guest</span>
+                    </button>
                     <nav class="main-nav">
                         <button id="homeBtn" class="nav-link active">Home</button>
+                        <button id="tvShowsBtn" class="nav-link">Shows</button>
                         <button id="moviesBtn" class="nav-link">Movies</button>
-                        <button id="tvShowsBtn" class="nav-link">TV Shows</button>
-                        <button id="exploreBtn" class="nav-link">Explore</button>
-                        <button id="historyBtn" class="nav-link">History</button>
+                        <button id="exploreBtn" class="nav-link">Games</button>
+                        <button id="historyBtn" class="nav-link">My Library</button>
                     </nav>
                 </div>
                 <div class="header-right">
                     <div class="search-icon-container">
                         <input type="text" id="searchInputHeader" class="search-input-header" placeholder="Search movies or shows..." />
                         <button id="searchClearHeader" class="search-clear-btn header-search-clear" type="button" aria-label="Clear search" aria-hidden="true">✕</button>
-                        <button id="searchToggle" class="search-icon-btn">
+                        <button id="searchToggle" class="search-icon-btn" aria-label="Open search">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="11" cy="11" r="8"></circle>
                                 <path d="m21 21-4.35-4.35"></path>
@@ -112,16 +112,13 @@
                         <option value="vidsrc">Vidsrc (IMDB)</option>
                     </select>
                     <div class="profile-controls">
-                        <button id="profileChip" class="profile-chip" type="button" aria-label="Profile">
-                            <span id="profileAvatar" class="profile-avatar">G</span>
-                            <span id="profileName" class="profile-name">Guest</span>
-                        </button>
                         <button id="profileSettingsTrigger" class="profile-settings-trigger" type="button" aria-label="Profile settings" hidden>
-                            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="3"></circle>
-                                <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3 1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8 1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path>
-                            </svg>
+                            ⚙
                         </button>
+                    </div>
+                    <div class="logo-container" aria-label="Brand">
+                        <span class="logo-mark">MM</span>
+                        <span class="logo-text">Mitta</span>
                     </div>
                 </div>
             </div>
