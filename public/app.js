@@ -1994,7 +1994,24 @@ function initBackNavigationHandlers() {
         if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
             return;
         }
-        if (event.key === 'Escape' || event.key === 'BrowserBack' || event.key === 'Backspace') {
+        const key = event.key;
+        if (key === 'ArrowLeft' && focusClosestCinematicTile('left')) {
+            event.preventDefault();
+            return;
+        }
+        if (key === 'ArrowRight' && focusClosestCinematicTile('right')) {
+            event.preventDefault();
+            return;
+        }
+        if (key === 'ArrowUp' && focusClosestCinematicTile('up')) {
+            event.preventDefault();
+            return;
+        }
+        if (key === 'ArrowDown' && focusClosestCinematicTile('down')) {
+            event.preventDefault();
+            return;
+        }
+        if (key === 'Escape' || key === 'BrowserBack' || key === 'Backspace') {
             handleBackAction();
         }
     });
@@ -2450,6 +2467,161 @@ function getPostImage(post) {
     if (post.poster_path) return getTmdbPosterUrl(post.poster_path);
     if (post.posterPath) return getTmdbPosterUrl(post.posterPath);
     return getTmdbPosterUrl();
+}
+
+function formatCinematicRuntime(minutes) {
+    if (!minutes || !Number.isFinite(minutes)) return '1h 48m';
+    const hrs = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hrs}h ${mins}m`;
+}
+
+function createCinematicTile(item, options = {}) {
+    const { large = false, metadata = false } = options;
+    const card = document.createElement('article');
+    card.className = `cinematic-poster-card${large ? ' cinematic-poster-card-large' : ''}`;
+    card.tabIndex = 0;
+
+    const title = item.title || item.name || 'Untitled';
+    const poster = getPostImage(item);
+    const yearValue = item.release_date || item.first_air_date;
+    const year = yearValue ? new Date(yearValue).getFullYear() : '2024';
+    const rating = item.vote_average ? item.vote_average.toFixed(1) : 'PG';
+    const mediaType = item.media_type === 'tv' || item.name ? 'Show' : 'Movie';
+
+    card.innerHTML = `
+        <img src="${poster}" alt="${title}" loading="lazy" />
+        ${metadata ? `
+            <div class="cinematic-meta">
+                <div class="cinematic-tags">
+                    <span>${mediaType}</span>
+                    <span>Comedy</span>
+                    <span>${year}</span>
+                    <span>${formatCinematicRuntime(item.runtime || 106)}</span>
+                    <span>★ ${rating}</span>
+                </div>
+                <p class="cinematic-description">A misadventure in the wilderness leads to life-changing discoveries and an unforgettable journey.</p>
+            </div>
+        ` : ''}
+    `;
+
+    card.addEventListener('click', () => {
+        const payload = {
+            tmdb_id: item.tmdb_id || item.id,
+            title: item.title || item.name,
+            poster_path: item.poster_path || null,
+            release_date: item.release_date || null,
+            first_air_date: item.first_air_date || null,
+            media_type: item.media_type || (item.name ? 'tv' : 'movie')
+        };
+        if (payload.media_type === 'tv') {
+            openTMDBTvShow(payload);
+        } else {
+            openTMDBMovie(payload);
+        }
+    });
+
+    card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            card.click();
+        }
+    });
+
+    return card;
+}
+
+function buildCinematicRow(title, items) {
+    const section = document.createElement('section');
+    section.className = 'cinematic-content-row';
+    section.innerHTML = `<h2>${title}</h2>`;
+    const rail = document.createElement('div');
+    rail.className = 'cinematic-rail';
+    items.slice(0, 14).forEach((item) => {
+        rail.appendChild(createCinematicTile(item));
+    });
+    section.appendChild(rail);
+    return section;
+}
+
+async function renderCinematicHome(container) {
+    container.innerHTML = '';
+
+    const [trendingMovies, topShows, nowPlaying, comedyMovies] = await Promise.all([
+        window.TMDBContentModule.getTrendingMovies(),
+        window.TMDBContentModule.getTopRatedTvShows(),
+        window.TMDBContentModule.getNowPlayingMovies(),
+        window.TMDBContentModule.getComedyMovies()
+    ]);
+
+    const shell = document.createElement('section');
+    shell.className = 'cinematic-home-shell';
+
+    shell.innerHTML = `
+        <div class="cinematic-ambient"></div>
+        <div class="cinematic-hero-row">
+            <div class="cinematic-hero-left"></div>
+            <div class="cinematic-hero-right"></div>
+        </div>
+    `;
+
+    const heroLeft = shell.querySelector('.cinematic-hero-left');
+    const heroRight = shell.querySelector('.cinematic-hero-right');
+    const focusMovie = trendingMovies[0] || nowPlaying[0];
+
+    if (focusMovie) {
+        heroLeft.appendChild(createCinematicTile(focusMovie, { large: true, metadata: true }));
+    }
+
+    [...trendingMovies.slice(1, 7), ...topShows.slice(0, 2)].forEach((item) => {
+        heroRight.appendChild(createCinematicTile(item));
+    });
+
+    container.appendChild(shell);
+    container.appendChild(buildCinematicRow('Award-Winning TV Shows', topShows));
+    container.appendChild(buildCinematicRow('Now Playing', nowPlaying));
+    container.appendChild(buildCinematicRow('Comedy Picks', comedyMovies));
+}
+
+function focusClosestCinematicTile(direction) {
+    if (state.currentView !== 'home') return false;
+    const tiles = Array.from(document.querySelectorAll('.cinematic-poster-card'));
+    if (!tiles.length) return false;
+    const active = document.activeElement;
+    if (!active || !active.classList.contains('cinematic-poster-card')) {
+        tiles[0].focus();
+        return true;
+    }
+
+    const currentRect = active.getBoundingClientRect();
+    const currentX = currentRect.left + currentRect.width / 2;
+    const currentY = currentRect.top + currentRect.height / 2;
+
+    const scored = tiles
+        .filter((tile) => tile !== active)
+        .map((tile) => {
+            const rect = tile.getBoundingClientRect();
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height / 2;
+            const dx = x - currentX;
+            const dy = y - currentY;
+
+            if (direction === 'left' && dx >= -8) return null;
+            if (direction === 'right' && dx <= 8) return null;
+            if (direction === 'up' && dy >= -8) return null;
+            if (direction === 'down' && dy <= 8) return null;
+
+            const primary = direction === 'left' || direction === 'right' ? Math.abs(dx) : Math.abs(dy);
+            const secondary = direction === 'left' || direction === 'right' ? Math.abs(dy) : Math.abs(dx);
+            return { tile, score: primary * 3 + secondary };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.score - b.score);
+
+    if (!scored.length) return false;
+    scored[0].tile.focus();
+    scored[0].tile.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    return true;
 }
 
 function renderPostCard(post, provider, options = {}) {
@@ -3526,17 +3698,9 @@ async function loadHomePage() {
         catalogContainer.innerHTML = '';
 
         if (provider === 'tmdb') {
-            if (window.HistoryModule) {
-                const historySection = window.HistoryModule.renderHistorySection();
-                if (historySection) {
-                    catalogContainer.appendChild(historySection);
-                }
-            }
-
             if (window.TMDBContentModule) {
-                await window.TMDBContentModule.renderAllSections(catalogContainer);
+                await renderCinematicHome(catalogContainer);
             }
-
             showView('home');
             return;
         }
