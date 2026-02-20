@@ -84,11 +84,20 @@ const MoviesModule = {
                     
                     const data = await fetchPosts(provider.value, movieFilter, 1);
                     const posts = Array.isArray(data) ? data : (data.posts || []);
+                    const moviePosts = posts.filter(post => {
+                        const link = String(post?.link || '').toLowerCase();
+                        const type = String(post?.media_type || post?.mediaType || post?.type || '').toLowerCase();
+                        if (type) return type === 'movie';
+                        if (link.includes('/meta/movie/')) return true;
+                        if (link.includes('/meta/series/') || link.includes('/meta/tv/')) return false;
+                        return true;
+                    });
                     
                     // Take first 12 posts from each provider
                     return {
-                        posts: posts.slice(0, 12).map(post => ({
+                        posts: moviePosts.slice(0, 12).map(post => ({
                             ...post, 
+                            media_type: 'movie',
                             provider: provider.value,
                             displayName: provider.display_name
                         })),

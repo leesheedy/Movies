@@ -85,11 +85,20 @@ const TVShowsModule = {
                     
                     const data = await fetchPosts(provider.value, tvFilter, 1);
                     const posts = Array.isArray(data) ? data : (data.posts || []);
+                    const tvPosts = posts.filter(post => {
+                        const link = String(post?.link || '').toLowerCase();
+                        const type = String(post?.media_type || post?.mediaType || post?.type || '').toLowerCase();
+                        if (type) return type === 'tv' || type === 'series' || type === 'show';
+                        if (link.includes('/meta/series/') || link.includes('/meta/tv/')) return true;
+                        if (link.includes('/meta/movie/')) return false;
+                        return true;
+                    });
                     
                     // Take first 12 posts from each provider
                     return {
-                        posts: posts.slice(0, 12).map(post => ({
+                        posts: tvPosts.slice(0, 12).map(post => ({
                             ...post, 
+                            media_type: 'tv',
                             provider: provider.value,
                             displayName: provider.display_name
                         })),
