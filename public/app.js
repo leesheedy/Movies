@@ -911,6 +911,18 @@ function buildVidsrcTvFallbackUrl(tvId, season, episode) {
     return `https://dl.vidsrc.vip/tv/${tvId}/${season}/${episode}`;
 }
 
+function buildVidplusMovieEmbedUrl(movieId) {
+    return `https://player.vidplus.to/embed/movie/${movieId}?autoplay=true`;
+}
+
+function buildVidsrcMovieFallbackUrl(movieId) {
+    return `https://dl.vidsrc.vip/movie/${movieId}`;
+}
+
+function buildVidsrcImdbMovieFallbackUrl(imdbId) {
+    return `https://dl.vidsrc.vip/movie/${imdbId}`;
+}
+
 function renderTmdbIframe(embedUrl) {
     const tmdbMessage = document.getElementById('tmdbPlayerMessage');
     const tmdbIframeContainer = document.getElementById('tmdbIframeContainer');
@@ -1417,7 +1429,7 @@ function updateImdbRoute(imdbId) {
     window.history.pushState({ imdbId }, '', newUrl);
 }
 
-function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
+function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId, tmdbId }) {
     const playerMeta = document.getElementById('playerMeta');
     const videoPlayer = document.getElementById('videoPlayer');
     const tmdbContainer = document.getElementById('tmdbPlayerContainer');
@@ -1450,10 +1462,16 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId }) {
     if (tmdbContainer) {
         tmdbContainer.style.display = 'block';
     }
-    if (tmdbMessage) {
-        tmdbMessage.textContent = 'Movie embeds are unavailable. Please select a TV show to play.';
+    const embedSources = [
+        tmdbId ? buildVidplusMovieEmbedUrl(tmdbId) : null,
+        tmdbId ? buildVidsrcMovieFallbackUrl(tmdbId) : null,
+        imdbId ? buildVidsrcImdbMovieFallbackUrl(imdbId) : null
+    ].filter(Boolean);
+
+    if (tmdbMessage && embedSources.length === 0) {
+        tmdbMessage.textContent = 'Source unavailable';
     }
-    renderTmdbIframe('');
+    renderTmdbIframe(embedSources);
 
     attemptPlayerFullscreen();
 }
@@ -1811,7 +1829,8 @@ async function openTMDBMovie(item) {
         title: item?.title || item?.name || 'Movie',
         posterPath: item?.poster_path,
         releaseDate: item?.release_date,
-        imdbId
+        imdbId,
+        tmdbId
     });
     showView('player');
 }
@@ -1843,7 +1862,8 @@ async function openImdbRoute(imdbId) {
         title: `IMDb ${imdbId}`,
         posterPath: null,
         releaseDate: null,
-        imdbId
+        imdbId,
+        tmdbId: null
     });
     showView('player');
 }
@@ -3546,7 +3566,7 @@ async function loadHomePage() {
         
         if (catalogData.catalog && catalogData.catalog.length > 0) {
             catalogData.catalog.forEach(item => {
-                const title = item.title.toLowerCase();
+                const title = String(item?.title || item?.name || '').toLowerCase();
                 if (title.includes('movie') || title.includes('film')) {
                     moviesSections.push(item);
                 } else if (title.includes('tv') || title.includes('show') || title.includes('series')) {
