@@ -135,6 +135,59 @@
 
                 <!-- Home View -->
                 <div id="homeView" class="view">
+                    <section class="venue-partner-shell" id="venuePartnerShell">
+                        <div class="venue-partner-card" id="venuePartnerCard">
+                            <div class="venue-partner-copy venue-benefits">
+                                <p class="venue-partner-kicker">For Venue Partners</p>
+                                <h1>Power your guests with Chargeroo.</h1>
+                                <p>Partner with us to install seamless charging stations at your venue.</p>
+                                <button id="venueGetStartedBtn" class="venue-get-started" type="button">Get Started</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="venueGetStartedView" class="venue-get-started-view" hidden>
+                        <div class="venue-get-started-page">
+                            <button id="venueGetStartedBack" class="venue-back-btn" type="button">← Back</button>
+                            <h2>Get Started</h2>
+                            <p class="venue-get-started-subtitle">Tell us about your venue and we will contact you shortly.</p>
+                            <form id="venuePartnerForm" class="venue-partner-form">
+                                <label for="venuePartnerName">Name</label>
+                                <input id="venuePartnerName" name="name" type="text" required />
+
+                                <label for="venuePartnerEmail">Email</label>
+                                <input id="venuePartnerEmail" name="email" type="email" required />
+
+                                <label for="venuePartnerVenueName">Venue name</label>
+                                <input id="venuePartnerVenueName" name="venueName" type="text" required />
+
+                                <label for="venuePartnerArea">Area</label>
+                                <select id="venuePartnerArea" name="area" required>
+                                    <option value="" selected disabled>Select a state</option>
+                                    <option value="NSW">New South Wales</option>
+                                    <option value="VIC">Victoria</option>
+                                    <option value="QLD">Queensland</option>
+                                    <option value="WA">Western Australia</option>
+                                    <option value="SA">South Australia</option>
+                                    <option value="TAS">Tasmania</option>
+                                    <option value="ACT">Australian Capital Territory</option>
+                                    <option value="NT">Northern Territory</option>
+                                </select>
+
+                                <fieldset>
+                                    <legend>Do you have multiple venues you would like this installed at?</legend>
+                                    <label for="venuePartnerVenueCount">How many? <span>(we will confirm the locations another time)</span></label>
+                                    <input id="venuePartnerVenueCount" name="venueCount" type="number" min="1" step="1" placeholder="1" />
+                                </fieldset>
+
+                                <button class="venue-form-submit" type="submit">Submit</button>
+                            </form>
+                            <div id="venuePartnerSuccess" class="venue-partner-success" hidden>
+                                <div class="chargeroo-logo">CHARGEROO</div>
+                                <p>Great! Our team will be in touch.</p>
+                            </div>
+                        </div>
+                    </section>
                     <div class="seasonal-decor" aria-hidden="true">
                         <div class="decor decor-halloween">
                             <svg class="decor-icon decor-icon-lg" viewBox="0 0 120 120" role="img" aria-label="Spooky pumpkin">

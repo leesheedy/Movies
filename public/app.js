@@ -4221,6 +4221,44 @@ async function loadPlayer(provider, link, type, options = {}) {
     }
 }
 
+
+function initVenuePartnerLeadForm() {
+    const startBtn = document.getElementById('venueGetStartedBtn');
+    const homeCard = document.getElementById('venuePartnerShell');
+    const getStartedView = document.getElementById('venueGetStartedView');
+    const backBtn = document.getElementById('venueGetStartedBack');
+    const form = document.getElementById('venuePartnerForm');
+    const successPanel = document.getElementById('venuePartnerSuccess');
+
+    if (!startBtn || !homeCard || !getStartedView || !backBtn || !form || !successPanel) return;
+
+    startBtn.addEventListener('click', () => {
+        homeCard.hidden = true;
+        getStartedView.hidden = false;
+        successPanel.classList.remove('is-visible');
+        successPanel.hidden = true;
+        form.hidden = false;
+        form.classList.remove('is-hiding');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    backBtn.addEventListener('click', () => {
+        getStartedView.hidden = true;
+        homeCard.hidden = false;
+        form.reset();
+    });
+
+    form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        form.classList.add('is-hiding');
+        setTimeout(() => {
+            form.hidden = true;
+            successPanel.hidden = false;
+            requestAnimationFrame(() => successPanel.classList.add('is-visible'));
+        }, 280);
+    });
+}
+
 // Initialize App
 async function init() {
     console.log('🎬 Vega Providers Web Player Initialized');
@@ -4230,6 +4268,7 @@ async function init() {
     loadTmdbImdbCache();
     initProfileGate();
     initBackNavigationHandlers();
+    initVenuePartnerLeadForm();
 
     const adblockInstallBtn = document.getElementById('adblockInstallBtn');
     if (adblockInstallBtn) {
