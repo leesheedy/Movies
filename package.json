@@ -7,7 +7,7 @@
   "type": "commonjs",
   "main": "electron/main.js",
   "scripts": {
-    "test": "node test-providers.js",
+    "test": "npm run build && node test-providers.js test --with-server",
     "test:provider": "node test-provider.js",
     "test:provider:build": "npm run build && node test-provider.js",
     "test:interactive": "npm run build && node interactive-test.js",

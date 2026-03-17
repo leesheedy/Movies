@@ -1,6 +1,7 @@
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
+const { startDevServer } = require("./dev-server");
 
 /**
  * Provider testing utility
@@ -94,11 +95,11 @@ class ProviderTester {
 
     // Test connection
     const connected = await this.testConnection();
-    if (!connected) return;
+    if (!connected) return { ok: false, reason: "connection" };
 
     // Test manifest
     const providers = await this.testManifest();
-    if (!providers) return;
+    if (!providers) return { ok: false, reason: "manifest" };
 
     // Test each provider
     const results = {};
@@ -138,7 +139,7 @@ class ProviderTester {
       console.log("⚠️  Some providers need attention before testing.");
     }
 
-    return results;
+    return { ok: passedProviders === totalProviders, results };
   }
 
   /**
@@ -193,37 +194,54 @@ async function main() {
   const args = process.argv.slice(2);
   const command = args[0] || "test";
   const providerName = args[1];
+  const shouldStartServer = args.includes("--with-server");
 
   const tester = new ProviderTester();
+  let devServer = null;
 
-  switch (command) {
-    case "test":
-      if (providerName) {
-        await tester.testProvider(providerName);
-      } else {
-        await tester.testAllProviders();
+  try {
+    if (shouldStartServer) {
+      devServer = await startDevServer();
+    }
+
+    switch (command) {
+      case "test": {
+        if (providerName && !providerName.startsWith("--")) {
+          await tester.testProvider(providerName);
+          return;
+        }
+        const summary = await tester.testAllProviders();
+        if (!summary?.ok) {
+          process.exitCode = 1;
+        }
+        return;
       }
-      break;
 
-    case "status":
-      await tester.getStatus();
-      break;
+      case "status":
+        await tester.getStatus();
+        return;
 
-    case "rebuild":
-      await tester.rebuild();
-      break;
+      case "rebuild": {
+        const ok = await tester.rebuild();
+        if (!ok) process.exitCode = 1;
+        return;
+      }
 
-    case "connection":
-      await tester.testConnection();
-      break;
+      case "connection": {
+        const ok = await tester.testConnection();
+        if (!ok) process.exitCode = 1;
+        return;
+      }
 
-    case "manifest":
-      await tester.testManifest();
-      break;
+      case "manifest": {
+        const providers = await tester.testManifest();
+        if (!providers) process.exitCode = 1;
+        return;
+      }
 
-    default:
-      console.log(`
-Usage: node test-providers.js [command] [provider]
+      default:
+        console.log(`
+Usage: node test-providers.js [command] [provider] [--with-server]
 
 Commands:
   test [provider]  - Test all providers or specific provider
@@ -232,12 +250,20 @@ Commands:
   connection      - Test server connection
   manifest        - Test manifest endpoint
 
+Options:
+  --with-server   - Start a local dev server before testing
+
 Examples:
-  node test-providers.js              # Test all providers
-  node test-providers.js test vega    # Test specific provider
-  node test-providers.js status       # Show status
-  node test-providers.js rebuild      # Rebuild and test
+  node test-providers.js test --with-server   # Test all providers with auto server
+  node test-providers.js test vidsrc          # Test specific provider
+  node test-providers.js status               # Show status
+  node test-providers.js rebuild              # Rebuild and test
       `);
+    }
+  } finally {
+    if (devServer) {
+      await devServer.stop();
+    }
   }
 }
 
