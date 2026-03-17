@@ -208,7 +208,7 @@ class DevServer {
     this.app.post("/build", (req, res) => {
       try {
         console.log("🔨 Triggering rebuild...");
-        execSync("node build.js", { stdio: "inherit" });
+        execSync("node build-simple.js", { stdio: "inherit" });
         res.json({ success: true, message: "Build completed" });
       } catch (error) {
         console.error("Build failed:", error);
@@ -675,7 +675,7 @@ class DevServer {
 
       // Check if build exists
         if (!fs.existsSync(this.distDir)) {
-          console.log('\n⚠️  No build found. Run "node build.js" first!\n');
+          console.log('\n⚠️  No build found. Run "node build-simple.js" first!\n');
         }
         resolve(this.server);
       });
