@@ -120,13 +120,19 @@
     `;
 
     section.querySelector('.nf-bb-play-btn')?.addEventListener('click', () => {
-      if (typeof window.playContent === 'function') window.playContent(id, type, title);
-      else window.dispatchEvent(new CustomEvent('playContent', { detail: { id, type, title } }));
+      const itemObj = { id, title, media_type: type };
+      if (type === 'tv' && typeof window.openTMDBTvShow === 'function') {
+        window.openTMDBTvShow(itemObj);
+      } else if (typeof window.openTMDBMovie === 'function') {
+        window.openTMDBMovie(itemObj);
+      }
     });
 
     section.querySelector('.nf-bb-info-btn')?.addEventListener('click', () => {
-      if (typeof window.showDetails === 'function') window.showDetails(id, type);
-      else window.dispatchEvent(new CustomEvent('showDetails', { detail: { id, type } }));
+      // Delegate to the card's showTMDBDetails
+      if (window.TMDBContentModule?.showTMDBDetails) {
+        window.TMDBContentModule.showTMDBDetails({ id, title, media_type: type }, type);
+      }
     });
   }
 

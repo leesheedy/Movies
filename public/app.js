@@ -3748,6 +3748,7 @@ async function loadHomePage() {
             if (window.TMDBContentModule) {
                 await window.TMDBContentModule.renderAllSections(catalogContainer);
             }
+            showLoading(false);
             showView('home');
             return;
         }
