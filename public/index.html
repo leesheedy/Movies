@@ -251,20 +251,11 @@
 
     <!-- ─── Netflix Header ─── -->
     <header id="nfHeader" class="nf-header">
-        <div class="nf-header-left">
-            <!-- Logo -->
+        <!-- Row 1: Logo + controls -->
+        <div class="nf-header-top">
             <button class="logo-container nf-logo-btn" id="logoHomeBtn" type="button" aria-label="Notflix Home">
                 <span class="nf-wordmark">NOTFLIX</span>
             </button>
-            <!-- Desktop nav -->
-            <nav class="nf-nav" aria-label="Main navigation">
-                <button id="homeBtn"     class="nav-link nf-nav-item active" type="button">Home</button>
-                <button id="tvShowsBtn"  class="nav-link nf-nav-item" type="button">TV Shows</button>
-                <button id="moviesBtn"   class="nav-link nf-nav-item" type="button">Movies</button>
-                <button id="exploreBtn"  class="nav-link nf-nav-item" type="button">New &amp; Popular</button>
-                <button id="historyBtn"  class="nav-link nf-nav-item" type="button">My List</button>
-            </nav>
-        </div>
 
         <div class="nf-header-right">
             <!-- Search -->
@@ -329,7 +320,17 @@
             <select id="providerSelect" class="nf-hidden-select" aria-hidden="true" tabindex="-1">
                 <option value="vidsrc">Vidsrc</option>
             </select>
-        </div>
+        </div><!-- end nf-header-right -->
+        </div><!-- end nf-header-top -->
+
+        <!-- Row 2: Nav buttons under logo -->
+        <nav class="nf-nav" aria-label="Main navigation">
+            <button id="homeBtn"     class="nav-link nf-nav-item active" type="button">Home</button>
+            <button id="tvShowsBtn"  class="nav-link nf-nav-item" type="button">TV Shows</button>
+            <button id="moviesBtn"   class="nav-link nf-nav-item" type="button">Movies</button>
+            <button id="exploreBtn"  class="nav-link nf-nav-item" type="button">New &amp; Popular</button>
+            <button id="historyBtn"  class="nav-link nf-nav-item" type="button">My List</button>
+        </nav>
     </header>
 
     <!-- ─── Main Content ─── -->
@@ -506,29 +507,7 @@
         </div>
     </main>
 
-    <!-- ─── Mobile Bottom Nav ─── -->
-    <nav class="nf-mobile-nav" aria-label="Mobile navigation">
-        <button class="nf-mobile-btn active" id="mobileHomeBtn" type="button">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-            <span>Home</span>
-        </button>
-        <button class="nf-mobile-btn" id="mobileSearchBtn" type="button">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <span>Search</span>
-        </button>
-        <button class="nf-mobile-btn" id="mobileMoviesBtn" type="button">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 7h5M17 17h5"/></svg>
-            <span>Movies</span>
-        </button>
-        <button class="nf-mobile-btn" id="mobileTvBtn" type="button">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M17 2l-5 5-5-5"/></svg>
-            <span>Shows</span>
-        </button>
-        <button class="nf-mobile-btn" id="mobileMoreBtn" type="button">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <span>More</span>
-        </button>
-    </nav>
+    <!-- Mobile bottom nav removed -->
 </div>
 
 <!-- ═══════════════════════════════ TOAST ═══════════════════════════════ -->

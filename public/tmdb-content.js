@@ -65,46 +65,57 @@ const TMDBContentModule = {
 
     async fetchMovies(path, params = {}) {
         const apiKey = this.getApiKey();
-        if (!apiKey) {
-            throw new Error('TMDB API key missing');
-        }
+        if (!apiKey) throw new Error('TMDB API key missing');
         const [basePath, queryString = ''] = path.split('?');
-        const searchParams = new URLSearchParams(queryString);
-        searchParams.set('api_key', apiKey);
-        searchParams.set('page', '1');
-        Object.entries(params).forEach(([key, value]) => {
-            if (value !== undefined && value !== null && value !== '') {
-                searchParams.set(key, String(value));
-            }
-        });
-        const response = await fetch(`${this.BASE_URL}${basePath}?${searchParams.toString()}`);
-        if (!response.ok) {
-            throw new Error(`TMDB request failed: ${response.status}`);
-        }
-        const data = await response.json();
-        return (data.results || []).slice(0, 20).map(item => this.normalizeMovie(item));
+        const buildParams = (page) => {
+            const p = new URLSearchParams(queryString);
+            p.set('api_key', apiKey);
+            p.set('page', String(page));
+            Object.entries(params).forEach(([k, v]) => {
+                if (v !== undefined && v !== null && v !== '') p.set(k, String(v));
+            });
+            return p;
+        };
+        // Fetch two pages in parallel for ~40 results, deduplicated
+        const [r1, r2] = await Promise.all([
+            fetch(`${this.BASE_URL}${basePath}?${buildParams(1)}`),
+            fetch(`${this.BASE_URL}${basePath}?${buildParams(2)}`)
+        ]);
+        if (!r1.ok) throw new Error(`TMDB request failed: ${r1.status}`);
+        const [d1, d2] = await Promise.all([r1.json(), r2.ok ? r2.json() : Promise.resolve({ results: [] })]);
+        const seen = new Set();
+        return [...(d1.results || []), ...(d2.results || [])]
+            .filter(item => { if (seen.has(item.id)) return false; seen.add(item.id); return true; })
+            .slice(0, 40)
+            .map(item => ({ ...this.normalizeMovie(item), id: item.id, media_type: 'movie',
+                overview: item.overview, vote_average: item.vote_average }));
     },
 
     async fetchTv(path, params = {}) {
         const apiKey = this.getApiKey();
-        if (!apiKey) {
-            throw new Error('TMDB API key missing');
-        }
+        if (!apiKey) throw new Error('TMDB API key missing');
         const [basePath, queryString = ''] = path.split('?');
-        const searchParams = new URLSearchParams(queryString);
-        searchParams.set('api_key', apiKey);
-        searchParams.set('page', '1');
-        Object.entries(params).forEach(([key, value]) => {
-            if (value !== undefined && value !== null && value !== '') {
-                searchParams.set(key, String(value));
-            }
-        });
-        const response = await fetch(`${this.BASE_URL}${basePath}?${searchParams.toString()}`);
-        if (!response.ok) {
-            throw new Error(`TMDB request failed: ${response.status}`);
-        }
-        const data = await response.json();
-        return (data.results || []).slice(0, 20).map(item => this.normalizeTv(item));
+        const buildParams = (page) => {
+            const p = new URLSearchParams(queryString);
+            p.set('api_key', apiKey);
+            p.set('page', String(page));
+            Object.entries(params).forEach(([k, v]) => {
+                if (v !== undefined && v !== null && v !== '') p.set(k, String(v));
+            });
+            return p;
+        };
+        const [r1, r2] = await Promise.all([
+            fetch(`${this.BASE_URL}${basePath}?${buildParams(1)}`),
+            fetch(`${this.BASE_URL}${basePath}?${buildParams(2)}`)
+        ]);
+        if (!r1.ok) throw new Error(`TMDB request failed: ${r1.status}`);
+        const [d1, d2] = await Promise.all([r1.json(), r2.ok ? r2.json() : Promise.resolve({ results: [] })]);
+        const seen = new Set();
+        return [...(d1.results || []), ...(d2.results || [])]
+            .filter(item => { if (seen.has(item.id)) return false; seen.add(item.id); return true; })
+            .slice(0, 40)
+            .map(item => ({ ...this.normalizeTv(item), id: item.id, media_type: 'tv',
+                overview: item.overview, vote_average: item.vote_average }));
     },
 
     // Fetch trending movies (week)
@@ -777,57 +788,76 @@ const TMDBContentModule = {
     async renderMovieSections(container) {
         if (!container) return;
         console.log('🎬 Loading TMDB movie sections...');
+        container.innerHTML = '';
+
+        // Helper to discover by decade
+        const decade = (from, to) => this.fetchMovies('/discover/movie', {
+            sort_by: 'vote_average.desc',
+            'primary_release_date.gte': `${from}-01-01`,
+            'primary_release_date.lte': `${to}-12-31`,
+            'vote_count.gte': '200'
+        });
 
         try {
             const [
-                trending,
-                popular,
-                nowPlaying,
-                topRated,
-                comedy,
-                horror,
-                action,
-                sciFi,
-                romance,
-                animation,
-                crime,
-                documentary
+                trending, popular, nowPlaying, topRated,
+                action, comedy, horror, sciFi,
+                romance, animation, crime, thriller,
+                documentary, western, family, music,
+                war, history,
+                nineties, twoThousands, tens
             ] = await Promise.all([
                 this.getTrendingMovies(),
                 this.getPopularMovies(),
                 this.getNowPlayingMovies(),
                 this.fetchMovies('/movie/top_rated'),
+                this.getMoviesByGenre('28,12'),
                 this.getMoviesByGenre('35'),
                 this.getMoviesByGenre('27'),
-                this.getMoviesByGenre('28,12'),
                 this.getMoviesByGenre('878'),
                 this.getMoviesByGenre('10749'),
                 this.getMoviesByGenre('16'),
-                this.getMoviesByGenre('80,53'),
-                this.getMoviesByGenre('99')
+                this.getMoviesByGenre('80'),
+                this.getMoviesByGenre('53'),
+                this.getMoviesByGenre('99'),
+                this.getMoviesByGenre('37'),
+                this.getMoviesByGenre('10751'),
+                this.getMoviesByGenre('10402'),
+                this.getMoviesByGenre('10752'),
+                this.getMoviesByGenre('36'),
+                decade(1990, 1999),
+                decade(2000, 2009),
+                decade(2010, 2019),
             ]);
 
             const sections = [
-                { title: '🔥 Trending Movies', items: trending, type: 'movie', endpoint: 'trending', region: '' },
-                { title: '⭐ Popular Movies', items: popular, type: 'movie', endpoint: 'popular', region: '' },
-                { title: '🎬 Now Playing', items: nowPlaying, type: 'movie', endpoint: 'now_playing', region: '' },
-                { title: '🏆 Top Rated Movies', items: topRated, type: 'movie', endpoint: 'top_rated', region: '' },
-                { title: '😂 Comedy Picks', items: comedy, type: 'movie', endpoint: 'discover', region: '' },
-                { title: '👻 Horror Picks', items: horror, type: 'movie', endpoint: 'discover', region: '' },
-                { title: '⚡ Action & Adventure', items: action, type: 'movie', endpoint: 'discover', region: '' },
-                { title: '🚀 Sci-Fi Worlds', items: sciFi, type: 'movie', endpoint: 'discover', region: '' },
-                { title: '💘 Romance', items: romance, type: 'movie', endpoint: 'discover', region: '' },
-                { title: '🧸 Animation', items: animation, type: 'movie', endpoint: 'discover', region: '' },
-                { title: '🕵️ Crime & Thriller', items: crime, type: 'movie', endpoint: 'discover', region: '' },
-                { title: '🎥 Documentary', items: documentary, type: 'movie', endpoint: 'discover', region: '' }
+                { title: '🔥 Trending Now', items: trending },
+                { title: '⭐ Popular Movies', items: popular },
+                { title: '🎬 Now Playing in Cinemas', items: nowPlaying },
+                { title: '🏆 Top Rated of All Time', items: topRated },
+                { title: '⚡ Action & Adventure', items: action },
+                { title: '😂 Comedy', items: comedy },
+                { title: '👻 Horror', items: horror },
+                { title: '🚀 Science Fiction', items: sciFi },
+                { title: '💘 Romance', items: romance },
+                { title: '🧸 Animation', items: animation },
+                { title: '🕵️ Crime', items: crime },
+                { title: '🔪 Thriller', items: thriller },
+                { title: '🎥 Documentary', items: documentary },
+                { title: '🤠 Western', items: western },
+                { title: '👨‍👩‍👧 Family', items: family },
+                { title: '🎵 Music & Musicals', items: music },
+                { title: '⚔️ War Films', items: war },
+                { title: '📜 History', items: history },
+                { title: "🕹️ Best of the '90s", items: nineties },
+                { title: "🌐 Best of the 2000s", items: twoThousands },
+                { title: "📱 Best of the 2010s", items: tens },
             ];
 
-            container.innerHTML = '';
-            sections.forEach(({ title, items, type, endpoint, region }) => {
-                const section = this.renderTMDBSection(title, items, type, endpoint, region);
-                if (section) {
-                    container.appendChild(section);
-                }
+            sections.forEach(({ title, items }) => {
+                if (!items?.length) return;
+                const section = this.renderTMDBSection(title, items, 'movie', 'discover', '');
+                if (section) container.appendChild(section);
             });
         } catch (error) {
             console.error('Failed to render TMDB movie sections:', error);

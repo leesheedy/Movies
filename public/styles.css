@@ -456,49 +456,58 @@ ul { list-style: none; }
 }
 
 /* ============================================================
-   NETFLIX HEADER
+   HEADER — two-row: [logo + controls] then [nav buttons]
    ============================================================ */
+:root { --nf-header-h: 100px; }   /* taller for two rows */
+
 #nfHeader {
   position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-  height: var(--nf-header-h);
-  display: flex; align-items: center;
+  display: flex; flex-direction: column;
   padding: 0 56px;
-  gap: 24px;
   transition: background .3s;
-  background: linear-gradient(to bottom, rgba(0,0,0,.9) 0%, transparent 100%);
+  background: linear-gradient(to bottom, rgba(0,0,0,.95) 0%, rgba(0,0,0,.6) 100%);
 }
 #nfHeader.nf-header--scrolled {
   background: var(--nf-black);
   box-shadow: 0 2px 12px rgba(0,0,0,.5);
 }
 
+/* Row 1: logo + right controls */
+.nf-header-top {
+  display: flex; align-items: center;
+  height: 60px; gap: 20px;
+}
+
 /* Logo */
 .nf-logo-btn {
   flex-shrink: 0; display: flex; align-items: center;
-  cursor: pointer; margin-right: 24px;
+  cursor: pointer; background: none; border: none; padding: 0;
 }
-.nf-logo-btn svg { width: 92px; fill: var(--nf-red); }
-.nf-logo-btn img { height: 36px; }
 
-/* Primary Nav */
-.nf-primary-nav {
-  display: flex; gap: 20px;
+/* Row 2: nav sits directly under the logo */
+.nf-nav {
+  display: flex; gap: 6px;
+  padding-bottom: 10px;
+  margin-left: 0;         /* aligns flush left under NOTFLIX */
 }
 .nf-nav-item {
-  font-size: .875rem; color: rgba(255,255,255,.85);
-  transition: color .15s;
-  padding: 4px 0; position: relative;
+  font-size: .9rem; color: rgba(255,255,255,.8);
+  transition: color .15s, background .15s;
+  padding: 6px 14px; position: relative;
   background: none; border: none;
-  white-space: nowrap;
+  border-radius: 4px;
+  white-space: nowrap; cursor: pointer;
+  font-family: inherit;
 }
-.nf-nav-item:hover { color: var(--nf-white); }
-.nf-nav-item.active { color: var(--nf-white); font-weight: 700; }
+.nf-nav-item:hover { color: var(--nf-white); background: rgba(255,255,255,.1); }
+.nf-nav-item.active {
+  color: var(--nf-white); font-weight: 700;
+  background: rgba(229,9,20,.2);
+}
 .nf-nav-item.active::after {
   content: '';
-  position: absolute; bottom: -4px; left: 0; right: 0;
-  height: 2px;
-  background: var(--nf-red);
-  border-radius: 2px;
+  position: absolute; bottom: 0; left: 14px; right: 14px;
+  height: 2px; background: var(--nf-red); border-radius: 2px;
 }
 
 /* Right controls */
@@ -570,7 +579,7 @@ ul { list-style: none; }
 
 /* Dropdown menu */
 #nfProfileDropdown {
-  position: absolute; top: calc(var(--nf-header-h) - 4px); right: 56px;
+  position: fixed; top: calc(var(--nf-header-h) + 4px); right: 56px;
   background: rgba(0,0,0,.9);
   border: 1px solid rgba(255,255,255,.15);
   border-radius: 4px;
@@ -634,10 +643,13 @@ ul { list-style: none; }
 .mobile-nav-btn.active { color: var(--nf-white); }
 .mobile-nav-btn.active svg { color: var(--nf-white); }
 
+/* Mobile: show nav in header, no bottom nav */
 @media (max-width: 768px) {
-  #mobileBottomNav { display: block; }
-  #nfHeader { display: none; }
-  #mainApp { padding-bottom: 64px; }
+  #nfHeader { padding: 0 16px; }
+  :root { --nf-header-h: 88px; }
+  .nf-nav { gap: 2px; overflow-x: auto; scrollbar-width: none; padding-bottom: 8px; }
+  .nf-nav::-webkit-scrollbar { display: none; }
+  .nf-nav-item { font-size: .78rem; padding: 5px 10px; }
 }
 
 /* ============================================================
@@ -645,6 +657,11 @@ ul { list-style: none; }
    ============================================================ */
 #appContent {
   padding-top: var(--nf-header-h);
+}
+
+/* Make the main area fill the viewport and scroll naturally */
+.nf-main-area, main {
+  min-height: calc(100vh - var(--nf-header-h));
 }
 
 /* View panels */
@@ -1609,10 +1626,7 @@ ul { list-style: none; }
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 80px 56px 20px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  padding: calc(var(--nf-header-h) + 24px) 56px 20px;
   background: var(--nf-dark);
 }
 .nf-view-title {
