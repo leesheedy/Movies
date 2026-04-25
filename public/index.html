@@ -2,313 +2,551 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mitta Movies - Stream Movies & TV Shows</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>MittaMovies — Stream Unlimited Movies &amp; TV Shows</title>
+    <meta name="description" content="Stream unlimited movies and TV shows on MittaMovies. Watch anywhere, anytime.">
+    <meta name="theme-color" content="#141414">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div id="app">
-        <div id="profileGate" class="profile-gate" role="dialog" aria-modal="true" aria-labelledby="profileGateTitle" hidden>
-            <div class="profile-gate-content">
-                <div class="profile-gate-logo">
-                    <span class="logo-mark">MM</span>
-                    <span class="logo-text">Mitta</span>
-                </div>
-                <h2 id="profileGateTitle">Who's watching?</h2>
-                <p class="profile-gate-subtitle">Select a profile to start watching.</p>
-                <div id="profileList" class="profile-list"></div>
-                <p class="profile-gate-footer">You can switch profiles any time from the header.</p>
+
+<!-- ═══════════════════════════════ APP LOADER ═══════════════════════════════ -->
+<div id="appLoader" class="app-loader">
+    <div class="app-loader-logo">MITTA</div>
+    <div class="app-loader-bar"><div class="app-loader-bar-fill"></div></div>
+</div>
+
+<!-- ═══════════════════════════════ LANDING PAGE ═══════════════════════════════ -->
+<div id="landingPage" class="nf-page nf-page--landing" hidden>
+    <div class="nf-landing-backdrop" aria-hidden="true"></div>
+    <div class="nf-landing-overlay" aria-hidden="true"></div>
+
+    <nav class="nf-landing-nav">
+        <div class="nf-logo" aria-label="MittaMovies">
+            <svg width="92" height="25" viewBox="0 0 111 30" fill="#E50914" aria-hidden="true">
+                <path d="M105.06 14.28l4.42 10.54c-2.81-.39-5.65-.68-8.49-.85l-2.73-6.51-2.74 6.01c-2.61-.13-5.23-.19-7.86-.17l4.48-9.88L88.5.6h8.3l2.42 5.78L101.66.6h8.24zm-36.53 5.12v9.3h-8.09V.6h8.09v9.3l7.22-9.3h10.13l-9.25 10.96 9.71 12.64H80.21zm-11.71 9.3h-8.09v-23h8.09zm-8.09 0h-8.09V.6h8.09zM37.69 0c-5.5 0-9.38 1.42-11.69 4.27-2.3 2.84-3.46 7.46-3.46 13.85S23.69 26.87 26 29.7c2.3 2.84 6.19 4.27 11.69 4.27 5.47 0 9.34-1.43 11.63-4.27 2.28-2.84 3.43-7.45 3.43-13.83S49.6 4.27 47.31 1.43C45.03.48 41.16 0 37.69 0zm0 6.5c1.67 0 2.86.58 3.58 1.74.72 1.16 1.07 3.14 1.07 5.96s-.35 4.8-1.07 5.95c-.72 1.15-1.91 1.72-3.58 1.72-1.7 0-2.9-.57-3.61-1.72-.71-1.15-1.07-3.13-1.07-5.95s.36-4.8 1.07-5.96c.71-1.16 1.91-1.74 3.61-1.74zM0 .6v28.7h7.82V17.53l9.96 11.77h7.88V.6H17.8v11.47L8.12.6z"/>
+            </svg>
+            <span class="nf-logo-text">MITTA</span>
+        </div>
+        <button id="landingSignInBtn" class="nf-btn nf-btn--red" type="button">Sign In</button>
+    </nav>
+
+    <div class="nf-landing-hero">
+        <h1 class="nf-landing-title">Unlimited movies, TV shows, and more</h1>
+        <h2 class="nf-landing-subtitle">Watch anywhere. Cancel anytime.</h2>
+        <p class="nf-landing-cta-lead">Ready to watch? Enter your email to get started.</p>
+        <div class="nf-landing-cta-row">
+            <input type="email" id="landingEmailInput" class="nf-cta-input" placeholder="Email address" autocomplete="email" />
+            <button id="landingGetStarted" class="nf-btn nf-btn--cta" type="button">
+                Get Started
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="nf-landing-divider" aria-hidden="true"></div>
+
+    <div class="nf-landing-feature">
+        <div class="nf-feature-text">
+            <h2>Enjoy on your TV</h2>
+            <p>Watch on Smart TVs, PlayStation, Xbox, Chromecast, Apple TV, Blu-ray players, and more.</p>
+        </div>
+        <div class="nf-feature-visual">
+            <svg viewBox="0 0 280 180" fill="none" aria-hidden="true">
+                <rect x="10" y="10" width="260" height="150" rx="8" fill="#333" stroke="#555" stroke-width="2"/>
+                <rect x="20" y="20" width="240" height="125" rx="4" fill="#1a1a1a"/>
+                <rect x="100" y="163" width="80" height="8" rx="2" fill="#555"/>
+                <rect x="40" y="40" width="200" height="90" rx="2" fill="#E50914" opacity="0.3"/>
+                <path d="M120 65l40 20-40 20V65z" fill="#E50914"/>
+            </svg>
+        </div>
+    </div>
+
+    <div class="nf-landing-divider" aria-hidden="true"></div>
+
+    <div class="nf-landing-feature nf-landing-feature--reverse">
+        <div class="nf-feature-text">
+            <h2>Watch everywhere</h2>
+            <p>Stream unlimited movies and TV shows on your phone, tablet, laptop, and TV without paying more.</p>
+        </div>
+        <div class="nf-feature-visual">
+            <svg viewBox="0 0 280 180" fill="none" aria-hidden="true">
+                <rect x="70" y="10" width="140" height="100" rx="8" fill="#333" stroke="#555" stroke-width="2"/>
+                <rect x="78" y="18" width="124" height="78" rx="3" fill="#1a1a1a"/>
+                <circle cx="140" cy="62" r="15" fill="#E50914" opacity="0.3"/>
+                <path d="M133 54l16 8-16 8V54z" fill="#E50914"/>
+                <rect x="90" y="120" width="100" height="20" rx="4" fill="#444"/>
+                <rect x="105" y="144" width="70" height="10" rx="2" fill="#555"/>
+                <rect x="35" y="50" width="55" height="90" rx="6" fill="#333" stroke="#555" stroke-width="1.5"/>
+                <rect x="40" y="56" width="45" height="78" rx="3" fill="#1a1a1a"/>
+                <circle cx="62.5" cy="143" r="2.5" fill="#555"/>
+                <rect x="195" y="50" width="55" height="90" rx="6" fill="#333" stroke="#555" stroke-width="1.5"/>
+                <rect x="200" y="56" width="45" height="78" rx="3" fill="#1a1a1a"/>
+                <circle cx="222.5" cy="143" r="2.5" fill="#555"/>
+            </svg>
+        </div>
+    </div>
+
+    <div class="nf-landing-divider" aria-hidden="true"></div>
+
+    <div class="nf-landing-feature">
+        <div class="nf-feature-text">
+            <h2>Create profiles for kids</h2>
+            <p>Send kids on adventures with their favourite characters in a space made just for them — free with your membership.</p>
+        </div>
+        <div class="nf-feature-visual nf-feature-visual--kids">
+            <div class="nf-kids-icons" aria-hidden="true">
+                <span>🎬</span><span>🎭</span><span>🦸</span><span>🚀</span>
             </div>
         </div>
-        <div id="profileSettingsModal" class="profile-settings-modal" role="dialog" aria-modal="true" aria-labelledby="profileSettingsTitle" hidden>
-            <div class="profile-settings-content">
-                <div class="profile-settings-header">
-                    <h3 id="profileSettingsTitle" class="profile-settings-title">Profile settings</h3>
-                    <button id="profileSettingsClose" class="profile-settings-close" type="button" aria-label="Close profile settings">✕</button>
-                </div>
-                <form id="profileSettingsForm">
-                    <div class="profile-settings-grid">
-                        <div class="profile-settings-field">
-                            <label for="profileDisplayName">Display name</label>
-                            <input id="profileDisplayName" name="displayName" type="text" maxlength="16" autocomplete="off" />
-                        </div>
-                        <div class="profile-settings-field">
-                            <label for="profileAvatarInput">Avatar initials</label>
-                            <input id="profileAvatarInput" name="avatar" type="text" maxlength="2" autocomplete="off" />
-                        </div>
-                        <div class="profile-settings-field">
-                            <label for="profileAccent">Accent colour</label>
-                            <input id="profileAccent" name="accentColor" type="color" />
-                        </div>
-                        <div class="profile-settings-field">
-                            <label for="profileAutoplay">Autoplay trailers</label>
-                            <select id="profileAutoplay" name="autoplay">
-                                <option value="on">On</option>
-                                <option value="off">Off</option>
-                            </select>
-                        </div>
-                        <div class="profile-settings-field">
-                            <label for="profileSubtitleSize">Subtitle size</label>
-                            <select id="profileSubtitleSize" name="subtitleSize">
-                                <option value="small">Small</option>
-                                <option value="medium">Medium</option>
-                                <option value="large">Large</option>
-                            </select>
-                        </div>
-                        <div class="profile-settings-field">
-                            <label for="profileAudioLang">Audio language</label>
-                            <select id="profileAudioLang" name="audioLang">
-                                <option value="en">English</option>
-                                <option value="es">Spanish</option>
-                                <option value="fr">French</option>
-                                <option value="de">German</option>
-                            </select>
-                        </div>
-                        <div class="profile-settings-field">
-                            <label for="profileMaturity">Maturity rating</label>
-                            <select id="profileMaturity" name="maturity">
-                                <option value="all">All titles</option>
-                                <option value="pg">PG</option>
-                                <option value="m">M</option>
-                                <option value="ma15">MA15+</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="profile-settings-actions">
-                        <button id="profileSettingsReset" class="profile-settings-reset" type="button">Reset</button>
-                        <button class="profile-settings-save" type="submit">Save changes</button>
-                    </div>
-                </form>
-            </div>
+    </div>
+
+    <div class="nf-landing-divider" aria-hidden="true"></div>
+
+    <footer class="nf-landing-footer">
+        <p>Questions? <a href="mailto:support@mitta.app" class="nf-link">Contact us</a></p>
+        <div class="nf-footer-links">
+            <a href="#" class="nf-link">FAQ</a>
+            <a href="#" class="nf-link">Help Centre</a>
+            <a href="#" class="nf-link">Privacy</a>
+            <a href="#" class="nf-link">Terms of Use</a>
+            <a href="#" class="nf-link">Cookie Preferences</a>
         </div>
-        <!-- Header -->
-        <header class="header">
-            <div class="header-container">
-                <div class="header-left">
-                    <button id="profileChip" class="profile-chip" type="button" aria-label="Profile">
-                        <span id="profileAvatar" class="profile-avatar">G</span>
-                        <span id="profileName" class="profile-name">Guest</span>
-                    </button>
-                    <nav class="main-nav">
-                        <button id="homeBtn" class="nav-link active">Home</button>
-                        <button id="tvShowsBtn" class="nav-link">Shows</button>
-                        <button id="moviesBtn" class="nav-link">Movies</button>
-                        <button id="exploreBtn" class="nav-link">Explore</button>
-                        <button id="historyBtn" class="nav-link">My Library</button>
-                    </nav>
+        <p class="nf-footer-copy">MittaMovies Australia</p>
+    </footer>
+</div>
+
+<!-- ═══════════════════════════════ SIGN IN PAGE ═══════════════════════════════ -->
+<div id="signinPage" class="nf-page nf-page--signin" hidden>
+    <div class="nf-landing-backdrop" aria-hidden="true"></div>
+    <div class="nf-landing-overlay nf-landing-overlay--dark" aria-hidden="true"></div>
+
+    <nav class="nf-landing-nav">
+        <div class="nf-logo" aria-label="MittaMovies">
+            <span class="nf-logo-text">MITTA</span>
+        </div>
+    </nav>
+
+    <div class="nf-signin-wrapper">
+        <div class="nf-signin-box">
+            <h1 class="nf-signin-title">Sign In</h1>
+
+            <form id="signinForm" class="nf-signin-form" novalidate autocomplete="on">
+                <div class="nf-form-group">
+                    <input type="text" id="signinEmail" name="email" class="nf-form-input" placeholder=" " autocomplete="username" />
+                    <label for="signinEmail" class="nf-form-label">Email or phone number</label>
                 </div>
-                <div class="header-right">
-                    <div class="search-icon-container">
-                        <input type="text" id="searchInputHeader" class="search-input-header" placeholder="Search movies or shows..." />
-                        <button id="searchClearHeader" class="search-clear-btn header-search-clear" type="button" aria-label="Clear search" aria-hidden="true">✕</button>
-                        <button id="searchToggle" class="search-icon-btn" aria-label="Open search">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="11" cy="11" r="8"></circle>
-                                <path d="m21 21-4.35-4.35"></path>
-                            </svg>
-                        </button>
-                    </div>
-                    <select id="providerSelect" class="provider-select-compact">
-                        <option value="vidsrc">Vidsrc (IMDB)</option>
+                <div class="nf-form-group">
+                    <input type="password" id="signinPassword" name="password" class="nf-form-input" placeholder=" " autocomplete="current-password" minlength="4" />
+                    <label for="signinPassword" class="nf-form-label">Password</label>
+                </div>
+                <div id="signinError" class="nf-signin-error" hidden></div>
+                <button type="submit" class="nf-btn nf-btn--red nf-btn--full nf-btn--xl">Sign In</button>
+            </form>
+
+            <div class="nf-signin-options">
+                <label class="nf-checkbox-wrap">
+                    <input type="checkbox" id="rememberMeCheck" class="nf-checkbox" />
+                    <span class="nf-checkbox-label">Remember me</span>
+                </label>
+                <a href="#" class="nf-link-sm">Need help?</a>
+            </div>
+
+            <div class="nf-signin-or"><span>OR</span></div>
+
+            <p class="nf-quick-select-label">Select a profile to jump straight in:</p>
+            <div id="signinProfileList" class="nf-quick-profile-list"></div>
+
+            <p class="nf-signin-register">
+                New to MittaMovies?
+                <button id="gotoGetStarted" class="nf-link-btn" type="button">Sign up now.</button>
+            </p>
+
+            <p class="nf-signin-legal">
+                This page is protected to ensure you're not a bot.
+                <a href="#" class="nf-link-sm">Learn more.</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════ PROFILE GATE ═══════════════════════════════ -->
+<div id="profileGate" class="nf-profile-gate" role="dialog" aria-modal="true" aria-labelledby="profileGateTitle" hidden>
+    <div class="nf-profile-gate-inner">
+        <h1 id="profileGateTitle" class="nf-profile-gate-title">Who's watching?</h1>
+        <div id="profileList" class="nf-profile-list"></div>
+        <button id="manageProfilesBtn" class="nf-btn nf-btn--outline-gray nf-btn--lg" type="button">Manage Profiles</button>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════ PROFILE SETTINGS MODAL ═══════════════════════════════ -->
+<div id="profileSettingsModal" class="nf-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="profileSettingsTitle" hidden>
+    <div class="nf-modal nf-settings-modal">
+        <div class="nf-modal-header">
+            <h3 id="profileSettingsTitle" class="nf-modal-title">Edit Profile</h3>
+            <button id="profileSettingsClose" class="nf-modal-close-btn" type="button" aria-label="Close">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form id="profileSettingsForm" class="nf-settings-form">
+            <div class="nf-settings-grid">
+                <div class="nf-settings-field">
+                    <label class="nf-settings-label" for="profileDisplayName">Display name</label>
+                    <input id="profileDisplayName" name="displayName" type="text" maxlength="16" autocomplete="off" class="nf-settings-input" />
+                </div>
+                <div class="nf-settings-field">
+                    <label class="nf-settings-label" for="profileAvatarInput">Avatar initials</label>
+                    <input id="profileAvatarInput" name="avatar" type="text" maxlength="2" autocomplete="off" class="nf-settings-input" />
+                </div>
+                <div class="nf-settings-field">
+                    <label class="nf-settings-label" for="profileAccent">Accent colour</label>
+                    <input id="profileAccent" name="accentColor" type="color" class="nf-color-input" />
+                </div>
+                <div class="nf-settings-field">
+                    <label class="nf-settings-label" for="profileAutoplay">Autoplay trailers</label>
+                    <select id="profileAutoplay" name="autoplay" class="nf-settings-select">
+                        <option value="on">On</option>
+                        <option value="off">Off</option>
                     </select>
-                    <div class="profile-controls">
-                        <button id="profileSettingsTrigger" class="profile-settings-trigger" type="button" aria-label="Profile settings" hidden>
-                            ⚙
-                        </button>
+                </div>
+                <div class="nf-settings-field">
+                    <label class="nf-settings-label" for="profileSubtitleSize">Subtitle size</label>
+                    <select id="profileSubtitleSize" name="subtitleSize" class="nf-settings-select">
+                        <option value="small">Small</option>
+                        <option value="medium">Medium</option>
+                        <option value="large">Large</option>
+                    </select>
+                </div>
+                <div class="nf-settings-field">
+                    <label class="nf-settings-label" for="profileAudioLang">Audio language</label>
+                    <select id="profileAudioLang" name="audioLang" class="nf-settings-select">
+                        <option value="en">English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                    </select>
+                </div>
+                <div class="nf-settings-field">
+                    <label class="nf-settings-label" for="profileMaturity">Maturity rating</label>
+                    <select id="profileMaturity" name="maturity" class="nf-settings-select">
+                        <option value="all">All titles</option>
+                        <option value="pg">PG</option>
+                        <option value="m">M</option>
+                        <option value="ma15">MA15+</option>
+                    </select>
+                </div>
+            </div>
+            <div class="nf-settings-actions">
+                <button id="profileSettingsReset" class="nf-btn nf-btn--outline" type="button">Reset to Default</button>
+                <button class="nf-btn nf-btn--white" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════ MAIN APPLICATION ═══════════════════════════════ -->
+<div id="mainApp" class="nf-app" hidden>
+
+    <!-- ─── Netflix Header ─── -->
+    <header id="nfHeader" class="nf-header">
+        <div class="nf-header-left">
+            <!-- Logo -->
+            <button class="logo-container nf-logo-btn" id="logoHomeBtn" type="button" aria-label="MittaMovies Home">
+                <span class="nf-wordmark">MITTA</span>
+            </button>
+            <!-- Desktop nav -->
+            <nav class="nf-nav" aria-label="Main navigation">
+                <button id="homeBtn"     class="nav-link nf-nav-item active" type="button">Home</button>
+                <button id="tvShowsBtn"  class="nav-link nf-nav-item" type="button">TV Shows</button>
+                <button id="moviesBtn"   class="nav-link nf-nav-item" type="button">Movies</button>
+                <button id="exploreBtn"  class="nav-link nf-nav-item" type="button">New &amp; Popular</button>
+                <button id="historyBtn"  class="nav-link nf-nav-item" type="button">My List</button>
+            </nav>
+        </div>
+
+        <div class="nf-header-right">
+            <!-- Search -->
+            <div class="nf-search-widget" id="nfSearchWidget">
+                <button id="searchToggle" class="nf-icon-btn nf-search-toggle" type="button" aria-label="Search" aria-expanded="false">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                </button>
+                <div class="nf-search-expand" id="nfSearchExpand">
+                    <svg class="nf-search-inner-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                    <input type="text" id="searchInputHeader" class="search-input-header nf-search-input" placeholder="Titles, people, genres" autocomplete="off" aria-label="Search" />
+                    <button id="searchClearHeader" class="search-clear-btn nf-search-clear-btn" type="button" aria-label="Clear search" hidden>✕</button>
+                </div>
+            </div>
+
+            <!-- Notifications (decorative) -->
+            <button class="nf-icon-btn" type="button" aria-label="Notifications">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+            </button>
+
+            <!-- Profile dropdown -->
+            <div class="nf-profile-widget" id="nfProfileWidget">
+                <button id="profileChip" class="nf-profile-chip profile-chip" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Account menu">
+                    <div class="nf-avatar-box">
+                        <span id="profileAvatar" class="nf-avatar-initials">G</span>
                     </div>
-                    <div class="logo-container" aria-label="Brand">
-                        <span class="logo-mark">MM</span>
-                        <span class="logo-text">Mitta</span>
+                    <svg class="nf-caret" width="10" height="6" viewBox="0 0 10 6" aria-hidden="true"><path d="M0 0l5 6 5-6H0z" fill="currentColor"/></svg>
+                </button>
+
+                <div class="nf-dropdown" id="nfProfileDropdown" role="menu">
+                    <div class="nf-dropdown-arrow" aria-hidden="true"></div>
+                    <!-- Active profile -->
+                    <div class="nf-dropdown-profile">
+                        <div class="nf-avatar-box nf-avatar-box--sm">
+                            <span class="nf-avatar-initials" id="dropdownAvatar">G</span>
+                        </div>
+                        <span class="nf-dropdown-name" id="profileName">Guest</span>
+                    </div>
+                    <div class="nf-dropdown-sep"></div>
+                    <button class="nf-dropdown-item" id="switchProfileBtn" type="button" role="menuitem">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        Switch Profiles
+                    </button>
+                    <button class="nf-dropdown-item" id="profileSettingsTrigger" type="button" role="menuitem" hidden>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+                        Account
+                    </button>
+                    <div class="nf-dropdown-sep"></div>
+                    <button class="nf-dropdown-item" id="signOutBtn" type="button" role="menuitem">
+                        Sign out of MittaMovies
+                    </button>
+                </div>
+            </div>
+
+            <!-- Hidden provider select — keeps app.js wiring intact -->
+            <select id="providerSelect" class="nf-hidden-select" aria-hidden="true" tabindex="-1">
+                <option value="vidsrc">Vidsrc</option>
+            </select>
+        </div>
+    </header>
+
+    <!-- ─── Main Content ─── -->
+    <main class="nf-main-area">
+        <!-- Global loading overlay -->
+        <div id="loading" class="nf-loading" style="display:none;">
+            <div class="nf-spinner"></div>
+        </div>
+
+        <!-- ── HOME VIEW ── -->
+        <div id="homeView" class="view nf-home-view">
+            <!-- Billboard hero -->
+            <section id="billboardSection" class="nf-billboard" aria-label="Featured title">
+                <div class="nf-billboard-skeleton"></div>
+            </section>
+
+            <!-- Content rows -->
+            <div id="catalogSections" class="nf-catalog-wrap"></div>
+
+            <!-- Search overlay (toggled over home) -->
+            <div id="searchMenu" class="nf-search-overlay" hidden>
+                <div class="nf-search-overlay-body">
+                    <div class="nf-search-meta">
+                        <p class="nf-search-heading" id="searchMenuTitle">Search Results</p>
+                        <div id="searchSummary" class="nf-search-count"></div>
+                        <div id="searchProviderFilters" style="display:none;"></div>
+                    </div>
+                    <div id="searchMenuResults" class="nf-search-grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── SEARCH VIEW (legacy) ── -->
+        <div id="searchView" class="view" style="display:none;">
+            <div class="nf-page-header">
+                <h2 id="searchTitle" class="nf-page-title">Search Results</h2>
+            </div>
+            <div id="searchResults" class="posts-grid nf-grid"></div>
+            <div id="searchPagination" class="nf-pagination"></div>
+        </div>
+
+        <!-- ── DETAILS VIEW ── -->
+        <div id="detailsView" class="view" style="display:none;">
+            <div class="nf-details-header">
+                <button id="backBtn" class="nf-back-btn" type="button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                    Back
+                </button>
+            </div>
+            <div id="detailsContent" class="nf-details-body"></div>
+        </div>
+
+        <!-- ── PLAYER VIEW ── -->
+        <div id="playerView" class="view" style="display:none;">
+            <div class="nf-player-topbar">
+                <button id="playerBackBtn" class="nf-back-btn" type="button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                    Back to Details
+                </button>
+            </div>
+
+            <div id="errorMessage" class="nf-error-msg" style="display:none;"></div>
+
+            <!-- Adblock prompt -->
+            <div id="adblockPrompt" class="nf-adblock" hidden>
+                <div class="nf-adblock-inner">
+                    <div class="nf-adblock-text">
+                        <p class="nf-adblock-heading">Annoying ads?</p>
+                        <p class="nf-adblock-body">For the best experience install uBlock Origin — free &amp; open-source.</p>
+                    </div>
+                    <div class="nf-adblock-btns">
+                        <button id="adblockInstallBtn" class="nf-btn nf-btn--red" type="button">Install uBlock Origin</button>
+                        <button id="adblockBraveBtn" class="nf-btn nf-btn--outline" type="button">Try Brave Browser</button>
+                        <button id="adblockDismissBtn" class="nf-btn nf-btn--ghost" type="button">Continue anyway</button>
                     </div>
                 </div>
             </div>
-        </header>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <div class="container">
-                <!-- Loading Indicator -->
-                <div id="loading" class="loading" style="display: none;">
-                    <div class="spinner"></div>
-                    <p>Loading...</p>
-                </div>
+            <!-- Player content -->
+            <div id="playerContent" class="nf-player-area">
+                <div id="playerMeta" class="player-meta"></div>
+                <div id="providerSelector" class="provider-selector"></div>
 
-                <!-- Home View -->
-                <div id="homeView" class="view">
-                    <div class="seasonal-decor" aria-hidden="true">
-                        <div class="decor decor-halloween">
-                            <svg class="decor-icon decor-icon-lg" viewBox="0 0 120 120" role="img" aria-label="Spooky pumpkin">
-                                <path d="M60 18c6-10 18-12 26-6-7 2-12 7-14 14 16 4 30 18 30 38 0 24-19 40-42 40S18 88 18 64c0-20 13-34 30-38-2-7-7-12-14-14 8-6 20-4 26 6z" fill="currentColor"/>
-                                <path d="M42 64l10-8 8 8 8-8 10 8-10 8-8-8-8 8-10-8z" fill="#12060f"/>
-                                <circle cx="45" cy="60" r="6" fill="#12060f"/>
-                                <circle cx="75" cy="60" r="6" fill="#12060f"/>
-                            </svg>
-                            <svg class="decor-icon" viewBox="0 0 120 120" role="img" aria-label="Haunted moon">
-                                <circle cx="60" cy="60" r="42" fill="currentColor"/>
-                                <circle cx="78" cy="48" r="8" fill="#12060f"/>
-                                <circle cx="54" cy="36" r="6" fill="#12060f"/>
-                                <circle cx="48" cy="72" r="10" fill="#12060f"/>
-                            </svg>
-                        </div>
-                        <div class="decor decor-valentines">
-                            <svg class="decor-icon decor-icon-lg" viewBox="0 0 120 120" role="img" aria-label="Heart">
-                                <path d="M60 96s-30-18-42-36c-10-15-4-36 14-40 12-3 22 4 28 12 6-8 16-15 28-12 18 4 24 25 14 40C90 78 60 96 60 96z" fill="currentColor"/>
-                            </svg>
-                            <svg class="decor-icon" viewBox="0 0 120 120" role="img" aria-label="Rose">
-                                <path d="M60 18c16 0 26 12 26 26 0 12-8 22-20 24 8 4 12 12 12 20 0 16-10 26-18 26s-18-10-18-26c0-8 4-16 12-20-12-2-20-12-20-24 0-14 10-26 26-26z" fill="currentColor"/>
-                            </svg>
-                        </div>
-                        <div class="decor decor-christmas">
-                            <svg class="decor-icon decor-icon-lg" viewBox="0 0 120 120" role="img" aria-label="Snowflake">
-                                <path d="M58 10h4l4 14 12-8 2 4-12 8 12 8-2 4-12-8-4 14h-4l-4-14-12 8-2-4 12-8-12-8 2-4 12 8 4-14z" fill="currentColor"/>
-                                <circle cx="60" cy="60" r="10" fill="#0b1b12"/>
-                            </svg>
-                            <svg class="decor-icon" viewBox="0 0 120 120" role="img" aria-label="Ornament">
-                                <circle cx="60" cy="64" r="28" fill="currentColor"/>
-                                <rect x="52" y="22" width="16" height="16" rx="4" fill="#0b1b12"/>
-                            </svg>
-                        </div>
-                        <div class="decor decor-newyear">
-                            <svg class="decor-icon decor-icon-lg" viewBox="0 0 120 120" role="img" aria-label="Firework burst">
-                                <path d="M60 18l6 22 22-6-16 16 16 16-22-6-6 22-6-22-22 6 16-16-16-16 22 6 6-22z" fill="currentColor"/>
-                            </svg>
-                            <svg class="decor-icon" viewBox="0 0 120 120" role="img" aria-label="Sparkle">
-                                <path d="M60 28l8 16 16 8-16 8-8 16-8-16-16-8 16-8 8-16z" fill="currentColor"/>
-                            </svg>
-                        </div>
-                    </div>
-                    <div id="searchMenu" class="search-menu" hidden>
-                        <div class="search-menu-header">
-                            <div class="search-menu-title">
-                                <h2 id="searchMenuTitle">Search Results</h2>
-                                <p class="search-menu-subtitle">Search TMDB movies and TV shows</p>
-                            </div>
-                        </div>
-                        <div class="search-menu-summary">
-                            <div id="searchSummary" class="search-summary-text"></div>
-                            <div id="searchProviderFilters" class="search-provider-filters"></div>
-                        </div>
-                        <div class="search-menu-body">
-                            <div id="searchMenuResults" class="posts-grid search-results-grid"></div>
-                        </div>
-                    </div>
-                    <div id="catalogSections"></div>
-                </div>
-
-                <!-- Search Results View -->
-                <div id="searchView" class="view" style="display: none;">
-                    <h2 id="searchTitle">Search Results</h2>
-                    <div id="searchResults" class="posts-grid"></div>
-                    <div id="searchPagination" class="pagination"></div>
-                </div>
-
-                <!-- Details View -->
-                <div id="detailsView" class="view" style="display: none;">
-                    <button id="backBtn" class="back-btn">← Back</button>
-                    <div id="detailsContent"></div>
-                </div>
-
-                <!-- Player View -->
-                <div id="playerView" class="view" style="display: none;">
-                    <button id="playerBackBtn" class="back-btn">← Back to Details</button>
-                    
-                    <!-- Error Message (Player Only) -->
-                    <div id="errorMessage" class="error-message" style="display: none;"></div>
-
-                    <div id="adblockPrompt" class="adblock-prompt" hidden>
-                        <div class="adblock-prompt__content">
-                            <div>
-                                <p class="adblock-prompt__title">Annoying ads or redirects?</p>
-                                <p class="adblock-prompt__body">For the best experience on MittaMovies, install uBlock Origin — free &amp; open-source.</p>
-                            </div>
-                            <div class="adblock-prompt__actions">
-                                <button id="adblockInstallBtn" class="adblock-btn primary" type="button">Install uBlock Origin</button>
-                                <button id="adblockBraveBtn" class="adblock-btn" type="button">Try Brave Browser</button>
-                                <button id="adblockDismissBtn" class="adblock-btn ghost" type="button">Continue anyway</button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div id="playerContent">
-                        <div id="playerMeta" class="player-meta"></div>
-                        <div id="providerSelector" class="provider-selector"></div>
-                        <div class="video-stage">
-                            <video id="videoPlayer" class="video-player" controls></video>
-                            <div id="movieIntroOverlay" class="movie-intro-overlay" aria-hidden="true">
-                                <video id="movieIntroVideo" class="movie-intro-video" preload="auto"></video>
-                            </div>
-                        </div>
-                        <div id="tmdbPlayerContainer" class="tmdb-player-container" style="display: none;">
-                            <div id="tmdbPlayerMessage" class="tmdb-player-message"></div>
-                            <div id="tmdbPlayerToolbar" class="tmdb-player-toolbar" hidden>
-                                <div class="tmdb-player-actions">
-                                    <button id="tmdbDirectBtn" class="tmdb-player-btn is-active" type="button">Direct Player</button>
-                                    <button id="tmdbCleanBtn" class="tmdb-player-btn" type="button">Clean Player (Beta)</button>
-                                </div>
-                                <p id="tmdbCleanStatus" class="tmdb-player-status">Best effort clean mode. Falls back automatically if the proxy fails.</p>
-                            </div>
-                            <div id="tmdbIframeContainer" class="tmdb-iframe-container"></div>
-                            <div id="tmdbTvControls" class="tmdb-tv-controls" hidden>
-                                <div class="tmdb-tv-header">
-                                    <h2 id="tmdbTvTitle">TV Show</h2>
-                                    <p id="tmdbTvEpisodeMeta" class="tmdb-tv-episode-meta"></p>
-                                </div>
-                                <div class="tmdb-tv-selects">
-                                    <label>
-                                        Season
-                                        <select id="tmdbSeasonSelect"></select>
-                                    </label>
-                                    <label>
-                                        Episode
-                                        <select id="tmdbEpisodeSelect"></select>
-                                    </label>
-                                </div>
-                                <div class="tmdb-tv-actions">
-                                    <button id="tmdbPrevEpisode" class="tmdb-episode-btn" type="button">Prev</button>
-                                    <button id="tmdbNextEpisode" class="tmdb-episode-btn" type="button">Next</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div id="streamSelector" class="stream-selector"></div>
-                        <div id="playerEpisodes" class="player-episodes"></div>
+                <div class="nf-video-stage video-stage">
+                    <video id="videoPlayer" class="video-player nf-video" controls></video>
+                    <div id="movieIntroOverlay" class="movie-intro-overlay" aria-hidden="true">
+                        <video id="movieIntroVideo" class="movie-intro-video" preload="auto"></video>
                     </div>
                 </div>
 
-                <!-- Explore View -->
-                <div id="exploreView" class="view" style="display: none;">
-                    <button id="exploreBackBtn" class="back-btn">← Back</button>
-                    <div id="exploreContent"></div>
+                <div id="tmdbPlayerContainer" class="tmdb-player-container nf-tmdb-player" style="display:none;">
+                    <div id="tmdbPlayerMessage" class="tmdb-player-message"></div>
+                    <div id="tmdbPlayerToolbar" class="tmdb-player-toolbar nf-player-toolbar" hidden>
+                        <div class="tmdb-player-actions nf-player-actions">
+                            <button id="tmdbDirectBtn" class="tmdb-player-btn nf-player-source-btn is-active" type="button">Direct Player</button>
+                            <button id="tmdbCleanBtn" class="tmdb-player-btn nf-player-source-btn" type="button">Clean Player (Beta)</button>
+                        </div>
+                        <p id="tmdbCleanStatus" class="tmdb-player-status nf-player-status">Best effort clean mode. Falls back automatically if the proxy fails.</p>
+                    </div>
+                    <div id="tmdbIframeContainer" class="tmdb-iframe-container nf-iframe-wrap"></div>
+                    <div id="tmdbTvControls" class="tmdb-tv-controls nf-tv-controls" hidden>
+                        <div class="tmdb-tv-header nf-tv-header">
+                            <h2 id="tmdbTvTitle" class="nf-tv-title">TV Show</h2>
+                            <p id="tmdbTvEpisodeMeta" class="tmdb-tv-episode-meta nf-episode-meta"></p>
+                        </div>
+                        <div class="tmdb-tv-selects nf-tv-selects">
+                            <label class="nf-select-label">
+                                Season
+                                <select id="tmdbSeasonSelect" class="nf-select"></select>
+                            </label>
+                            <label class="nf-select-label">
+                                Episode
+                                <select id="tmdbEpisodeSelect" class="nf-select"></select>
+                            </label>
+                        </div>
+                        <div class="tmdb-tv-actions nf-episode-nav">
+                            <button id="tmdbPrevEpisode" class="tmdb-episode-btn nf-btn nf-btn--outline" type="button">‹ Prev</button>
+                            <button id="tmdbNextEpisode" class="tmdb-episode-btn nf-btn nf-btn--outline" type="button">Next ›</button>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Movies View -->
-                <div id="moviesView" class="view" style="display: none;">
-                    <button id="moviesBackBtn" class="back-btn">← Back</button>
-                    <div id="moviesContent"></div>
-                </div>
-
-                <!-- TV Shows View -->
-                <div id="tvShowsView" class="view" style="display: none;">
-                    <button id="tvShowsBackBtn" class="back-btn">← Back</button>
-                    <div id="tvShowsContent"></div>
-                </div>
-
-                <!-- History View -->
-                <div id="historyView" class="view" style="display: none;">
-                    <button id="historyBackBtn" class="back-btn">← Back</button>
-                    <div id="historyContent"></div>
-                </div>
-
+                <div id="streamSelector" class="stream-selector nf-stream-sel"></div>
+                <div id="playerEpisodes" class="player-episodes nf-episodes"></div>
             </div>
-        </main>
+        </div>
 
-    <script src="/env.js"></script>
-    <script src="/tmdb-config.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <script src="/history.js"></script>
-    <script src="/tmdb-content.js"></script>
-    <script src="/app.js"></script>
-    <script src="/explore.js"></script>
-    <script src="/movies.js"></script>
-    <script src="/tvshows.js"></script>
+        <!-- ── EXPLORE VIEW ── -->
+        <div id="exploreView" class="view" style="display:none;">
+            <div class="nf-view-header">
+                <button id="exploreBackBtn" class="nf-back-btn" type="button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                    Back
+                </button>
+                <h1 class="nf-view-title">New &amp; Popular</h1>
+            </div>
+            <div id="exploreContent" class="nf-view-body"></div>
+        </div>
+
+        <!-- ── MOVIES VIEW ── -->
+        <div id="moviesView" class="view" style="display:none;">
+            <div class="nf-view-header">
+                <button id="moviesBackBtn" class="nf-back-btn" type="button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                    Back
+                </button>
+                <h1 class="nf-view-title">Movies</h1>
+            </div>
+            <div id="moviesContent" class="nf-view-body"></div>
+        </div>
+
+        <!-- ── TV SHOWS VIEW ── -->
+        <div id="tvShowsView" class="view" style="display:none;">
+            <div class="nf-view-header">
+                <button id="tvShowsBackBtn" class="nf-back-btn" type="button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                    Back
+                </button>
+                <h1 class="nf-view-title">TV Shows</h1>
+            </div>
+            <div id="tvShowsContent" class="nf-view-body"></div>
+        </div>
+
+        <!-- ── MY LIST / HISTORY VIEW ── -->
+        <div id="historyView" class="view" style="display:none;">
+            <div class="nf-view-header">
+                <button id="historyBackBtn" class="nf-back-btn" type="button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                    Back
+                </button>
+                <h1 class="nf-view-title">My List</h1>
+            </div>
+            <div id="historyContent" class="nf-view-body"></div>
+        </div>
+    </main>
+
+    <!-- ─── Mobile Bottom Nav ─── -->
+    <nav class="nf-mobile-nav" aria-label="Mobile navigation">
+        <button class="nf-mobile-btn active" id="mobileHomeBtn" type="button">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            <span>Home</span>
+        </button>
+        <button class="nf-mobile-btn" id="mobileSearchBtn" type="button">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span>Search</span>
+        </button>
+        <button class="nf-mobile-btn" id="mobileMoviesBtn" type="button">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 7h5M17 17h5"/></svg>
+            <span>Movies</span>
+        </button>
+        <button class="nf-mobile-btn" id="mobileTvBtn" type="button">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M17 2l-5 5-5-5"/></svg>
+            <span>Shows</span>
+        </button>
+        <button class="nf-mobile-btn" id="mobileMoreBtn" type="button">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span>More</span>
+        </button>
+    </nav>
+</div>
+
+<!-- ═══════════════════════════════ TOAST ═══════════════════════════════ -->
+<div id="toastContainer" class="nf-toast-container" aria-live="polite" aria-atomic="true"></div>
+
+<!-- ═══════════════════════════════ SCRIPTS ═══════════════════════════════ -->
+<script src="/env.js"></script>
+<script src="/tmdb-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script src="/history.js"></script>
+<script src="/tmdb-content.js"></script>
+<script src="/netflix-ui.js"></script>
+<script src="/app.js"></script>
+<script src="/explore.js"></script>
+<script src="/movies.js"></script>
+<script src="/tvshows.js"></script>
 </body>
 </html>

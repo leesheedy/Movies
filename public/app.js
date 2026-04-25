@@ -3746,7 +3746,7 @@ async function loadHomePage() {
 
         if (provider === 'tmdb') {
             if (window.TMDBContentModule) {
-                await renderCinematicHome(catalogContainer);
+                await window.TMDBContentModule.renderAllSections(catalogContainer);
             }
             showView('home');
             return;
