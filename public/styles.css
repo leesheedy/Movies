@@ -1518,6 +1518,29 @@ ul { list-style: none; }
   font-size: 1.8rem; font-weight: 900; color: var(--nf-red);
   letter-spacing: -.02em;
 }
+
+/* Notflix logo image (PNG has white background — display in a pill) */
+.nf-logo-img {
+  display: block;
+  height: 34px;
+  width: auto;
+  object-fit: contain;
+  border-radius: 4px;
+  padding: 3px 8px;
+  background: #fff;
+}
+/* Landing / sign-in nav */
+.nf-landing-nav .nf-logo-img { height: 36px; }
+/* Main header */
+.nf-logo-btn .nf-logo-img  { height: 30px; padding: 2px 6px; }
+/* App loader */
+.app-loader-logo {
+  height: 56px; width: auto; display: block;
+  margin-bottom: 32px;
+  border-radius: 6px;
+  padding: 6px 14px;
+  background: #fff;
+}
 /* Dropdown item buttons */
 .nf-dropdown-item {
   display: flex; align-items: center; gap: 10px;

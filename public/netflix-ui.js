@@ -1,31 +1,13 @@
 /* ============================================================
-   netflix-ui.js — Landing, Sign-in, Billboard, Header, Search,
-                   Mobile nav.
-   app.js handles the profile gate internally (its own storage key).
-   This module controls landing ↔ signin ↔ mainApp transitions.
+   netflix-ui.js — Profile gate, Billboard, Header scroll,
+                   Profile dropdown, Search widget, Mobile nav.
+   Landing/sign-in pages are bypassed — app goes straight to
+   the "Who's watching?" profile gate on every load.
    ============================================================ */
 
 (function () {
   'use strict';
 
-  /* ── Session ── */
-  const SESSION_KEY = 'mitta_session_v2';
-
-  function getSession() {
-    try { return JSON.parse(localStorage.getItem(SESSION_KEY)) || null; }
-    catch { return null; }
-  }
-  function setSession(data) {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(data));
-  }
-  function clearSession() {
-    localStorage.removeItem(SESSION_KEY);
-  }
-  function isLoggedIn() {
-    return !!getSession()?.email;
-  }
-
-  /* ── DOM ── */
   const $ = id => document.getElementById(id);
 
   function escHtml(str) {
@@ -34,168 +16,46 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  /* ── Page switcher ──
-     'landing' | 'signin' | 'app'
-     Loader fades out automatically when moving away from it.
-  */
-  function showPage(name) {
-    const map = {
-      landing: 'landingPage',
-      signin:  'signinPage',
-      app:     'mainApp',
-    };
-
-    Object.entries(map).forEach(([key, id]) => {
-      const el = $(id);
-      if (!el) return;
-      if (key === name) el.removeAttribute('hidden');
-      else              el.setAttribute('hidden', '');
-    });
-
-    // Fade out loader
-    const loader = $('appLoader');
-    if (loader && !loader.hasAttribute('hidden')) {
-      loader.style.transition = 'opacity .4s';
-      loader.style.opacity = '0';
-      setTimeout(() => loader.setAttribute('hidden', ''), 420);
-    }
-  }
-
   /* ============================================================
-     BOOT
+     BOOT — runs on DOMContentLoaded (before app.js finishes init)
      ============================================================ */
   function init() {
-    initLandingPage();
-    initSignIn();
-    initSignOut();
+    // Reveal mainApp immediately so app.js can load content in bg
+    const mainApp = $('mainApp');
+    if (mainApp) mainApp.removeAttribute('hidden');
+
+    // Hide loader, landing, signin — not used in this flow
+    ['appLoader', 'landingPage', 'signinPage'].forEach(id => {
+      const el = $(id);
+      if (el) el.setAttribute('hidden', '');
+    });
+
+    // Always show profile gate on every page load
+    const gate = $('profileGate');
+    if (gate) {
+      gate.removeAttribute('hidden');
+
+      // When app.js hides the gate (profile selected), init the billboard
+      const obs = new MutationObserver(() => {
+        if (gate.hasAttribute('hidden')) {
+          obs.disconnect();
+          initBillboard();
+        }
+      });
+      obs.observe(gate, { attributes: true, attributeFilter: ['hidden'] });
+    }
+
+    // Sign-out → show profile gate again
+    $('signOutBtn')?.addEventListener('click', () => {
+      localStorage.removeItem('mitta_active_profile_v1');
+      billboardDone = false;
+      if (gate) gate.removeAttribute('hidden');
+    });
+
     initHeaderScroll();
     initProfileDropdown();
     initSearchWidget();
     initMobileNav();
-    buildSigninProfileChips();
-
-    if (isLoggedIn()) {
-      showPage('app');
-      initBillboard();
-    } else {
-      showPage('landing');
-    }
-  }
-
-  /* ============================================================
-     LANDING PAGE
-     ============================================================ */
-  function initLandingPage() {
-    document.querySelectorAll('[data-action="goto-signin"]').forEach(btn => {
-      btn.addEventListener('click', () => showPage('signin'));
-    });
-
-    const headerSignin = document.querySelector('.nf-landing-signin-btn');
-    if (headerSignin) headerSignin.addEventListener('click', () => showPage('signin'));
-
-    // "Sign up now" → same sign-in page
-    const getStarted = $('gotoGetStarted');
-    if (getStarted) getStarted.addEventListener('click', () => showPage('signin'));
-  }
-
-  /* ============================================================
-     SIGN-IN PAGE
-     ============================================================ */
-  function initSignIn() {
-    const form   = $('signinForm');
-    const emailI = $('signinEmail');
-    const passI  = $('signinPassword');
-    const errBox = $('signinError');
-
-    if (!form) return;
-
-    form.addEventListener('submit', e => {
-      e.preventDefault();
-      const email = (emailI?.value || '').trim();
-      const pass  = (passI?.value  || '').trim();
-
-      if (!email || !email.includes('@')) {
-        showErr('Please enter a valid email address.'); return;
-      }
-      if (pass.length < 4) {
-        showErr('Password must be at least 4 characters.'); return;
-      }
-      clearErr();
-      setSession({ email });
-      showPage('app');
-      // Billboard fires after mainApp is visible
-      setTimeout(initBillboard, 200);
-    });
-
-    function showErr(msg) {
-      if (!errBox) return;
-      errBox.textContent = msg;
-      errBox.removeAttribute('hidden');
-    }
-    function clearErr() {
-      if (errBox) errBox.setAttribute('hidden', '');
-    }
-  }
-
-  /* ============================================================
-     SIGN-OUT
-     ============================================================ */
-  function initSignOut() {
-    $('signOutBtn')?.addEventListener('click', () => {
-      clearSession();
-      billboardDone = false;
-      showPage('landing');
-    });
-  }
-
-  /* ============================================================
-     SIGN-IN QUICK PROFILE CHIPS
-     (Lets users skip typing; sets session then reveals app)
-     app.js profile gate will appear on top if no profile stored.
-     ============================================================ */
-  const PROFILE_COLORS = {
-    guest: '#E50914', digby: '#0080FF', lee: '#E50914',
-    ryan: '#1DB954', issy: '#FF69B4', renee: '#9B59B6',
-    dom: '#F39C12', isla: '#1ABC9C',
-  };
-  const PROFILE_EMOJI = {
-    guest: '🎬', digby: '🐶', lee: '🎥',
-    ryan: '🏀', issy: '🌸', renee: '⭐',
-    dom: '🎮', isla: '🌈',
-  };
-  const QUICK_PROFILES = [
-    { id: 'guest', name: 'Guest' },
-    { id: 'lee',   name: 'Lee' },
-    { id: 'ryan',  name: 'Ryan' },
-    { id: 'issy',  name: 'Issy' },
-    { id: 'dom',   name: 'Dom' },
-    { id: 'isla',  name: 'Dom & Isla' },
-  ];
-
-  function buildSigninProfileChips() {
-    const list = $('signinProfileList');
-    if (!list) return;
-    list.innerHTML = '';
-
-    QUICK_PROFILES.forEach(p => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'signin-profile-chip';
-      const color = PROFILE_COLORS[p.id] || '#E50914';
-      const emoji = PROFILE_EMOJI[p.id] || '🎬';
-      btn.innerHTML = `
-        <span class="chip-avatar" style="background:${color}">${escHtml(emoji)}</span>
-        <span>${escHtml(p.name)}</span>
-      `;
-      btn.addEventListener('click', () => {
-        setSession({ email: 'guest@mittamovies.com' });
-        // Also write to app.js profile key so its gate is skipped
-        localStorage.setItem('mitta_active_profile_v1', p.id);
-        showPage('app');
-        setTimeout(initBillboard, 200);
-      });
-      list.appendChild(btn);
-    });
   }
 
   /* ============================================================
@@ -282,8 +142,7 @@
   }
 
   /* ============================================================
-     PROFILE DROPDOWN
-     (Supplements app.js's chip click — adds open/close class)
+     PROFILE DROPDOWN  (open/close class for CSS animation)
      ============================================================ */
   function initProfileDropdown() {
     const chip     = $('profileChip');
@@ -314,19 +173,19 @@
 
     if (!expand || !input) return;
 
-    function open() {
+    function open()  {
       expand.classList.add('expanded');
       input.focus();
-      if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
+      toggleBtn?.setAttribute('aria-expanded', 'true');
     }
     function close() {
       expand.classList.remove('expanded');
       input.value = '';
-      if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+      toggleBtn?.setAttribute('aria-expanded', 'false');
       input.dispatchEvent(new Event('input'));
     }
 
-    if (toggleBtn) toggleBtn.addEventListener('click', () =>
+    toggleBtn?.addEventListener('click', () =>
       expand.classList.contains('expanded') ? close() : open()
     );
     input.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
@@ -334,13 +193,12 @@
   }
 
   /* ============================================================
-     MOBILE BOTTOM NAV
+     MOBILE BOTTOM NAV  — delegates to desktop nav buttons
      ============================================================ */
   function initMobileNav() {
-    // Map mobile button id → desktop nav button id
     const map = {
       mobileHomeBtn:   'homeBtn',
-      mobileSearchBtn: null,       // no desktop equivalent; handled separately
+      mobileSearchBtn: null,
       mobileMoviesBtn: 'moviesBtn',
       mobileTvBtn:     'tvShowsBtn',
       mobileMoreBtn:   'exploreBtn',
@@ -355,9 +213,8 @@
         if (desktopId) {
           $(desktopId)?.click();
         } else {
-          // Search — focus the search input
-          $('searchInputHeader')?.focus();
           $('nfSearchExpand')?.classList.add('expanded');
+          $('searchInputHeader')?.focus();
           $('searchToggle')?.setAttribute('aria-expanded', 'true');
         }
       });
@@ -367,14 +224,7 @@
   /* ============================================================
      PUBLIC API
      ============================================================ */
-  window.NFAuth = {
-    isLoggedIn,
-    getSession,
-    setSession,
-    clearSession,
-    showPage,
-    initBillboard,
-  };
+  window.NFAuth = { initBillboard };
 
   /* ── Boot ── */
   if (document.readyState === 'loading') {
