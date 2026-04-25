@@ -577,9 +577,11 @@ function updateTmdbPlayerToolbar() {
 // Utility Functions
 function showLoading(show = true, message = 'Loading...') {
     const loadingEl = document.getElementById('loading');
+    if (!loadingEl) return;
     if (show) {
-        loadingEl.querySelector('p').textContent = message;
-        loadingEl.style.display = 'block';
+        const p = loadingEl.querySelector('p');
+        if (p) p.textContent = message;
+        loadingEl.style.display = 'flex';
     } else {
         loadingEl.style.display = 'none';
     }
