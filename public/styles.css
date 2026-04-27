@@ -2200,12 +2200,42 @@ ul { list-style: none; }
   padding: 12px 20px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%);
   pointer-events: none;
 }
-.nf-player-topbar .nf-back-btn {
+.nf-player-topbar .nf-back-btn,
+.nf-player-topbar .nf-cast-btn {
   pointer-events: auto;
+}
+.nf-cast-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  background: rgba(0,0,0,.55);
+  border: 1px solid rgba(255,255,255,.3);
+  color: var(--nf-white);
+  font-size: .85rem;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background .2s, border-color .2s;
+}
+.nf-cast-btn:hover {
+  background: rgba(0,0,0,.8);
+  border-color: rgba(255,255,255,.6);
+}
+.nf-cast-btn:focus {
+  outline: 3px solid var(--nf-red);
+  outline-offset: 2px;
+}
+.nf-cast-btn.casting {
+  background: var(--nf-red);
+  border-color: var(--nf-red);
 }
 
 .nf-player-meta {

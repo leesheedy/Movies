@@ -2168,6 +2168,62 @@ function requestPlayerFullscreen() {
     return false;
 }
 
+function initCastButton() {
+    const castBtn = document.getElementById('castBtn');
+    if (!castBtn) return;
+
+    const hasPresentationApi = 'PresentationRequest' in window;
+    const hasRemotePlayback   = 'remote' in HTMLVideoElement.prototype;
+
+    if (hasPresentationApi || hasRemotePlayback) {
+        castBtn.removeAttribute('hidden');
+    }
+
+    castBtn.addEventListener('click', async () => {
+        const iframe = document.querySelector('#tmdbIframeContainer iframe');
+        const embedUrl = iframe?.src;
+        const videoEl  = document.getElementById('videoPlayer');
+
+        // Remote Playback API — for native <video>
+        if (hasRemotePlayback && videoEl && !videoEl.paused) {
+            try {
+                await videoEl.remote.requestRemotePlayback();
+                return;
+            } catch (e) {
+                if (e.name !== 'AbortError') console.warn('[Cast] RemotePlayback:', e);
+            }
+        }
+
+        // Presentation API — opens browser cast dialog (Chromecast / WiDi / AirPlay via Chrome)
+        if (hasPresentationApi && embedUrl) {
+            try {
+                const req = new PresentationRequest([embedUrl]);
+                castBtn.classList.add('casting');
+                const conn = await req.start();
+                conn.addEventListener('terminate', () => castBtn.classList.remove('casting'));
+                showToast('Casting to device', 'success', 3000);
+                return;
+            } catch (e) {
+                castBtn.classList.remove('casting');
+                if (e.name === 'AbortError') return; // user cancelled, no message needed
+                console.warn('[Cast] PresentationRequest:', e);
+            }
+        }
+
+        // Fallback — copy the embed URL and guide user
+        if (embedUrl) {
+            try {
+                await navigator.clipboard.writeText(embedUrl);
+                showToast('Video URL copied — open it in your TV browser or cast from there', 'info', 4000);
+            } catch {
+                showToast('To cast: use your browser\'s cast menu (Chrome: ⋮ → Cast…)', 'info', 5000);
+            }
+        } else {
+            showToast('No video loaded yet', 'info', 2000);
+        }
+    });
+}
+
 function attemptPlayerFullscreen() {
     if (!state.pendingFullscreenRequest) return;
     state.pendingFullscreenRequest = false;
@@ -4397,6 +4453,7 @@ async function init() {
     loadTmdbImdbCache();
     initProfileGate();
     initBackNavigationHandlers();
+    initCastButton();
 
     const tmdbDirectBtn = document.getElementById('tmdbDirectBtn');
     if (tmdbDirectBtn) {
