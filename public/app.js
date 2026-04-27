@@ -950,7 +950,7 @@ function buildVidplusTvEmbedUrl(tvId, season, episode) {
 }
 
 function buildVidsrcTvFallbackUrl(tvId, season, episode) {
-    return `https://vidsrc.me/embed/tv?tmdb=${tvId}&season=${season}&episode=${episode}`;
+    return `https://vidsrc.to/embed/tv/${tvId}/${season}/${episode}`;
 }
 
 function buildVidsrcMeTvEmbedUrl(tvId, season, episode) {
@@ -961,8 +961,8 @@ function buildVidplusMovieEmbedUrl(movieId) {
     return `https://player.vidplus.pro/embed/movie/${movieId}?autoplay=true`;
 }
 
-function buildVidsrcMeMovieEmbedUrl(imdbId) {
-    return `https://vidsrc.me/embed/movie?imdb=${imdbId}`;
+function buildVidsrcToMovieEmbedUrl(imdbId) {
+    return `https://vidsrc.to/embed/movie/${imdbId}`;
 }
 
 function buildVidsrcNetMovieEmbedUrl(imdbId) {
@@ -974,7 +974,7 @@ function buildVidsrcMovieFallbackUrl(movieId) {
 }
 
 function buildVidsrcImdbMovieFallbackUrl(imdbId) {
-    return `https://vidsrc.to/embed/movie/${imdbId}`;
+    return `https://vidsrc.xyz/embed/movie?imdb=${imdbId}`;
 }
 
 function build2EmbedTmdbMovieFallbackUrl(movieId) {
@@ -989,6 +989,10 @@ async function fetchOmdbData(imdbId) {
     if (!imdbId) return null;
     try {
         const res = await fetch(`https://www.omdbapi.com/?i=${encodeURIComponent(imdbId)}&apikey=${OMDB_API_KEY}&plot=full`);
+        if (res.status === 401) {
+            console.warn('[OMDB] API key not activated — visit omdbapi.com to activate key:', OMDB_API_KEY);
+            return null;
+        }
         if (!res.ok) return null;
         const data = await res.json();
         return data.Response === 'True' ? data : null;
@@ -1602,7 +1606,7 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId, tmdbId }) {
         tmdbContainer.style.display = 'block';
     }
     const embedSources = [
-        imdbId ? buildVidsrcMeMovieEmbedUrl(imdbId)     : null,
+        imdbId ? buildVidsrcToMovieEmbedUrl(imdbId)     : null,
         imdbId ? buildVidsrcNetMovieEmbedUrl(imdbId)    : null,
         imdbId ? build2EmbedImdbMovieFallbackUrl(imdbId): null,
         imdbId ? buildVidsrcImdbMovieFallbackUrl(imdbId): null,
