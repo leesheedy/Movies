@@ -951,6 +951,9 @@ function buildVidplusTvEmbedUrl(tvId, season, episode) {
 }
 
 // ── Movie embed builders ──────────────────────────────────────────────────
+function buildVidlinkMovieUrl(tmdbId) {
+    return `https://vidlink.pro/movie/${tmdbId}?autoplay=true`;
+}
 function buildVidsrcProMovieUrl(tmdbId) {
     return `https://vidsrc.pro/embed/movie/${tmdbId}`;
 }
@@ -959,6 +962,9 @@ function buildVidsrcIcuMovieUrl(tmdbId) {
 }
 function buildAutoEmbedMovieUrl(tmdbId) {
     return `https://player.autoembed.cc/embed/movie/${tmdbId}`;
+}
+function buildAutoEmbedCoMovieUrl(tmdbId) {
+    return `https://autoembed.co/movie/tmdb/${tmdbId}`;
 }
 function buildMultiEmbedMovieUrl(tmdbId) {
     return `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`;
@@ -983,6 +989,9 @@ function buildVidsrcMovieFallbackUrl(movieId) {
 }
 
 // ── TV embed builders ─────────────────────────────────────────────────────
+function buildVidlinkTvUrl(tvId, season, episode) {
+    return `https://vidlink.pro/tv/${tvId}/${season}/${episode}?autoplay=true`;
+}
 function buildVidsrcProTvUrl(tvId, season, episode) {
     return `https://vidsrc.pro/embed/tv/${tvId}/${season}/${episode}`;
 }
@@ -991,6 +1000,9 @@ function buildVidsrcIcuTvUrl(tvId, season, episode) {
 }
 function buildAutoEmbedTvUrl(tvId, season, episode) {
     return `https://player.autoembed.cc/embed/tv/${tvId}/${season}/${episode}`;
+}
+function buildAutoEmbedCoTvUrl(tvId, season, episode) {
+    return `https://autoembed.co/tv/tmdb/${tvId}/${season}/${episode}`;
 }
 function buildMultiEmbedTvUrl(tvId, season, episode) {
     return `https://multiembed.mov/?video_id=${tvId}&tmdb=1&s=${season}&e=${episode}`;
@@ -1010,13 +1022,18 @@ async function fetchOmdbData(imdbId) {
     try {
         const res = await fetch(`https://www.omdbapi.com/?i=${encodeURIComponent(imdbId)}&apikey=${OMDB_API_KEY}&plot=full`);
         if (res.status === 401) {
-            console.warn('[OMDB] API key not activated — visit omdbapi.com to activate key:', OMDB_API_KEY);
+            console.warn('[OMDB] 401 — activate your key at: https://www.omdbapi.com/apikey.aspx?VERIFYKEY=' + OMDB_API_KEY);
             return null;
         }
         if (!res.ok) return null;
         const data = await res.json();
-        return data.Response === 'True' ? data : null;
-    } catch {
+        if (data.Response === 'True') {
+            console.log('[OMDB] ✓ loaded:', data.Title, data.Year);
+            return data;
+        }
+        return null;
+    } catch (e) {
+        console.warn('[OMDB] fetch error:', e.message);
         return null;
     }
 }
@@ -1066,18 +1083,32 @@ function renderTmdbIframe(embedUrl) {
     let fallbackTimeout = null;
     let currentIndex = 0;
 
+    const nextBtn = document.getElementById('tmdbNextSourceBtn');
+
+    const updateNextBtn = () => {
+        if (!nextBtn) return;
+        const hasMore = currentIndex < sources.length - 1;
+        nextBtn.disabled = !hasMore;
+        nextBtn.textContent = hasMore
+            ? `Try Next Source (${currentIndex + 1}/${sources.length})`
+            : 'No More Sources';
+    };
+
     const showFallback = () => {
         if (tmdbMessage) {
-            tmdbMessage.textContent = 'No more sources available. Please try again later.';
+            tmdbMessage.innerHTML =
+                'All sources failed. If video is stuck, try disabling Tracking Prevention ' +
+                'or ad-blockers for this site, then reload. ' +
+                '<button id="reloadPlayerBtn" style="margin-left:8px;padding:4px 12px;cursor:pointer">Reload</button>';
+            document.getElementById('reloadPlayerBtn')?.addEventListener('click', () => loadSource(0));
         }
         tmdbNextSourceFn = null;
+        updateNextBtn();
     };
 
     const handleFailure = () => {
         if (currentIndex < sources.length - 1) {
-            if (tmdbMessage) {
-                tmdbMessage.textContent = 'Trying alternate source...';
-            }
+            if (tmdbMessage) tmdbMessage.textContent = `Trying source ${currentIndex + 2} of ${sources.length}…`;
             loadSource(currentIndex + 1);
             return;
         }
@@ -1090,9 +1121,8 @@ function renderTmdbIframe(embedUrl) {
         if (!nextUrl) return;
         iframe.src = nextUrl;
         tmdbNextSourceFn = currentIndex < sources.length - 1 ? handleFailure : null;
-        if (tmdbMessage) {
-            tmdbMessage.textContent = 'Loading player...';
-        }
+        updateNextBtn();
+        if (tmdbMessage) tmdbMessage.textContent = `Loading source ${index + 1} of ${sources.length}…`;
         if (fallbackTimeout) clearTimeout(fallbackTimeout);
         fallbackTimeout = setTimeout(handleFailure, 5000);
     };
@@ -1623,9 +1653,11 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId, tmdbId }) {
         tmdbContainer.style.display = 'block';
     }
     const embedSources = [
+        tmdbId ? buildVidlinkMovieUrl(tmdbId)              : null,
         tmdbId ? buildVidsrcProMovieUrl(tmdbId)            : null,
         tmdbId ? buildVidsrcIcuMovieUrl(tmdbId)            : null,
         tmdbId ? buildAutoEmbedMovieUrl(tmdbId)            : null,
+        tmdbId ? buildAutoEmbedCoMovieUrl(tmdbId)          : null,
         tmdbId ? buildMultiEmbedMovieUrl(tmdbId)           : null,
         imdbId ? buildVidsrcNetMovieEmbedUrl(imdbId)       : null,
         imdbId ? buildVidsrcImdbMovieFallbackUrl(imdbId)   : null,
@@ -1741,9 +1773,11 @@ function playTmdbEpisode() {
         return;
     }
     const embedSources = [
+        buildVidlinkTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         buildVidsrcProTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         buildVidsrcIcuTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         buildAutoEmbedTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
+        buildAutoEmbedCoTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         buildMultiEmbedTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         buildVidsrcMeTvEmbedUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         build2EmbedTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
