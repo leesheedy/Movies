@@ -950,7 +950,11 @@ function buildVidplusTvEmbedUrl(tvId, season, episode) {
 }
 
 function buildVidsrcTvFallbackUrl(tvId, season, episode) {
-    return `https://vidsrc.to/embed/tv/${tvId}/${season}/${episode}`;
+    return `https://embed.su/embed/tv/${tvId}/${season}/${episode}`;
+}
+
+function build2EmbedTvUrl(tvId, season, episode) {
+    return `https://www.2embed.cc/embedtv/${tvId}&s=${season}&e=${episode}`;
 }
 
 function buildVidsrcMeTvEmbedUrl(tvId, season, episode) {
@@ -961,8 +965,8 @@ function buildVidplusMovieEmbedUrl(movieId) {
     return `https://player.vidplus.pro/embed/movie/${movieId}?autoplay=true`;
 }
 
-function buildVidsrcToMovieEmbedUrl(imdbId) {
-    return `https://vidsrc.to/embed/movie/${imdbId}`;
+function buildEmbedSuMovieUrl(imdbId) {
+    return `https://embed.su/embed/movie/${imdbId}`;
 }
 
 function buildVidsrcNetMovieEmbedUrl(imdbId) {
@@ -1572,7 +1576,7 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId, tmdbId }) {
             }
         }
 
-        const displayTitle = data?.title || title;
+        const displayTitle = data?.title || omdb?.Title || title;
         const fullYear    = (data?.release_date || releaseDate || '').slice(0, 4);
         const score       = data?.vote_average ? Math.round(data.vote_average * 10) + '%' : '';
         const genres      = (data?.genres || []).slice(0, 3).map(g => `<span class="nf-player-genre">${g.name}</span>`).join('');
@@ -1606,12 +1610,12 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId, tmdbId }) {
         tmdbContainer.style.display = 'block';
     }
     const embedSources = [
-        imdbId ? buildVidsrcToMovieEmbedUrl(imdbId)     : null,
-        imdbId ? buildVidsrcNetMovieEmbedUrl(imdbId)    : null,
+        tmdbId ? build2EmbedTmdbMovieFallbackUrl(tmdbId): null,
         imdbId ? build2EmbedImdbMovieFallbackUrl(imdbId): null,
+        imdbId ? buildEmbedSuMovieUrl(imdbId)           : null,
+        imdbId ? buildVidsrcNetMovieEmbedUrl(imdbId)    : null,
         imdbId ? buildVidsrcImdbMovieFallbackUrl(imdbId): null,
         tmdbId ? buildVidplusMovieEmbedUrl(tmdbId)      : null,
-        tmdbId ? build2EmbedTmdbMovieFallbackUrl(tmdbId): null,
         tmdbId ? buildVidsrcMovieFallbackUrl(tmdbId)    : null,
     ].filter(Boolean);
 
@@ -1721,21 +1725,10 @@ function playTmdbEpisode() {
         return;
     }
     const embedSources = [
-        buildVidsrcTvFallbackUrl(
-            tmdbTvState.tvId,
-            tmdbTvState.seasonNumber,
-            tmdbTvState.episodeNumber
-        ),
-        buildVidsrcMeTvEmbedUrl(
-            tmdbTvState.tvId,
-            tmdbTvState.seasonNumber,
-            tmdbTvState.episodeNumber
-        ),
-        buildVidplusTvEmbedUrl(
-            tmdbTvState.tvId,
-            tmdbTvState.seasonNumber,
-            tmdbTvState.episodeNumber
-        ),
+        build2EmbedTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
+        buildVidsrcTvFallbackUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
+        buildVidsrcMeTvEmbedUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
+        buildVidplusTvEmbedUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
     ];
     renderTmdbIframe(embedSources);
     updateTmdbTvMeta();
@@ -2062,14 +2055,26 @@ async function openTMDBTvShow(item) {
 
 async function openImdbRoute(imdbId) {
     if (!imdbId) return;
+    showLoading(true, 'Loading...');
     state.currentMeta = null;
-    renderTmdbPlayer({
-        title: `IMDb ${imdbId}`,
-        posterPath: null,
-        releaseDate: null,
-        imdbId,
-        tmdbId: null
-    });
+
+    try {
+        const apiKey = window.TMDBConfig?.ensureApiKey?.() || '';
+        if (apiKey) {
+            const res  = await fetch(`https://api.themoviedb.org/3/find/${imdbId}?api_key=${apiKey}&external_source=imdb_id`);
+            const data = await res.json();
+            const movie = (data?.movie_results || [])[0];
+            const tv    = (data?.tv_results    || [])[0];
+            showLoading(false);
+            if (movie) { await openTMDBMovie({ ...movie, id: movie.id }); return; }
+            if (tv)    { await openTMDBTvShow({ ...tv,    id: tv.id    }); return; }
+        }
+    } catch (e) {
+        console.warn('[Route] TMDB find failed:', e);
+    }
+
+    showLoading(false);
+    renderTmdbPlayer({ title: 'Movie', posterPath: null, releaseDate: null, imdbId, tmdbId: null });
     showView('player');
 }
 
