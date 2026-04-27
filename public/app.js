@@ -2227,33 +2227,49 @@ function requestPlayerFullscreen() {
 }
 
 function initCastButton() {
-    const castBtn = document.getElementById('castBtn');
-    if (!castBtn) return;
+    const castBtn  = document.getElementById('castBtn');
+    const castPanel = document.getElementById('castPanel');
+    if (!castBtn || !castPanel) return;
+
+    // Always show the cast button
+    castBtn.removeAttribute('hidden');
 
     const hasPresentationApi = 'PresentationRequest' in window;
-    const hasRemotePlayback   = 'remote' in HTMLVideoElement.prototype;
+    const hasShare           = !!navigator.share;
 
-    if (hasPresentationApi || hasRemotePlayback) {
-        castBtn.removeAttribute('hidden');
+    // Show/hide the panel (toggle)
+    function openPanel() {
+        const iframe = document.querySelector('#tmdbIframeContainer iframe');
+        const embedUrl = iframe?.src || '';
+        // Populate QR code from embed URL (or page URL as fallback)
+        const qrUrl = embedUrl || window.location.href;
+        const qrImg = document.getElementById('castQrImg');
+        if (qrImg && qrUrl) {
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&color=ffffff&bgcolor=1a1a1a&data=${encodeURIComponent(qrUrl)}`;
+        }
+        castPanel.removeAttribute('hidden');
+        castBtn.setAttribute('aria-expanded', 'true');
+    }
+    function closePanel() {
+        castPanel.setAttribute('hidden', '');
+        castBtn.setAttribute('aria-expanded', 'false');
     }
 
-    castBtn.addEventListener('click', async () => {
-        const iframe = document.querySelector('#tmdbIframeContainer iframe');
-        const embedUrl = iframe?.src;
-        const videoEl  = document.getElementById('videoPlayer');
+    castBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        castPanel.hasAttribute('hidden') ? openPanel() : closePanel();
+    });
+    document.addEventListener('click', e => {
+        if (!castPanel.contains(e.target) && e.target !== castBtn) closePanel();
+    });
 
-        // Remote Playback API — for native <video>
-        if (hasRemotePlayback && videoEl && !videoEl.paused) {
-            try {
-                await videoEl.remote.requestRemotePlayback();
-                return;
-            } catch (e) {
-                if (e.name !== 'AbortError') console.warn('[Cast] RemotePlayback:', e);
-            }
-        }
+    // ── Chromecast / AirPlay ────────────────────────────────────────────
+    document.getElementById('castOptionChromecast')?.addEventListener('click', async () => {
+        closePanel();
+        const embedUrl = document.querySelector('#tmdbIframeContainer iframe')?.src;
+        if (!embedUrl) { showToast('No video loaded yet', 'info', 2000); return; }
 
-        // Presentation API — opens browser cast dialog (Chromecast / WiDi / AirPlay via Chrome)
-        if (hasPresentationApi && embedUrl) {
+        if (hasPresentationApi) {
             try {
                 const req = new PresentationRequest([embedUrl]);
                 castBtn.classList.add('casting');
@@ -2263,21 +2279,43 @@ function initCastButton() {
                 return;
             } catch (e) {
                 castBtn.classList.remove('casting');
-                if (e.name === 'AbortError') return; // user cancelled, no message needed
+                if (e.name === 'AbortError') return;
                 console.warn('[Cast] PresentationRequest:', e);
             }
         }
+        showToast('Use your browser\'s Cast menu (Chrome: ⋮ → Cast…)', 'info', 5000);
+    });
 
-        // Fallback — copy the embed URL and guide user
-        if (embedUrl) {
+    // ── Share to T-Cast / Roku App ──────────────────────────────────────
+    document.getElementById('castOptionShare')?.addEventListener('click', async () => {
+        closePanel();
+        const embedUrl = document.querySelector('#tmdbIframeContainer iframe')?.src;
+        const shareUrl = embedUrl || window.location.href;
+        const title = document.getElementById('tmdbPlayerTitle')?.textContent || document.title;
+
+        if (hasShare) {
             try {
-                await navigator.clipboard.writeText(embedUrl);
-                showToast('Video URL copied — open it in your TV browser or cast from there', 'info', 4000);
-            } catch {
-                showToast('To cast: use your browser\'s cast menu (Chrome: ⋮ → Cast…)', 'info', 5000);
+                await navigator.share({ title, url: shareUrl });
+                return;
+            } catch (e) {
+                if (e.name === 'AbortError') return;
+                console.warn('[Cast] Share API:', e);
             }
-        } else {
-            showToast('No video loaded yet', 'info', 2000);
+        }
+        // Share API not available — guide user
+        showToast('Open T-Cast on your phone, then paste the copied link in your TV browser', 'info', 5000);
+        try { await navigator.clipboard.writeText(shareUrl); } catch {}
+    });
+
+    // ── Copy Link ───────────────────────────────────────────────────────
+    document.getElementById('castOptionCopy')?.addEventListener('click', async () => {
+        closePanel();
+        const embedUrl = document.querySelector('#tmdbIframeContainer iframe')?.src || window.location.href;
+        try {
+            await navigator.clipboard.writeText(embedUrl);
+            showToast('Video link copied to clipboard', 'success', 3000);
+        } catch {
+            showToast('Could not copy — try manually selecting the URL', 'info', 3000);
         }
     });
 }
