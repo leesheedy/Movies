@@ -2307,56 +2307,18 @@ function initCastButton() {
     // Common ports local casting receivers use
     const CAST_PORTS = [8080, 9090, 4040, 8008, 3000, 5000, 7000, 8060, 1080, 8000];
 
-    // Send video URL to T-Cast receiver via background fetch (no tab opens/closes).
-    // Tries several common receiver API paths used by local media players.
-    const tryCastFetch = async (ip, port, embedUrl) => {
-        const enc = encodeURIComponent(embedUrl);
-        const base = `http://${ip}:${port}`;
-        const attempts = [
-            { method: 'GET',  url: `${base}/play?url=${enc}` },
-            { method: 'GET',  url: `${base}/cast?url=${enc}` },
-            { method: 'GET',  url: `${base}/load?url=${enc}` },
-            { method: 'POST', url: `${base}/play`, body: JSON.stringify({ url: embedUrl }) },
-            { method: 'GET',  url: `${base}/api/play?url=${enc}` },
-        ];
-        let sent = false;
-        for (const a of attempts) {
-            try {
-                const opts = { method: a.method, mode: 'no-cors', cache: 'no-store' };
-                if (a.body) opts.body = a.body;
-                await fetch(a.url, opts);
-                sent = true;
-            } catch (_) { /* network/CORS blocked — try next */ }
+    // window.open works for HTTP local IPs from HTTPS (top-level navigation bypasses
+    // mixed-content restrictions). The softenPopup bug is already fixed so the tab stays open.
+    let castTab = null;
+    const openCastTab = (url) => {
+        // Reuse existing tab if still open
+        if (castTab && !castTab.closed) {
+            try { castTab.location.href = url; return; } catch (_) {}
         }
-        return sent;
+        castTab = window.open(url, 'mitta_cast_tv');
     };
 
-    // Probe whether a port responds (for scanner)
-    const probePort = async (ip, port) => {
-        try {
-            await fetch(`http://${ip}:${port}/`, { method: 'HEAD', mode: 'no-cors', cache: 'no-store' });
-            return true;
-        } catch (_) { return false; }
-    };
-
-    // Show a clickable "Open in browser" link inside the panel so the user can
-    // manually navigate to T-Cast's UI without any tab-closing issues.
-    const showCastLink = (ip, port) => {
-        const url = `http://${ip}:${port}/`;
-        let linkRow = document.getElementById('castOpenLinkRow');
-        if (!linkRow) {
-            linkRow = document.createElement('div');
-            linkRow.id = 'castOpenLinkRow';
-            linkRow.style.cssText = 'padding:8px 0 4px;text-align:center;';
-            const castPanelInner = document.querySelector('#castPanel');
-            if (castPanelInner) castPanelInner.appendChild(linkRow);
-        }
-        linkRow.innerHTML = `<a href="${url}" target="_blank" rel="noopener noreferrer"
-            style="color:#e50914;font-size:.82rem;word-break:break-all;">
-            Open T-Cast web UI ↗</a>`;
-    };
-
-    document.getElementById('castOptionIp')?.addEventListener('click', async () => {
+    document.getElementById('castOptionIp')?.addEventListener('click', () => {
         const ip   = (document.getElementById('castTvIp')?.value   || '').trim();
         const port = (document.getElementById('castTvPort')?.value || '8080').trim();
 
@@ -2368,54 +2330,41 @@ function initCastButton() {
         const embedUrl = document.querySelector('#tmdbIframeContainer iframe')?.src || '';
         if (!embedUrl) { showToast('No video loaded yet — play something first', 'info', 3000); return; }
 
+        // Copy video URL so user can paste it into T-Cast's web UI
         navigator.clipboard?.writeText(embedUrl).catch(() => {});
 
-        // 1. Send video URL directly to T-Cast via background fetch (no tab opens)
-        showToast('Sending to T-Cast TV…', 'info', 2000);
-        const sent = await tryCastFetch(ip, port, embedUrl);
-
-        if (sent) {
-            showToast('Cast request sent! T-Cast should start playing on your TV.', 'success', 6000);
-        } else {
-            // 2. Fetch was blocked (browser PNA policy) — show a manual link
-            showCastLink(ip, port);
-            showToast(
-                'Browser blocked the direct send. Video URL copied — click "Open T-Cast web UI" in the panel and paste it there.',
-                'info', 8000
-            );
-        }
+        // Open T-Cast's web UI — tab stays open now (softenPopup fixed for local IPs)
+        openCastTab(`http://${ip}:${port}/`);
+        closePanel();
+        showToast(
+            `T-Cast web UI opened in a new tab. Video URL copied — paste it into T-Cast's input on that page.`,
+            'info', 7000
+        );
     });
 
-    // Port scanner — uses background fetch instead of opening/closing tabs
-    document.getElementById('castScanBtn')?.addEventListener('click', async () => {
+    // Port scanner — opens the same named tab at each port so the user can see
+    // which port actually loads T-Cast's web UI. Press Scan Ports once per port attempt.
+    let scanIdx = 0;
+    document.getElementById('castScanBtn')?.addEventListener('click', () => {
         const ip = (document.getElementById('castTvIp')?.value || '').trim();
         if (!ip) { showToast('Enter your TV\'s IP address first', 'info', 3000); return; }
 
-        const embedUrl = document.querySelector('#tmdbIframeContainer iframe')?.src || '';
-        if (!embedUrl) { showToast('No video loaded yet — play something first', 'info', 3000); return; }
-
         localStorage.setItem('mitta_cast_tv_ip', ip);
-        navigator.clipboard?.writeText(embedUrl).catch(() => {});
 
-        showToast(`Scanning ${CAST_PORTS.length} ports on ${ip}…`, 'info', 3000);
+        if (scanIdx >= CAST_PORTS.length) scanIdx = 0; // wrap around
 
-        let found = null;
-        for (const port of CAST_PORTS) {
-            const portEl = document.getElementById('castTvPort');
-            if (portEl) portEl.value = String(port);
-            const open = await probePort(ip, port);
-            if (open) { found = port; break; }
-        }
+        const port = CAST_PORTS[scanIdx++];
+        const portEl = document.getElementById('castTvPort');
+        if (portEl) portEl.value = String(port);
 
-        if (found !== null) {
-            document.getElementById('castSavePort')?.removeAttribute('hidden');
-            showToast(`Found T-Cast on port ${found}! Sending video…`, 'success', 4000);
-            await tryCastFetch(ip, String(found), embedUrl);
-            showCastLink(ip, String(found));
-        } else {
-            showCastLink(ip, '8080');
-            showToast('No port responded. Check the port shown in T-Cast on your TV and enter it manually, then press Send to TV.', 'info', 8000);
-        }
+        // Open in named tab — stays open now (softenPopup fixed for local IPs)
+        openCastTab(`http://${ip}:${port}/`);
+        showToast(
+            `Trying port ${port} (${scanIdx}/${CAST_PORTS.length}) — check if T-Cast opened in that tab. If not, tap Scan Ports again.`,
+            'info', 5000
+        );
+
+        document.getElementById('castSavePort')?.removeAttribute('hidden');
     });
 
     document.getElementById('castSavePort')?.addEventListener('click', () => {
