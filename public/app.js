@@ -1074,8 +1074,6 @@ function renderTmdbIframe(embedUrl) {
 
     const iframe = document.createElement('iframe');
     iframe.setAttribute('allow', 'autoplay; fullscreen; clipboard-read; clipboard-write; encrypted-media; picture-in-picture; web-share; accelerometer; gyroscope; storage-access');
-    // sandbox without allow-popups blocks ad popups from the embed player entirely
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-downloads');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.setAttribute('loading', 'lazy');
 
