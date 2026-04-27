@@ -2261,25 +2261,25 @@ function requestPlayerFullscreen() {
 }
 
 function initCastButton() {
-    const castBtn  = document.getElementById('castBtn');
+    const castBtn   = document.getElementById('castBtn');
     const castPanel = document.getElementById('castPanel');
     if (!castBtn || !castPanel) return;
 
-    // Always show the cast button
     castBtn.removeAttribute('hidden');
 
     const hasPresentationApi = 'PresentationRequest' in window;
     const hasShare           = !!navigator.share;
 
-    // Show/hide the panel (toggle)
+    function getVideoUrl() {
+        return document.querySelector('#tmdbIframeContainer iframe')?.src || '';
+    }
+
+    // QR code shows the current page URL so user scans → opens on phone → T-Cast mirrors to TV
     function openPanel() {
-        const iframe = document.querySelector('#tmdbIframeContainer iframe');
-        const embedUrl = iframe?.src || '';
-        // Populate QR code from embed URL (or page URL as fallback)
-        const qrUrl = embedUrl || window.location.href;
+        const qrUrl = window.location.href;
         const qrImg = document.getElementById('castQrImg');
-        if (qrImg && qrUrl) {
-            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&color=ffffff&bgcolor=1a1a1a&data=${encodeURIComponent(qrUrl)}`;
+        if (qrImg) {
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=ffffff&bgcolor=1a1a1a&data=${encodeURIComponent(qrUrl)}`;
         }
         castPanel.removeAttribute('hidden');
         castBtn.setAttribute('aria-expanded', 'true');
@@ -2289,12 +2289,6 @@ function initCastButton() {
         castBtn.setAttribute('aria-expanded', 'false');
     }
 
-    // Restore saved TV IP/port
-    const ipInput   = document.getElementById('castTvIp');
-    const portInput = document.getElementById('castTvPort');
-    if (ipInput)   ipInput.value   = localStorage.getItem('mitta_cast_tv_ip')   || '';
-    if (portInput) portInput.value = localStorage.getItem('mitta_cast_tv_port')  || '8080';
-
     castBtn.addEventListener('click', e => {
         e.stopPropagation();
         castPanel.hasAttribute('hidden') ? openPanel() : closePanel();
@@ -2303,81 +2297,10 @@ function initCastButton() {
         if (!castPanel.contains(e.target) && e.target !== castBtn) closePanel();
     });
 
-    // ── Cast to TV by IP (T-Cast / local receiver) ─────────────────────
-    // Common ports local casting receivers use
-    const CAST_PORTS = [8080, 9090, 4040, 8008, 3000, 5000, 7000, 8060, 1080, 8000];
-
-    // window.open works for HTTP local IPs from HTTPS (top-level navigation bypasses
-    // mixed-content restrictions). The softenPopup bug is already fixed so the tab stays open.
-    let castTab = null;
-    const openCastTab = (url) => {
-        // Reuse existing tab if still open
-        if (castTab && !castTab.closed) {
-            try { castTab.location.href = url; return; } catch (_) {}
-        }
-        castTab = window.open(url, 'mitta_cast_tv');
-    };
-
-    document.getElementById('castOptionIp')?.addEventListener('click', () => {
-        const ip   = (document.getElementById('castTvIp')?.value   || '').trim();
-        const port = (document.getElementById('castTvPort')?.value || '8080').trim();
-
-        if (!ip) { showToast('Enter your TV\'s IP address first', 'info', 3000); return; }
-
-        localStorage.setItem('mitta_cast_tv_ip',   ip);
-        localStorage.setItem('mitta_cast_tv_port',  port);
-
-        const embedUrl = document.querySelector('#tmdbIframeContainer iframe')?.src || '';
-        if (!embedUrl) { showToast('No video loaded yet — play something first', 'info', 3000); return; }
-
-        // Copy video URL so user can paste it into T-Cast's web UI
-        navigator.clipboard?.writeText(embedUrl).catch(() => {});
-
-        // Open T-Cast's web UI — tab stays open now (softenPopup fixed for local IPs)
-        openCastTab(`http://${ip}:${port}/`);
-        closePanel();
-        showToast(
-            `T-Cast web UI opened in a new tab. Video URL copied — paste it into T-Cast's input on that page.`,
-            'info', 7000
-        );
-    });
-
-    // Port scanner — opens the same named tab at each port so the user can see
-    // which port actually loads T-Cast's web UI. Press Scan Ports once per port attempt.
-    let scanIdx = 0;
-    document.getElementById('castScanBtn')?.addEventListener('click', () => {
-        const ip = (document.getElementById('castTvIp')?.value || '').trim();
-        if (!ip) { showToast('Enter your TV\'s IP address first', 'info', 3000); return; }
-
-        localStorage.setItem('mitta_cast_tv_ip', ip);
-
-        if (scanIdx >= CAST_PORTS.length) scanIdx = 0; // wrap around
-
-        const port = CAST_PORTS[scanIdx++];
-        const portEl = document.getElementById('castTvPort');
-        if (portEl) portEl.value = String(port);
-
-        // Open in named tab — stays open now (softenPopup fixed for local IPs)
-        openCastTab(`http://${ip}:${port}/`);
-        showToast(
-            `Trying port ${port} (${scanIdx}/${CAST_PORTS.length}) — check if T-Cast opened in that tab. If not, tap Scan Ports again.`,
-            'info', 5000
-        );
-
-        document.getElementById('castSavePort')?.removeAttribute('hidden');
-    });
-
-    document.getElementById('castSavePort')?.addEventListener('click', () => {
-        const port = document.getElementById('castTvPort')?.value || '8080';
-        localStorage.setItem('mitta_cast_tv_port', port);
-        showToast(`Port ${port} saved for this TV`, 'success', 3000);
-        document.getElementById('castSavePort')?.setAttribute('hidden', '');
-    });
-
     // ── Chromecast / AirPlay ────────────────────────────────────────────
     document.getElementById('castOptionChromecast')?.addEventListener('click', async () => {
         closePanel();
-        const embedUrl = document.querySelector('#tmdbIframeContainer iframe')?.src;
+        const embedUrl = getVideoUrl();
         if (!embedUrl) { showToast('No video loaded yet', 'info', 2000); return; }
 
         if (hasPresentationApi) {
@@ -2397,11 +2320,10 @@ function initCastButton() {
         showToast('Use your browser\'s Cast menu (Chrome: ⋮ → Cast…)', 'info', 5000);
     });
 
-    // ── Share to T-Cast / Roku App ──────────────────────────────────────
+    // ── Share ───────────────────────────────────────────────────────────
     document.getElementById('castOptionShare')?.addEventListener('click', async () => {
         closePanel();
-        const embedUrl = document.querySelector('#tmdbIframeContainer iframe')?.src;
-        const shareUrl = embedUrl || window.location.href;
+        const shareUrl = window.location.href;
         const title = document.getElementById('tmdbPlayerTitle')?.textContent || document.title;
 
         if (hasShare) {
@@ -2413,18 +2335,17 @@ function initCastButton() {
                 console.warn('[Cast] Share API:', e);
             }
         }
-        // Share API not available — guide user
-        showToast('Open T-Cast on your phone, then paste the copied link in your TV browser', 'info', 5000);
         try { await navigator.clipboard.writeText(shareUrl); } catch {}
+        showToast('Link copied — open it on your phone, then use T-Cast to mirror to TV', 'info', 5000);
     });
 
     // ── Copy Link ───────────────────────────────────────────────────────
     document.getElementById('castOptionCopy')?.addEventListener('click', async () => {
         closePanel();
-        const embedUrl = document.querySelector('#tmdbIframeContainer iframe')?.src || window.location.href;
+        const url = window.location.href;
         try {
-            await navigator.clipboard.writeText(embedUrl);
-            showToast('Video link copied to clipboard', 'success', 3000);
+            await navigator.clipboard.writeText(url);
+            showToast('Link copied — open on your phone, then mirror with T-Cast', 'success', 4000);
         } catch {
             showToast('Could not copy — try manually selecting the URL', 'info', 3000);
         }
