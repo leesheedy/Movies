@@ -1403,7 +1403,7 @@ function initAdBlocker() {
         const { allowed, normalizedUrl, soften } = guardNavigation(url, 'popup');
         if (!allowed) return null;
         const popup = originalOpen.call(window, normalizedUrl, target, features);
-        if (soften || !isSameOrigin(normalizedUrl)) {
+        if ((soften || !isSameOrigin(normalizedUrl)) && !isLocalIp(normalizedUrl)) {
             softenPopup(popup);
         }
         return popup;
@@ -1576,10 +1576,28 @@ async function resolveImdbId(tmdbId) {
     }
 }
 
-function updateImdbRoute(imdbId) {
-    if (!imdbId) return;
-    const newUrl = `/movie/${imdbId}`;
-    window.history.pushState({ imdbId }, '', newUrl);
+function updateImdbRoute(imdbId, tmdbId) {
+    if (imdbId) {
+        window.history.pushState({ imdbId }, '', `/movie/${imdbId}`);
+    } else if (tmdbId) {
+        window.history.pushState({ tmdbId, type: 'movie' }, '', `/movie/tmdb-${tmdbId}`);
+    }
+}
+
+function updateTvRoute(tmdbId) {
+    if (!tmdbId) return;
+    window.history.pushState({ tvId: tmdbId }, '', `/tv/${tmdbId}`);
+}
+
+function getRouteFromPath() {
+    const path = window.location.pathname;
+    const imdbMatch = path.match(/^\/movie\/(tt\d+)/);
+    if (imdbMatch) return { type: 'movie-imdb', id: imdbMatch[1] };
+    const tmdbMovieMatch = path.match(/^\/movie\/tmdb-(\d+)/);
+    if (tmdbMovieMatch) return { type: 'movie-tmdb', id: tmdbMovieMatch[1] };
+    const tvMatch = path.match(/^\/tv\/(\d+)/);
+    if (tvMatch) return { type: 'tv', id: tvMatch[1] };
+    return null;
 }
 
 function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId, tmdbId }) {
@@ -2090,7 +2108,7 @@ async function openTMDBMovie(item) {
     const imdbId = await resolveImdbId(tmdbId);
     showLoading(false);
     state.currentMeta = null;
-    updateImdbRoute(imdbId);
+    updateImdbRoute(imdbId, tmdbId);
     renderTmdbPlayer({
         title: item?.title || item?.name || 'Movie',
         posterPath: item?.poster_path,
@@ -2105,6 +2123,7 @@ async function openTMDBTvShow(item) {
     const tmdbId = item?.tmdb_id || item?.id;
     if (!tmdbId) return;
     showLoading(true, 'Loading TV show...');
+    updateTvRoute(tmdbId);
     try {
         state.currentMeta = null;
         await renderTmdbTvPlayer({
@@ -2287,25 +2306,57 @@ function initCastButton() {
     // ── Cast to TV by IP (T-Cast / local receiver) ─────────────────────
     // Common ports local casting receivers use
     const CAST_PORTS = [8080, 9090, 4040, 8008, 3000, 5000, 7000, 8060, 1080, 8000];
-    // Common path patterns local receivers accept
-    const CAST_PATHS = ['/play', '/cast', '/load', '/stream', '/'];
-    let castWindow = null; // reuse same tab for port scanning
 
-    const sendToCastWindow = (url) => {
-        if (castWindow && !castWindow.closed) {
-            castWindow.location.href = url;
-        } else {
-            castWindow = window.open(url, 'mitta_cast_tv');
-        }
-    };
-
-    const buildCastUrl = (ip, port, embedUrl) => {
+    // Send video URL to T-Cast receiver via background fetch (no tab opens/closes).
+    // Tries several common receiver API paths used by local media players.
+    const tryCastFetch = async (ip, port, embedUrl) => {
         const enc = encodeURIComponent(embedUrl);
-        // Try each path in a query string — most receivers use /play?url= or /cast?url=
-        return `http://${ip}:${port}${CAST_PATHS[0]}?url=${enc}`;
+        const base = `http://${ip}:${port}`;
+        const attempts = [
+            { method: 'GET',  url: `${base}/play?url=${enc}` },
+            { method: 'GET',  url: `${base}/cast?url=${enc}` },
+            { method: 'GET',  url: `${base}/load?url=${enc}` },
+            { method: 'POST', url: `${base}/play`, body: JSON.stringify({ url: embedUrl }) },
+            { method: 'GET',  url: `${base}/api/play?url=${enc}` },
+        ];
+        let sent = false;
+        for (const a of attempts) {
+            try {
+                const opts = { method: a.method, mode: 'no-cors', cache: 'no-store' };
+                if (a.body) opts.body = a.body;
+                await fetch(a.url, opts);
+                sent = true;
+            } catch (_) { /* network/CORS blocked — try next */ }
+        }
+        return sent;
     };
 
-    document.getElementById('castOptionIp')?.addEventListener('click', () => {
+    // Probe whether a port responds (for scanner)
+    const probePort = async (ip, port) => {
+        try {
+            await fetch(`http://${ip}:${port}/`, { method: 'HEAD', mode: 'no-cors', cache: 'no-store' });
+            return true;
+        } catch (_) { return false; }
+    };
+
+    // Show a clickable "Open in browser" link inside the panel so the user can
+    // manually navigate to T-Cast's UI without any tab-closing issues.
+    const showCastLink = (ip, port) => {
+        const url = `http://${ip}:${port}/`;
+        let linkRow = document.getElementById('castOpenLinkRow');
+        if (!linkRow) {
+            linkRow = document.createElement('div');
+            linkRow.id = 'castOpenLinkRow';
+            linkRow.style.cssText = 'padding:8px 0 4px;text-align:center;';
+            const castPanelInner = document.querySelector('#castPanel');
+            if (castPanelInner) castPanelInner.appendChild(linkRow);
+        }
+        linkRow.innerHTML = `<a href="${url}" target="_blank" rel="noopener noreferrer"
+            style="color:#e50914;font-size:.82rem;word-break:break-all;">
+            Open T-Cast web UI ↗</a>`;
+    };
+
+    document.getElementById('castOptionIp')?.addEventListener('click', async () => {
         const ip   = (document.getElementById('castTvIp')?.value   || '').trim();
         const port = (document.getElementById('castTvPort')?.value || '8080').trim();
 
@@ -2317,21 +2368,26 @@ function initCastButton() {
         const embedUrl = document.querySelector('#tmdbIframeContainer iframe')?.src || '';
         if (!embedUrl) { showToast('No video loaded yet — play something first', 'info', 3000); return; }
 
-        // Copy the video URL to clipboard first so user can paste into T-Cast
         navigator.clipboard?.writeText(embedUrl).catch(() => {});
 
-        // Open T-Cast's root web UI in the cast window — T-Cast likely shows a URL input
-        // on its web interface; the video URL is already on the clipboard to paste
-        sendToCastWindow(`http://${ip}:${port}/`);
-        closePanel();
-        showToast(
-            `T-Cast web interface opened. The video URL was copied to your clipboard — paste it into T-Cast's input field on that page.`,
-            'info', 7000
-        );
+        // 1. Send video URL directly to T-Cast via background fetch (no tab opens)
+        showToast('Sending to T-Cast TV…', 'info', 2000);
+        const sent = await tryCastFetch(ip, port, embedUrl);
+
+        if (sent) {
+            showToast('Cast request sent! T-Cast should start playing on your TV.', 'success', 6000);
+        } else {
+            // 2. Fetch was blocked (browser PNA policy) — show a manual link
+            showCastLink(ip, port);
+            showToast(
+                'Browser blocked the direct send. Video URL copied — click "Open T-Cast web UI" in the panel and paste it there.',
+                'info', 8000
+            );
+        }
     });
 
-    // Port scanner — tries each common port in the same cast window
-    document.getElementById('castScanBtn')?.addEventListener('click', () => {
+    // Port scanner — uses background fetch instead of opening/closing tabs
+    document.getElementById('castScanBtn')?.addEventListener('click', async () => {
         const ip = (document.getElementById('castTvIp')?.value || '').trim();
         if (!ip) { showToast('Enter your TV\'s IP address first', 'info', 3000); return; }
 
@@ -2339,30 +2395,27 @@ function initCastButton() {
         if (!embedUrl) { showToast('No video loaded yet — play something first', 'info', 3000); return; }
 
         localStorage.setItem('mitta_cast_tv_ip', ip);
-
-        // Copy video URL to clipboard so user can paste into T-Cast UI
         navigator.clipboard?.writeText(embedUrl).catch(() => {});
 
-        let idx = 0;
-        const tryNext = () => {
-            if (idx >= CAST_PORTS.length) {
-                showToast('All ports tried. Check the port shown in T-Cast on your TV and enter it manually.', 'info', 6000);
-                return;
-            }
-            const port = CAST_PORTS[idx++];
+        showToast(`Scanning ${CAST_PORTS.length} ports on ${ip}…`, 'info', 3000);
+
+        let found = null;
+        for (const port of CAST_PORTS) {
             const portEl = document.getElementById('castTvPort');
             if (portEl) portEl.value = String(port);
-            // Open root UI — T-Cast shows a web page where you paste the URL
-            sendToCastWindow(`http://${ip}:${port}/`);
-            showToast(
-                `Trying port ${port} (${idx}/${CAST_PORTS.length}) — if T-Cast opens on this tab, paste the copied URL into its input. Otherwise tap Scan Ports again.`,
-                'info', 5000
-            );
-        };
-        tryNext();
+            const open = await probePort(ip, port);
+            if (open) { found = port; break; }
+        }
 
-        // Wire up "Save Port" so user can persist the working port
-        document.getElementById('castSavePort')?.removeAttribute('hidden');
+        if (found !== null) {
+            document.getElementById('castSavePort')?.removeAttribute('hidden');
+            showToast(`Found T-Cast on port ${found}! Sending video…`, 'success', 4000);
+            await tryCastFetch(ip, String(found), embedUrl);
+            showCastLink(ip, String(found));
+        } else {
+            showCastLink(ip, '8080');
+            showToast('No port responded. Check the port shown in T-Cast on your TV and enter it manually, then press Send to TV.', 'info', 8000);
+        }
     });
 
     document.getElementById('castSavePort')?.addEventListener('click', () => {
@@ -4172,6 +4225,7 @@ async function loadHomePage() {
         catalogContainer.innerHTML = '';
 
         if (provider === 'tmdb') {
+            renderSearchHistorySection(catalogContainer);
             if (window.TMDBContentModule) {
                 await window.TMDBContentModule.renderAllSections(catalogContainer);
             }
@@ -4300,6 +4354,60 @@ async function loadFullCatalog(provider, filter, title) {
     }
 }
 
+const SEARCH_HISTORY_KEY = 'mitta_search_history';
+const SEARCH_HISTORY_MAX = 8;
+
+function saveSearchHistory(query) {
+    const q = (query || '').trim();
+    if (!q) return;
+    let history = loadSearchHistory();
+    history = [q, ...history.filter(h => h.toLowerCase() !== q.toLowerCase())].slice(0, SEARCH_HISTORY_MAX);
+    try { localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history)); } catch (_) {}
+}
+
+function loadSearchHistory() {
+    try { return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY) || '[]'); } catch (_) { return []; }
+}
+
+function removeSearchHistory(query) {
+    let history = loadSearchHistory().filter(h => h.toLowerCase() !== query.toLowerCase());
+    try { localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history)); } catch (_) {}
+}
+
+function renderSearchHistorySection(container) {
+    const history = loadSearchHistory();
+    const existing = container.querySelector('.nf-search-history-section');
+    if (existing) existing.remove();
+    if (!history.length) return;
+
+    const section = document.createElement('div');
+    section.className = 'nf-search-history-section';
+    section.innerHTML = `<div class="nf-search-history-header"><span class="nf-search-history-label">Recent Searches</span><button class="nf-search-history-clear" title="Clear all">Clear all</button></div><div class="nf-search-history-pills"></div>`;
+
+    const pillsWrap = section.querySelector('.nf-search-history-pills');
+    history.forEach(q => {
+        const pill = document.createElement('span');
+        pill.className = 'nf-search-history-pill';
+        pill.innerHTML = `<span class="nf-search-history-pill-text"></span><button class="nf-search-history-pill-x" title="Remove" aria-label="Remove ${q}">×</button>`;
+        pill.querySelector('.nf-search-history-pill-text').textContent = q;
+        pill.querySelector('.nf-search-history-pill-text').addEventListener('click', () => performSearch(q));
+        pill.querySelector('.nf-search-history-pill-x').addEventListener('click', e => {
+            e.stopPropagation();
+            removeSearchHistory(q);
+            pill.remove();
+            if (!pillsWrap.children.length) section.remove();
+        });
+        pillsWrap.appendChild(pill);
+    });
+
+    section.querySelector('.nf-search-history-clear').addEventListener('click', () => {
+        try { localStorage.removeItem(SEARCH_HISTORY_KEY); } catch (_) {}
+        section.remove();
+    });
+
+    container.prepend(section);
+}
+
 async function performSearch(queryOverride = '', options = {}) {
     const searchInput = document.getElementById('searchInputHeader');
     const query = (queryOverride || searchInput?.value || '').trim();
@@ -4424,6 +4532,7 @@ async function performSearch(queryOverride = '', options = {}) {
 
         renderSearchProviderFilters();
         renderSearchResults(results);
+        if (results.length > 0) saveSearchHistory(query);
     } catch (error) {
         showError('Search failed: ' + error.message);
         const resultsContainer = document.getElementById('searchMenuResults');
@@ -4701,9 +4810,15 @@ async function init() {
         const deepProvider = params.get('provider');
         const deepLink = params.get('link');
         const autoPlay = params.get('autoplay') !== '0';
-        const routeImdbId = getImdbIdFromPath();
-        if (routeImdbId) {
-            await openImdbRoute(routeImdbId);
+        const route = getRouteFromPath();
+        if (route) {
+            if (route.type === 'movie-imdb') {
+                await openImdbRoute(route.id);
+            } else if (route.type === 'movie-tmdb') {
+                await openTMDBMovie({ id: Number(route.id) });
+            } else if (route.type === 'tv') {
+                await openTMDBTvShow({ id: Number(route.id) });
+            }
         } else if (deepProvider && deepLink) {
             const providerMatch = providers.find(p => p.value === deepProvider);
             if (providerMatch) {
@@ -4760,10 +4875,11 @@ async function init() {
     }
 
     window.addEventListener('popstate', () => {
-        const imdbId = getImdbIdFromPath();
-        if (imdbId) {
-            openImdbRoute(imdbId);
-            return;
+        const route = getRouteFromPath();
+        if (route) {
+            if (route.type === 'movie-imdb') { openImdbRoute(route.id); return; }
+            if (route.type === 'movie-tmdb') { openTMDBMovie({ id: Number(route.id) }); return; }
+            if (route.type === 'tv') { openTMDBTvShow({ id: Number(route.id) }); return; }
         }
         if (state.selectedProvider) {
             loadHomePage();
