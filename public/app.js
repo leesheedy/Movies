@@ -2317,9 +2317,17 @@ function initCastButton() {
         const embedUrl = document.querySelector('#tmdbIframeContainer iframe')?.src || '';
         if (!embedUrl) { showToast('No video loaded yet — play something first', 'info', 3000); return; }
 
-        sendToCastWindow(buildCastUrl(ip, port, embedUrl));
+        // Copy the video URL to clipboard first so user can paste into T-Cast
+        navigator.clipboard?.writeText(embedUrl).catch(() => {});
+
+        // Open T-Cast's root web UI in the cast window — T-Cast likely shows a URL input
+        // on its web interface; the video URL is already on the clipboard to paste
+        sendToCastWindow(`http://${ip}:${port}/`);
         closePanel();
-        showToast(`Sent to TV at ${ip}:${port} — if blank, try "Scan Ports" to find the right port`, 'info', 5000);
+        showToast(
+            `T-Cast web interface opened. The video URL was copied to your clipboard — paste it into T-Cast's input field on that page.`,
+            'info', 7000
+        );
     });
 
     // Port scanner — tries each common port in the same cast window
@@ -2332,6 +2340,9 @@ function initCastButton() {
 
         localStorage.setItem('mitta_cast_tv_ip', ip);
 
+        // Copy video URL to clipboard so user can paste into T-Cast UI
+        navigator.clipboard?.writeText(embedUrl).catch(() => {});
+
         let idx = 0;
         const tryNext = () => {
             if (idx >= CAST_PORTS.length) {
@@ -2339,13 +2350,13 @@ function initCastButton() {
                 return;
             }
             const port = CAST_PORTS[idx++];
-            // Update port field so user can save the working one
             const portEl = document.getElementById('castTvPort');
             if (portEl) portEl.value = String(port);
-            sendToCastWindow(buildCastUrl(ip, port, embedUrl));
+            // Open root UI — T-Cast shows a web page where you paste the URL
+            sendToCastWindow(`http://${ip}:${port}/`);
             showToast(
-                `Trying port ${port} (${idx}/${CAST_PORTS.length}) — if your TV shows the video, click Save Port. Otherwise tap again to try next.`,
-                'info', 4000
+                `Trying port ${port} (${idx}/${CAST_PORTS.length}) — if T-Cast opens on this tab, paste the copied URL into its input. Otherwise tap Scan Ports again.`,
+                'info', 5000
             );
         };
         tryNext();
