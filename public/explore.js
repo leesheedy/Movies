@@ -143,8 +143,8 @@ const ExploreModule = {
                 </section>
                 <section class="explore-curated">
                     <div class="explore-curated-header">
-                        <h2>Curated Collections</h2>
-                        <p>Scroll through the latest hand-picked lists from the Mitta crew.</p>
+                        <h2>Hand-Picked Lists</h2>
+                        <p>Sheedy's Picks, Ryan's Recommendations &amp; more — curated just for you.</p>
                     </div>
                     <div id="exploreCuratedSections" class="explore-curated-grid"></div>
                 </section>
@@ -171,8 +171,8 @@ const ExploreModule = {
             container.innerHTML = '';
 
             const sheedysSection = this.buildCuratedSection({
-                id: 'sheedys-selections',
-                title: "✨ Sheedy's Selections",
+                id: 'sheedys-picks',
+                title: "✨ Sheedy's Picks",
                 items: sheedysSelections,
                 type: 'movie'
             });
@@ -204,7 +204,7 @@ const ExploreModule = {
 
             this.updateSpotlight({
                 collections: [
-                    { title: "✨ Sheedy's Selections", items: sheedysSelections, type: 'movie' },
+                    { title: "✨ Sheedy's Picks", items: sheedysSelections, type: 'movie' },
                     { title: "🎥 Digby's Flix", items: digbysFlix, type: 'movie' },
                     { title: "🍿 Ryan's Recommendations", items: ryansRecommendations, type: 'movie' },
                     { title: "🎬 Parker's Picks", items: parkersPicks, type: 'movie' }

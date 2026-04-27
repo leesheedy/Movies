@@ -7,6 +7,7 @@
     <meta name="description" content="Stream unlimited movies and TV shows on MittaMovies. Watch anywhere, anytime.">
     <meta name="theme-color" content="#141414">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="/styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -386,33 +387,20 @@
 
         <!-- ── PLAYER VIEW ── -->
         <div id="playerView" class="view" style="display:none;">
-            <div class="nf-player-topbar">
-                <button id="playerBackBtn" class="nf-back-btn" type="button">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
-                    Back to Details
-                </button>
-            </div>
+            <div id="playerBackdrop" class="nf-player-backdrop" aria-hidden="true"></div>
 
             <div id="errorMessage" class="nf-error-msg" style="display:none;"></div>
 
-            <!-- Adblock prompt -->
-            <div id="adblockPrompt" class="nf-adblock" hidden>
-                <div class="nf-adblock-inner">
-                    <div class="nf-adblock-text">
-                        <p class="nf-adblock-heading">Annoying ads?</p>
-                        <p class="nf-adblock-body">For the best experience install uBlock Origin — free &amp; open-source.</p>
-                    </div>
-                    <div class="nf-adblock-btns">
-                        <button id="adblockInstallBtn" class="nf-btn nf-btn--red" type="button">Install uBlock Origin</button>
-                        <button id="adblockBraveBtn" class="nf-btn nf-btn--outline" type="button">Try Brave Browser</button>
-                        <button id="adblockDismissBtn" class="nf-btn nf-btn--ghost" type="button">Continue anyway</button>
-                    </div>
-                </div>
-            </div>
-
             <!-- Player content -->
             <div id="playerContent" class="nf-player-area">
-                <div id="playerMeta" class="player-meta"></div>
+                <!-- Back button overlaid on top of video -->
+                <div class="nf-player-topbar">
+                    <button id="playerBackBtn" class="nf-back-btn" type="button">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                        Back
+                    </button>
+                </div>
+
                 <div id="providerSelector" class="provider-selector"></div>
 
                 <div class="nf-video-stage video-stage">
@@ -454,6 +442,8 @@
                     </div>
                 </div>
 
+                <!-- Meta shown below video -->
+                <div id="playerMeta" class="player-meta"></div>
                 <div id="streamSelector" class="stream-selector nf-stream-sel"></div>
                 <div id="playerEpisodes" class="player-episodes nf-episodes"></div>
             </div>
@@ -473,14 +463,17 @@
 
         <!-- ── MOVIES VIEW ── -->
         <div id="moviesView" class="view" style="display:none;">
-            <div class="nf-view-header">
+            <!-- Cinematic hero banner (populated by JS) -->
+            <div id="moviesHero" class="nf-movies-hero"></div>
+            <!-- Sticky filter bar -->
+            <div class="nf-movies-filters">
                 <button id="moviesBackBtn" class="nf-back-btn" type="button">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
                     Back
                 </button>
-                <h1 class="nf-view-title">Movies</h1>
+                <div id="moviesFilterPills" class="nf-filter-pills"></div>
             </div>
-            <div id="moviesContent" class="nf-view-body"></div>
+            <div id="moviesContent" class="nf-movies-body"></div>
         </div>
 
         <!-- ── TV SHOWS VIEW ── -->
@@ -517,7 +510,7 @@
 <!-- ═══════════════════════════════ SCRIPTS ═══════════════════════════════ -->
 <script src="/env.js"></script>
 <script src="/tmdb-config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js" crossorigin="anonymous"></script>
 <script src="/history.js"></script>
 <script src="/tmdb-content.js"></script>
 <script src="/netflix-ui.js"></script>

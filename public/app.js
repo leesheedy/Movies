@@ -50,6 +50,7 @@ const PROFILE_STORAGE_KEY = 'mitta_active_profile_v1';
 const PROFILE_SETTINGS_KEY = 'mitta_profile_settings_v1';
 const ADBLOCK_PROMPT_DISMISS_KEY = 'mitta_adblock_prompt_dismissed_v1';
 const ADBLOCK_PROMPT_SESSION_KEY = 'mitta_adblock_prompt_session_v1';
+const OMDB_API_KEY = 'ea7f4539';
 const profiles = [
     { id: 'guest', name: 'Guest', avatar: 'G' },
     { id: 'digby', name: 'Digby', avatar: 'D' },
@@ -150,12 +151,16 @@ function saveActiveProfile(profileId) {
 function applyProfile(profile) {
     const profileName = document.getElementById('profileName');
     const profileAvatar = document.getElementById('profileAvatar');
+    const dropdownAvatar = document.getElementById('dropdownAvatar');
     const resolved = resolveProfile(profile);
     if (profileName) {
         profileName.textContent = resolved.name;
     }
     if (profileAvatar) {
         profileAvatar.textContent = resolved.avatar;
+    }
+    if (dropdownAvatar) {
+        dropdownAvatar.textContent = resolved.avatar;
     }
     updateProfileAccent(resolved);
 }
@@ -186,6 +191,8 @@ function renderProfileGate(profile, gate) {
             applyProfile(item);
             gate.setAttribute('hidden', 'true');
             setSettingsTriggerVisibility(true);
+            showView('home');
+            updateNavLinks('home');
         });
 
         card.appendChild(selectButton);
@@ -266,14 +273,15 @@ function initProfileGate() {
     if (!hasStoredProfile) {
         gate.removeAttribute('hidden');
     }
-    const profileChip = document.getElementById('profileChip');
+    const switchProfileBtn = document.getElementById('switchProfileBtn');
     const settingsTrigger = document.getElementById('profileSettingsTrigger');
-    if (profileChip) {
-        profileChip.addEventListener('click', () => {
+    if (switchProfileBtn) {
+        switchProfileBtn.addEventListener('click', () => {
             const selected = loadActiveProfile();
             applyProfile(selected);
             renderProfileGate(selected, gate);
             gate.removeAttribute('hidden');
+            document.getElementById('nfProfileDropdown')?.classList.remove('open');
         });
     }
     if (settingsTrigger) {
@@ -285,6 +293,8 @@ function initProfileGate() {
     gate.addEventListener('click', (event) => {
         if (event.target === gate) {
             gate.setAttribute('hidden', 'true');
+            showView('home');
+            updateNavLinks('home');
         }
     });
 
@@ -940,11 +950,23 @@ function buildVidplusTvEmbedUrl(tvId, season, episode) {
 }
 
 function buildVidsrcTvFallbackUrl(tvId, season, episode) {
-    return `https://dl.vidsrc.vip/tv/${tvId}/${season}/${episode}`;
+    return `https://vidsrc.me/embed/tv?tmdb=${tvId}&season=${season}&episode=${episode}`;
+}
+
+function buildVidsrcMeTvEmbedUrl(tvId, season, episode) {
+    return `https://vidsrc.net/embed/tv?tmdb=${tvId}&season=${season}&episode=${episode}`;
 }
 
 function buildVidplusMovieEmbedUrl(movieId) {
     return `https://player.vidplus.pro/embed/movie/${movieId}?autoplay=true`;
+}
+
+function buildVidsrcMeMovieEmbedUrl(imdbId) {
+    return `https://vidsrc.me/embed/movie?imdb=${imdbId}`;
+}
+
+function buildVidsrcNetMovieEmbedUrl(imdbId) {
+    return `https://vidsrc.net/embed/movie?imdb=${imdbId}`;
 }
 
 function buildVidsrcMovieFallbackUrl(movieId) {
@@ -952,7 +974,7 @@ function buildVidsrcMovieFallbackUrl(movieId) {
 }
 
 function buildVidsrcImdbMovieFallbackUrl(imdbId) {
-    return `https://dl.vidsrc.vip/movie/${imdbId}`;
+    return `https://vidsrc.to/embed/movie/${imdbId}`;
 }
 
 function build2EmbedTmdbMovieFallbackUrl(movieId) {
@@ -961,6 +983,31 @@ function build2EmbedTmdbMovieFallbackUrl(movieId) {
 
 function build2EmbedImdbMovieFallbackUrl(imdbId) {
     return `https://www.2embed.cc/embed/imdb/movie?id=${imdbId}`;
+}
+
+async function fetchOmdbData(imdbId) {
+    if (!imdbId) return null;
+    try {
+        const res = await fetch(`https://www.omdbapi.com/?i=${encodeURIComponent(imdbId)}&apikey=${OMDB_API_KEY}&plot=full`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.Response === 'True' ? data : null;
+    } catch {
+        return null;
+    }
+}
+
+function buildOmdbRatingBadges(omdb) {
+    if (!omdb?.Ratings?.length) return '';
+    const imdb = omdb.Ratings.find(r => r.Source === 'Internet Movie Database');
+    const rt   = omdb.Ratings.find(r => r.Source === 'Rotten Tomatoes');
+    const mc   = omdb.Ratings.find(r => r.Source === 'Metacritic');
+    const parts = [
+        imdb ? `<span class="nf-rating-badge nf-rating-imdb">IMDb ${imdb.Value}</span>` : '',
+        rt   ? `<span class="nf-rating-badge nf-rating-rt">RT ${rt.Value}</span>`       : '',
+        mc   ? `<span class="nf-rating-badge nf-rating-mc">MC ${mc.Value}</span>`       : '',
+    ].filter(Boolean);
+    return parts.length ? `<div class="nf-ratings-row">${parts.join('')}</div>` : '';
 }
 
 function renderTmdbIframe(embedUrl) {
@@ -1492,22 +1539,76 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId, tmdbId }) {
     }
     resetTmdbTvState();
 
+    const year = (releaseDate || '').slice(0, 4);
     if (playerMeta) {
         playerMeta.innerHTML = `
-            <h1>${title || 'Movie'}</h1>
-            <p>${releaseDate ? `Release: ${releaseDate}` : ''}</p>
+            <div class="nf-player-meta">
+                <h1 class="nf-player-title">${title || 'Movie'}</h1>
+                ${year ? `<span class="nf-player-year">${year}</span>` : ''}
+            </div>
         `;
     }
+
+    const tmdbApiKey = window.TMDBConfig?.ensureApiKey?.() || '';
+    const tmdbPromise = (tmdbId && tmdbApiKey)
+        ? fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${tmdbApiKey}`).then(r => r.json()).catch(() => null)
+        : Promise.resolve(null);
+    const omdbPromise = fetchOmdbData(imdbId);
+
+    Promise.allSettled([tmdbPromise, omdbPromise]).then(([tmdbRes, omdbRes]) => {
+        const data = tmdbRes.status === 'fulfilled' ? tmdbRes.value : null;
+        const omdb = omdbRes.status === 'fulfilled' ? omdbRes.value : null;
+
+        const backdropPath = data?.backdrop_path;
+        if (backdropPath) {
+            const backdropEl = document.getElementById('playerBackdrop');
+            if (backdropEl) {
+                backdropEl.style.backgroundImage = `url("https://image.tmdb.org/t/p/w1280${backdropPath}")`;
+                backdropEl.classList.add('is-loaded');
+            }
+        }
+
+        const displayTitle = data?.title || title;
+        const fullYear    = (data?.release_date || releaseDate || '').slice(0, 4);
+        const score       = data?.vote_average ? Math.round(data.vote_average * 10) + '%' : '';
+        const genres      = (data?.genres || []).slice(0, 3).map(g => `<span class="nf-player-genre">${g.name}</span>`).join('');
+        const overview    = (omdb?.Plot && omdb.Plot !== 'N/A') ? omdb.Plot : (data?.overview || '');
+        const rated       = (omdb?.Rated && omdb.Rated !== 'N/A') ? omdb.Rated : '';
+        const runtime     = (omdb?.Runtime && omdb.Runtime !== 'N/A') ? omdb.Runtime : '';
+        const director    = (omdb?.Director && omdb.Director !== 'N/A') ? omdb.Director : '';
+        const actors      = (omdb?.Actors && omdb.Actors !== 'N/A') ? omdb.Actors : '';
+
+        if (playerMeta) {
+            playerMeta.innerHTML = `
+                <div class="nf-player-meta">
+                    <h1 class="nf-player-title">${displayTitle}</h1>
+                    <div class="nf-player-info">
+                        ${rated   ? `<span class="nf-player-rated">${rated}</span>`         : ''}
+                        ${fullYear ? `<span class="nf-player-year">${fullYear}</span>`       : ''}
+                        ${runtime ? `<span class="nf-player-year">${runtime}</span>`         : ''}
+                        ${score   ? `<span class="nf-player-match">${score} Match</span>`   : ''}
+                    </div>
+                    ${buildOmdbRatingBadges(omdb)}
+                    ${genres ? `<div class="nf-player-genres">${genres}</div>` : ''}
+                    ${overview ? `<p class="nf-player-overview">${overview}</p>` : ''}
+                    ${director ? `<p class="nf-player-crew"><span class="nf-crew-label">Director:</span> ${director}</p>` : ''}
+                    ${actors   ? `<p class="nf-player-crew"><span class="nf-crew-label">Cast:</span> ${actors}</p>`     : ''}
+                </div>
+            `;
+        }
+    });
 
     if (tmdbContainer) {
         tmdbContainer.style.display = 'block';
     }
     const embedSources = [
-        tmdbId ? buildVidplusMovieEmbedUrl(tmdbId) : null,
-        tmdbId ? build2EmbedTmdbMovieFallbackUrl(tmdbId) : null,
-        tmdbId ? buildVidsrcMovieFallbackUrl(tmdbId) : null,
-        imdbId ? build2EmbedImdbMovieFallbackUrl(imdbId) : null,
-        imdbId ? buildVidsrcImdbMovieFallbackUrl(imdbId) : null
+        imdbId ? buildVidsrcMeMovieEmbedUrl(imdbId)     : null,
+        imdbId ? buildVidsrcNetMovieEmbedUrl(imdbId)    : null,
+        imdbId ? build2EmbedImdbMovieFallbackUrl(imdbId): null,
+        imdbId ? buildVidsrcImdbMovieFallbackUrl(imdbId): null,
+        tmdbId ? buildVidplusMovieEmbedUrl(tmdbId)      : null,
+        tmdbId ? build2EmbedTmdbMovieFallbackUrl(tmdbId): null,
+        tmdbId ? buildVidsrcMovieFallbackUrl(tmdbId)    : null,
     ].filter(Boolean);
 
     if (tmdbMessage && embedSources.length === 0) {
@@ -1616,16 +1717,21 @@ function playTmdbEpisode() {
         return;
     }
     const embedSources = [
+        buildVidsrcTvFallbackUrl(
+            tmdbTvState.tvId,
+            tmdbTvState.seasonNumber,
+            tmdbTvState.episodeNumber
+        ),
+        buildVidsrcMeTvEmbedUrl(
+            tmdbTvState.tvId,
+            tmdbTvState.seasonNumber,
+            tmdbTvState.episodeNumber
+        ),
         buildVidplusTvEmbedUrl(
             tmdbTvState.tvId,
             tmdbTvState.seasonNumber,
             tmdbTvState.episodeNumber
         ),
-        buildVidsrcTvFallbackUrl(
-            tmdbTvState.tvId,
-            tmdbTvState.seasonNumber,
-            tmdbTvState.episodeNumber
-        )
     ];
     renderTmdbIframe(embedSources);
     updateTmdbTvMeta();
@@ -1638,7 +1744,7 @@ async function fetchTmdbTvDetails(tvId) {
     if (!apiKey) {
         throw new Error('TMDB API key missing');
     }
-    const response = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${apiKey}`);
+    const response = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${apiKey}&append_to_response=external_ids`);
     if (!response.ok) {
         throw new Error(`TMDB TV details failed: ${response.status}`);
     }
@@ -1787,10 +1893,13 @@ async function renderTmdbTvPlayer({ tmdbId, title, firstAirDate }) {
     if (streamSelector) streamSelector.innerHTML = '';
     if (playerEpisodes) playerEpisodes.innerHTML = '';
 
+    const year = (firstAirDate || '').slice(0, 4);
     if (playerMeta) {
         playerMeta.innerHTML = `
-            <h1>${title || 'TV Show'}</h1>
-            <p>${firstAirDate ? `First Air Date: ${firstAirDate}` : ''}</p>
+            <div class="nf-player-meta">
+                <h1 class="nf-player-title">${title || 'TV Show'}</h1>
+                ${year ? `<span class="nf-player-year">${year}</span>` : ''}
+            </div>
         `;
     }
 
@@ -1803,6 +1912,37 @@ async function renderTmdbTvPlayer({ tmdbId, title, firstAirDate }) {
     tmdbTvState.title = title || 'TV Show';
 
     const details = await fetchTmdbTvDetails(tmdbId);
+    const tvImdbId = details.external_ids?.imdb_id || null;
+    const omdb = await fetchOmdbData(tvImdbId);
+
+    const fullYear = (details.first_air_date || firstAirDate || '').slice(0, 4);
+    const score    = details.vote_average ? Math.round(details.vote_average * 10) + '%' : '';
+    const genres   = (details.genres || []).slice(0, 3).map(g => `<span class="nf-player-genre">${g.name}</span>`).join('');
+    const overview = (omdb?.Plot && omdb.Plot !== 'N/A') ? omdb.Plot : (details.overview || '');
+    const rated    = (omdb?.Rated && omdb.Rated !== 'N/A') ? omdb.Rated : '';
+    const actors   = (omdb?.Actors && omdb.Actors !== 'N/A') ? omdb.Actors : '';
+    const backdrop = details.backdrop_path ? `https://image.tmdb.org/t/p/w1280${details.backdrop_path}` : '';
+    const backdropEl = document.getElementById('playerBackdrop');
+    if (backdropEl && backdrop) {
+        backdropEl.style.backgroundImage = `url("${backdrop}")`;
+        backdropEl.classList.add('is-loaded');
+    }
+    if (playerMeta) {
+        playerMeta.innerHTML = `
+            <div class="nf-player-meta">
+                <h1 class="nf-player-title">${details.name || title}</h1>
+                <div class="nf-player-info">
+                    ${rated   ? `<span class="nf-player-rated">${rated}</span>`           : ''}
+                    ${fullYear ? `<span class="nf-player-year">${fullYear}</span>`         : ''}
+                    ${score   ? `<span class="nf-player-match">${score} Match</span>`     : ''}
+                </div>
+                ${buildOmdbRatingBadges(omdb)}
+                ${genres ? `<div class="nf-player-genres">${genres}</div>` : ''}
+                ${overview ? `<p class="nf-player-overview">${overview}</p>` : ''}
+                ${actors   ? `<p class="nf-player-crew"><span class="nf-crew-label">Cast:</span> ${actors}</p>` : ''}
+            </div>
+        `;
+    }
     const seasons = Array.isArray(details.seasons) ? details.seasons : [];
     tmdbTvState.seasons = seasons
         .filter(season => season.season_number !== null && season.episode_count)
@@ -2117,7 +2257,6 @@ function showView(viewName) {
     const playerView = document.getElementById('playerView');
     if (playerView) {
         if (viewName === 'player') {
-            maybeShowAdblockPrompt();
             playerView.classList.remove('is-visible');
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
@@ -2126,6 +2265,8 @@ function showView(viewName) {
             });
         } else {
             playerView.classList.remove('is-visible');
+            const bd = document.getElementById('playerBackdrop');
+            if (bd) { bd.style.backgroundImage = ''; bd.classList.remove('is-loaded'); }
         }
     }
 }
@@ -4234,27 +4375,6 @@ async function init() {
     initProfileGate();
     initBackNavigationHandlers();
 
-    const adblockInstallBtn = document.getElementById('adblockInstallBtn');
-    if (adblockInstallBtn) {
-        adblockInstallBtn.addEventListener('click', () => {
-            openExternalUrl('https://ublockorigin.com/');
-        });
-    }
-
-    const adblockBraveBtn = document.getElementById('adblockBraveBtn');
-    if (adblockBraveBtn) {
-        adblockBraveBtn.addEventListener('click', () => {
-            openExternalUrl('https://brave.com/download/');
-        });
-    }
-
-    const adblockDismissBtn = document.getElementById('adblockDismissBtn');
-    if (adblockDismissBtn) {
-        adblockDismissBtn.addEventListener('click', () => {
-            dismissAdblockPrompt();
-        });
-    }
-
     const tmdbDirectBtn = document.getElementById('tmdbDirectBtn');
     if (tmdbDirectBtn) {
         tmdbDirectBtn.addEventListener('click', () => {
@@ -4808,9 +4928,10 @@ function stopVideo() {
 async function loadExplorePage() {
     showLoading(true, 'Loading Explore...');
     try {
-        // Initialize explore module if not already done
-        if (window.ExploreModule && state.providers.length > 0) {
-            await window.ExploreModule.init(state.providers);
+        if (window.ExploreModule) {
+            if (state.providers.length > 0) {
+                await window.ExploreModule.init(state.providers);
+            }
             window.ExploreModule.renderExplorePage();
             showView('explore');
             updateNavLinks('explore');

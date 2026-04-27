@@ -30,12 +30,15 @@
       if (el) el.setAttribute('hidden', '');
     });
 
-    // Always show profile gate on every page load
     const gate = $('profileGate');
-    if (gate) {
-      gate.removeAttribute('hidden');
+    const hasStoredProfile = Boolean(localStorage.getItem('mitta_active_profile_v1'));
 
-      // When app.js hides the gate (profile selected), init the billboard
+    if (gate) {
+      if (!hasStoredProfile) {
+        gate.removeAttribute('hidden');
+      }
+
+      // When gate is hidden (profile selected), init the billboard
       const obs = new MutationObserver(() => {
         if (gate.hasAttribute('hidden')) {
           obs.disconnect();
@@ -43,6 +46,11 @@
         }
       });
       obs.observe(gate, { attributes: true, attributeFilter: ['hidden'] });
+
+      // If profile already stored, init billboard immediately
+      if (hasStoredProfile) {
+        initBillboard();
+      }
     }
 
     // Sign-out → show profile gate again
