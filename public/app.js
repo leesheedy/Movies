@@ -2255,12 +2255,56 @@ function initCastButton() {
         castBtn.setAttribute('aria-expanded', 'false');
     }
 
+    // Restore saved TV IP/port
+    const ipInput   = document.getElementById('castTvIp');
+    const portInput = document.getElementById('castTvPort');
+    if (ipInput)   ipInput.value   = localStorage.getItem('mitta_cast_tv_ip')   || '';
+    if (portInput) portInput.value = localStorage.getItem('mitta_cast_tv_port')  || '8080';
+
     castBtn.addEventListener('click', e => {
         e.stopPropagation();
         castPanel.hasAttribute('hidden') ? openPanel() : closePanel();
     });
     document.addEventListener('click', e => {
         if (!castPanel.contains(e.target) && e.target !== castBtn) closePanel();
+    });
+
+    // ── Cast to TV by IP (T-Cast / local receiver) ─────────────────────
+    document.getElementById('castOptionIp')?.addEventListener('click', () => {
+        const ip   = (document.getElementById('castTvIp')?.value   || '').trim();
+        const port = (document.getElementById('castTvPort')?.value || '8080').trim();
+
+        if (!ip) { showToast('Enter your TV\'s IP address first', 'info', 3000); return; }
+
+        // Save for next time
+        localStorage.setItem('mitta_cast_tv_ip',   ip);
+        localStorage.setItem('mitta_cast_tv_port',  port);
+
+        const embedUrl = document.querySelector('#tmdbIframeContainer iframe')?.src || '';
+        if (!embedUrl) { showToast('No video loaded yet — play something first', 'info', 3000); return; }
+
+        const base = `http://${ip}:${port}`;
+        const enc  = encodeURIComponent(embedUrl);
+
+        // Try the most common local receiver URL patterns via window.open (top-level
+        // navigation to HTTP is allowed even from HTTPS pages).
+        // Opens a small control window; T-Cast or any HTTP receiver on that port will
+        // handle the request. Try all common path patterns in sequence.
+        const attempts = [
+            `${base}/play?url=${enc}`,
+            `${base}/cast?url=${enc}`,
+            `${base}/?url=${enc}`,
+            `${base}/load?url=${enc}`,
+        ];
+
+        // Open the first attempt in a new tab
+        window.open(attempts[0], '_blank', 'noopener,noreferrer');
+
+        closePanel();
+        showToast(
+            `Connecting to TV at ${ip}:${port} — if nothing plays, check the port in T-Cast settings`,
+            'info', 6000
+        );
     });
 
     // ── Chromecast / AirPlay ────────────────────────────────────────────

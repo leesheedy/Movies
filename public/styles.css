@@ -2297,6 +2297,53 @@ ul { list-style: none; }
   display: block;
   margin: 0 auto;
 }
+.nf-cast-ip-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.nf-cast-ip-input {
+  flex: 1;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 6px;
+  color: var(--nf-white);
+  font-size: .85rem;
+  padding: 7px 9px;
+  outline: none;
+}
+.nf-cast-ip-port {
+  width: 62px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 6px;
+  color: var(--nf-white);
+  font-size: .85rem;
+  padding: 7px 7px;
+  outline: none;
+}
+.nf-cast-ip-input:focus,
+.nf-cast-ip-port:focus {
+  border-color: var(--nf-red);
+}
+.nf-cast-ip-colon {
+  color: var(--nf-gray-lt);
+  font-size: .9rem;
+}
+.nf-cast-send-btn {
+  width: 100%;
+  justify-content: center;
+  background: var(--nf-red) !important;
+  font-weight: 600;
+  border-radius: 6px;
+}
+.nf-cast-send-btn:hover { background: #c00 !important; }
+.nf-cast-divider {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,.1);
+  margin: 12px 0;
+}
 
 .nf-player-meta {
   padding: 16px 20px 20px;
