@@ -2304,43 +2304,89 @@ ul { list-style: none; }
 .nf-iframe-wrap,
 .tmdb-iframe-container {
   width: 100%;
-  height: calc(100svh - var(--nf-header-h));
+  height: calc(100vh - var(--nf-header-h));   /* fallback */
+  height: calc(100svh - var(--nf-header-h));  /* mobile-safe */
+  min-height: 280px;
   background: #000;
   border-radius: 0;
   overflow: hidden;
   display: block;
+  position: relative;
 }
 .nf-iframe-wrap iframe,
 .tmdb-iframe-container iframe {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   border: none;
   display: block;
 }
 
-/* ── TV controls polish ── */
+/* ── TV controls — large, easy to navigate ── */
 .nf-tv-controls,
 .tmdb-tv-controls {
-  padding: 20px 32px;
-  background: rgba(0,0,0,.6);
-  backdrop-filter: blur(8px);
+  padding: 20px 32px 28px;
+  background: rgba(0,0,0,.85);
+  backdrop-filter: blur(12px);
 }
-.nf-tv-title { font-size: 1.3rem; font-weight: 700; }
-.nf-episode-meta { color: var(--nf-gray-lt); font-size: .9rem; margin-top: 4px; }
-.nf-tv-selects { display: flex; gap: 16px; margin-top: 14px; flex-wrap: wrap; }
-.nf-select-label { font-size: .85rem; color: var(--nf-gray-lt); display: flex; flex-direction: column; gap: 4px; }
+.nf-tv-title { font-size: 1.4rem; font-weight: 700; }
+.nf-episode-meta { color: var(--nf-gray-lt); font-size: .95rem; margin-top: 6px; }
+.nf-tv-selects { display: flex; gap: 20px; margin-top: 18px; flex-wrap: wrap; }
+.nf-select-label { font-size: .9rem; color: var(--nf-gray-lt); display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
 .nf-select {
-  background: #333;
+  background: #222;
   color: var(--nf-white);
-  border: 1px solid rgba(255,255,255,.2);
-  border-radius: 4px;
-  padding: 6px 10px;
+  border: 2px solid rgba(255,255,255,.25);
+  border-radius: 6px;
+  padding: 10px 14px;
   font-family: inherit;
-  font-size: .9rem;
-  min-width: 160px;
+  font-size: 1rem;
+  min-width: 200px;
+  cursor: pointer;
+  appearance: auto;
 }
-.nf-episode-nav { display: flex; gap: 12px; margin-top: 14px; }
-.nf-episode-nav .nf-btn { padding: 8px 20px; border-radius: 4px; font-size: .9rem; }
+.nf-select:focus {
+  outline: 3px solid var(--nf-red);
+  outline-offset: 2px;
+  border-color: var(--nf-red);
+}
+.nf-episode-nav { display: flex; gap: 14px; margin-top: 18px; flex-wrap: wrap; }
+.nf-episode-nav .nf-btn {
+  padding: 12px 32px;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  min-width: 120px;
+  text-align: center;
+}
+.nf-episode-nav .nf-btn:focus {
+  outline: 3px solid var(--nf-red);
+  outline-offset: 2px;
+}
+.nf-episode-nav .nf-btn:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+/* Back button TV-friendly */
+.nf-back-btn:focus,
+.nf-movies-hero-play:focus,
+.nf-movies-hero-info:focus,
+.nf-filter-pill:focus {
+  outline: 3px solid var(--nf-red);
+  outline-offset: 3px;
+}
+/* Player toolbar TV-friendly */
+.nf-player-source-btn,
+.tmdb-player-btn {
+  padding: 10px 22px;
+  font-size: .95rem;
+}
+.nf-player-source-btn:focus,
+.tmdb-player-btn:focus {
+  outline: 3px solid var(--nf-red);
+  outline-offset: 2px;
+}
 
 /* ============================================================
    CARD HOVER TRAILER

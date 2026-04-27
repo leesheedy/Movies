@@ -1864,6 +1864,25 @@ function attachTmdbTvListeners() {
     if (nextBtn) {
         nextBtn.onclick = () => nextTmdbEpisode();
     }
+
+    // Keyboard / TV remote arrow-key shortcuts while player is active
+    if (!attachTmdbTvListeners._keyboardBound) {
+        attachTmdbTvListeners._keyboardBound = true;
+        document.addEventListener('keydown', e => {
+            if (state.currentView !== 'player') return;
+            if (!tmdbTvState.tvId) return;
+            if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
+            if (e.key === 'ArrowRight' || e.key === 'MediaTrackNext') {
+                e.preventDefault();
+                nextTmdbEpisode();
+            } else if (e.key === 'ArrowLeft' || e.key === 'MediaTrackPrevious') {
+                e.preventDefault();
+                prevTmdbEpisode();
+            } else if (e.key === 'Backspace' || e.key === 'Escape') {
+                document.getElementById('playerBackBtn')?.click();
+            }
+        });
+    }
 }
 
 function setupTmdbTvMessageListener() {
@@ -4490,6 +4509,14 @@ async function init() {
         });
     }
     
+    const logoHomeBtn = document.getElementById('logoHomeBtn');
+    if (logoHomeBtn) {
+        logoHomeBtn.addEventListener('click', () => {
+            loadHomePage();
+            updateNavLinks('home');
+        });
+    }
+
     const homeBtn = document.getElementById('homeBtn');
     if (homeBtn) {
         homeBtn.addEventListener('click', () => {

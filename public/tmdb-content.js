@@ -362,7 +362,7 @@ const TMDBContentModule = {
                         if (img) img.style.opacity = '0';
                         const iframe = document.createElement('iframe');
                         iframe.className = 'nf-card-trailer';
-                        iframe.src = `https://www.youtube-nocookie.com/embed/${trailer.key}?autoplay=1&mute=1&controls=0&loop=1&playlist=${trailer.key}&modestbranding=1&rel=0`;
+                        iframe.src = `https://www.youtube-nocookie.com/embed/${trailer.key}?autoplay=1&mute=0&controls=0&loop=1&playlist=${trailer.key}&modestbranding=1&rel=0`;
                         iframe.allow = 'autoplay; encrypted-media';
                         iframe.setAttribute('allowfullscreen', '');
                         card.insertBefore(iframe, card.querySelector('.netflix-card-overlay'));
