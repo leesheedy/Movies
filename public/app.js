@@ -1040,7 +1040,8 @@ function renderTmdbIframe(embedUrl) {
     }
 
     const iframe = document.createElement('iframe');
-    iframe.setAttribute('allow', 'autoplay; fullscreen');
+    iframe.setAttribute('allow', 'autoplay; fullscreen; clipboard-read; clipboard-write; encrypted-media; picture-in-picture; web-share; accelerometer; gyroscope');
+    iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.setAttribute('loading', 'lazy');
     iframe.addEventListener('pointerdown', () => {
         window.registerEmbedInteraction?.();
