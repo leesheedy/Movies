@@ -1074,14 +1074,14 @@ function renderTmdbIframe(embedUrl) {
 
     const iframe = document.createElement('iframe');
     iframe.setAttribute('allow', 'autoplay; fullscreen; clipboard-read; clipboard-write; encrypted-media; picture-in-picture; web-share; accelerometer; gyroscope; storage-access');
+    // sandbox without allow-popups blocks ad popups from the embed player entirely
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-downloads');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.setAttribute('loading', 'lazy');
-    iframe.addEventListener('pointerdown', () => {
-        window.registerEmbedInteraction?.();
-    });
 
     let fallbackTimeout = null;
     let currentIndex = 0;
+    let iframeInteracted = false;
 
     const nextBtn = document.getElementById('tmdbNextSourceBtn');
 
@@ -1097,8 +1097,7 @@ function renderTmdbIframe(embedUrl) {
     const showFallback = () => {
         if (tmdbMessage) {
             tmdbMessage.innerHTML =
-                'All sources failed. If video is stuck, try disabling Tracking Prevention ' +
-                'or ad-blockers for this site, then reload. ' +
+                'All sources failed. Try disabling tracking prevention or ad-blockers, then reload. ' +
                 '<button id="reloadPlayerBtn" style="margin-left:8px;padding:4px 12px;cursor:pointer">Reload</button>';
             document.getElementById('reloadPlayerBtn')?.addEventListener('click', () => loadSource(0));
         }
@@ -1115,8 +1114,23 @@ function renderTmdbIframe(embedUrl) {
         showFallback();
     };
 
+    const showLoadedPrompt = () => {
+        if (!tmdbMessage) return;
+        const hasMore = currentIndex < sources.length - 1;
+        if (hasMore) {
+            tmdbMessage.innerHTML =
+                `Source ${currentIndex + 1}/${sources.length} — ` +
+                `<span style="color:#b3b3b3">no video?</span> ` +
+                `<button id="nextSrcPromptBtn" style="margin-left:6px;padding:3px 12px;cursor:pointer;border-radius:4px;">Try Next Source →</button>`;
+            document.getElementById('nextSrcPromptBtn')?.addEventListener('click', handleFailure);
+        } else {
+            tmdbMessage.textContent = '';
+        }
+    };
+
     const loadSource = (index) => {
         currentIndex = index;
+        iframeInteracted = false;
         const nextUrl = sources[index];
         if (!nextUrl) return;
         iframe.src = nextUrl;
@@ -1124,13 +1138,22 @@ function renderTmdbIframe(embedUrl) {
         updateNextBtn();
         if (tmdbMessage) tmdbMessage.textContent = `Loading source ${index + 1} of ${sources.length}…`;
         if (fallbackTimeout) clearTimeout(fallbackTimeout);
-        fallbackTimeout = setTimeout(handleFailure, 5000);
+        // No load event within 6s → auto-advance (server not responding at all)
+        fallbackTimeout = setTimeout(handleFailure, 6000);
     };
 
     iframe.addEventListener('load', () => {
+        if (fallbackTimeout) { clearTimeout(fallbackTimeout); fallbackTimeout = null; }
+        // Iframe loaded something — might be blank/ad. Show a gentle prompt to advance
+        // so user isn't stuck staring at a black box.
+        showLoadedPrompt();
+    });
+
+    iframe.addEventListener('pointerdown', () => {
+        window.registerEmbedInteraction?.();
+        iframeInteracted = true;
+        // User interacted → video is playing. Dismiss the prompt.
         if (tmdbMessage) tmdbMessage.textContent = '';
-        if (fallbackTimeout) clearTimeout(fallbackTimeout);
-        fallbackTimeout = null;
     });
 
     iframe.addEventListener('error', handleFailure);
