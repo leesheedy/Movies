@@ -1328,6 +1328,17 @@ function initAdBlocker() {
         }
     };
 
+    // Private/local IPs must always be allowed (e.g. casting to TV)
+    const isLocalIp = (url) => {
+        try {
+            const h = new URL(url).hostname;
+            return h === 'localhost' || h === '127.0.0.1' ||
+                /^10\.\d+\.\d+\.\d+$/.test(h) ||
+                /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(h) ||
+                /^192\.168\.\d+\.\d+$/.test(h);
+        } catch { return false; }
+    };
+
     const isExternalUrl = (url) => {
         if (!url) return false;
         return !isSameOrigin(url);
@@ -1367,6 +1378,10 @@ function initAdBlocker() {
         if (normalizedUrl === 'about:blank' || isAdUrl(normalizedUrl)) {
             console.warn(`🛑 Adblock: blocked ${context}`, normalizedUrl);
             return { allowed: false, normalizedUrl };
+        }
+        // Always allow local/private network IPs (cast to TV, etc.)
+        if (isLocalIp(normalizedUrl)) {
+            return { allowed: true, normalizedUrl, soften: false };
         }
         if (isExternalUrl(normalizedUrl)) {
             const allowedByUser = consumeExternalNavigationAllowance();
@@ -2270,41 +2285,80 @@ function initCastButton() {
     });
 
     // ── Cast to TV by IP (T-Cast / local receiver) ─────────────────────
+    // Common ports local casting receivers use
+    const CAST_PORTS = [8080, 9090, 4040, 8008, 3000, 5000, 7000, 8060, 1080, 8000];
+    // Common path patterns local receivers accept
+    const CAST_PATHS = ['/play', '/cast', '/load', '/stream', '/'];
+    let castWindow = null; // reuse same tab for port scanning
+
+    const sendToCastWindow = (url) => {
+        if (castWindow && !castWindow.closed) {
+            castWindow.location.href = url;
+        } else {
+            castWindow = window.open(url, 'mitta_cast_tv');
+        }
+    };
+
+    const buildCastUrl = (ip, port, embedUrl) => {
+        const enc = encodeURIComponent(embedUrl);
+        // Try each path in a query string — most receivers use /play?url= or /cast?url=
+        return `http://${ip}:${port}${CAST_PATHS[0]}?url=${enc}`;
+    };
+
     document.getElementById('castOptionIp')?.addEventListener('click', () => {
         const ip   = (document.getElementById('castTvIp')?.value   || '').trim();
         const port = (document.getElementById('castTvPort')?.value || '8080').trim();
 
         if (!ip) { showToast('Enter your TV\'s IP address first', 'info', 3000); return; }
 
-        // Save for next time
         localStorage.setItem('mitta_cast_tv_ip',   ip);
         localStorage.setItem('mitta_cast_tv_port',  port);
 
         const embedUrl = document.querySelector('#tmdbIframeContainer iframe')?.src || '';
         if (!embedUrl) { showToast('No video loaded yet — play something first', 'info', 3000); return; }
 
-        const base = `http://${ip}:${port}`;
-        const enc  = encodeURIComponent(embedUrl);
-
-        // Try the most common local receiver URL patterns via window.open (top-level
-        // navigation to HTTP is allowed even from HTTPS pages).
-        // Opens a small control window; T-Cast or any HTTP receiver on that port will
-        // handle the request. Try all common path patterns in sequence.
-        const attempts = [
-            `${base}/play?url=${enc}`,
-            `${base}/cast?url=${enc}`,
-            `${base}/?url=${enc}`,
-            `${base}/load?url=${enc}`,
-        ];
-
-        // Open the first attempt in a new tab
-        window.open(attempts[0], '_blank', 'noopener,noreferrer');
-
+        sendToCastWindow(buildCastUrl(ip, port, embedUrl));
         closePanel();
-        showToast(
-            `Connecting to TV at ${ip}:${port} — if nothing plays, check the port in T-Cast settings`,
-            'info', 6000
-        );
+        showToast(`Sent to TV at ${ip}:${port} — if blank, try "Scan Ports" to find the right port`, 'info', 5000);
+    });
+
+    // Port scanner — tries each common port in the same cast window
+    document.getElementById('castScanBtn')?.addEventListener('click', () => {
+        const ip = (document.getElementById('castTvIp')?.value || '').trim();
+        if (!ip) { showToast('Enter your TV\'s IP address first', 'info', 3000); return; }
+
+        const embedUrl = document.querySelector('#tmdbIframeContainer iframe')?.src || '';
+        if (!embedUrl) { showToast('No video loaded yet — play something first', 'info', 3000); return; }
+
+        localStorage.setItem('mitta_cast_tv_ip', ip);
+
+        let idx = 0;
+        const tryNext = () => {
+            if (idx >= CAST_PORTS.length) {
+                showToast('All ports tried. Check the port shown in T-Cast on your TV and enter it manually.', 'info', 6000);
+                return;
+            }
+            const port = CAST_PORTS[idx++];
+            // Update port field so user can save the working one
+            const portEl = document.getElementById('castTvPort');
+            if (portEl) portEl.value = String(port);
+            sendToCastWindow(buildCastUrl(ip, port, embedUrl));
+            showToast(
+                `Trying port ${port} (${idx}/${CAST_PORTS.length}) — if your TV shows the video, click Save Port. Otherwise tap again to try next.`,
+                'info', 4000
+            );
+        };
+        tryNext();
+
+        // Wire up "Save Port" so user can persist the working port
+        document.getElementById('castSavePort')?.removeAttribute('hidden');
+    });
+
+    document.getElementById('castSavePort')?.addEventListener('click', () => {
+        const port = document.getElementById('castTvPort')?.value || '8080';
+        localStorage.setItem('mitta_cast_tv_port', port);
+        showToast(`Port ${port} saved for this TV`, 'success', 3000);
+        document.getElementById('castSavePort')?.setAttribute('hidden', '');
     });
 
     // ── Chromecast / AirPlay ────────────────────────────────────────────

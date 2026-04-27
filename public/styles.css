@@ -2331,14 +2331,32 @@ ul { list-style: none; }
   color: var(--nf-gray-lt);
   font-size: .9rem;
 }
+.nf-cast-btn-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.nf-cast-btn-row .nf-cast-option { flex: 1; justify-content: center; }
 .nf-cast-send-btn {
-  width: 100%;
-  justify-content: center;
   background: var(--nf-red) !important;
   font-weight: 600;
   border-radius: 6px;
 }
 .nf-cast-send-btn:hover { background: #c00 !important; }
+.nf-cast-scan-btn {
+  background: rgba(255,255,255,.12) !important;
+  border-radius: 6px;
+}
+.nf-cast-scan-btn:hover { background: rgba(255,255,255,.2) !important; }
+.nf-cast-save-btn {
+  width: 100%;
+  justify-content: center;
+  background: #1a6e1a !important;
+  border-radius: 6px;
+  font-size: .82rem;
+  margin-top: 4px;
+}
+.nf-cast-save-btn:hover { background: #155515 !important; }
 .nf-cast-divider {
   border: none;
   border-top: 1px solid rgba(255,255,255,.1);
