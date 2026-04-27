@@ -2270,16 +2270,22 @@ function initCastButton() {
     const hasPresentationApi = 'PresentationRequest' in window;
     const hasShare           = !!navigator.share;
 
+    // T-Cast detects video by opening the URL and looking for <video> elements.
+    // The embed player URL (vidlink.pro/movie/...) has the actual <video> element,
+    // the page URL (mittamovies.netlify.app/...) only has a cross-origin iframe which
+    // T-Cast cannot see into → always share the embed URL for casting.
     function getVideoUrl() {
         return document.querySelector('#tmdbIframeContainer iframe')?.src || '';
     }
+    function getCastUrl() {
+        return getVideoUrl() || window.location.href;
+    }
 
-    // QR code shows the current page URL so user scans → opens on phone → T-Cast mirrors to TV
     function openPanel() {
-        const qrUrl = window.location.href;
+        const castUrl = getCastUrl();
         const qrImg = document.getElementById('castQrImg');
         if (qrImg) {
-            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=ffffff&bgcolor=1a1a1a&data=${encodeURIComponent(qrUrl)}`;
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=ffffff&bgcolor=1a1a1a&data=${encodeURIComponent(castUrl)}`;
         }
         castPanel.removeAttribute('hidden');
         castBtn.setAttribute('aria-expanded', 'true');
@@ -2323,29 +2329,29 @@ function initCastButton() {
     // ── Share ───────────────────────────────────────────────────────────
     document.getElementById('castOptionShare')?.addEventListener('click', async () => {
         closePanel();
-        const shareUrl = window.location.href;
+        const castUrl = getCastUrl();
         const title = document.getElementById('tmdbPlayerTitle')?.textContent || document.title;
 
         if (hasShare) {
             try {
-                await navigator.share({ title, url: shareUrl });
+                await navigator.share({ title, url: castUrl });
                 return;
             } catch (e) {
                 if (e.name === 'AbortError') return;
                 console.warn('[Cast] Share API:', e);
             }
         }
-        try { await navigator.clipboard.writeText(shareUrl); } catch {}
-        showToast('Link copied — open it on your phone, then use T-Cast to mirror to TV', 'info', 5000);
+        try { await navigator.clipboard.writeText(castUrl); } catch {}
+        showToast('Player link copied — paste into T-Cast or open on your phone', 'info', 5000);
     });
 
     // ── Copy Link ───────────────────────────────────────────────────────
     document.getElementById('castOptionCopy')?.addEventListener('click', async () => {
         closePanel();
-        const url = window.location.href;
+        const castUrl = getCastUrl();
         try {
-            await navigator.clipboard.writeText(url);
-            showToast('Link copied — open on your phone, then mirror with T-Cast', 'success', 4000);
+            await navigator.clipboard.writeText(castUrl);
+            showToast('Player link copied — paste into T-Cast on your phone', 'success', 4000);
         } catch {
             showToast('Could not copy — try manually selecting the URL', 'info', 3000);
         }
