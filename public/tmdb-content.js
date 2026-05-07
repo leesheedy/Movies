@@ -722,93 +722,160 @@ const TMDBContentModule = {
         this.currentSection = null;
     },
 
-    // Render all TMDB sections for home page
+    // Render all TMDB sections for home page — movies + TV interleaved
     async renderAllSections(container) {
         console.log('📺 Loading TMDB content sections...');
 
         const results = await Promise.allSettled([
-            this.getTrendingMovies(),
-            this.getSheedysPicks(),
-            this.getNowPlayingMovies(),
-            this.getNostalgiaMovies(),
-            this.getHorrorMovies(),
-            this.getComedyMovies(),
-            this.getActionAdventureMovies()
+            this.getTrendingMovies(),           // 0
+            this.getSheedysPicks(),             // 1
+            this.getTrendingTvShows(),          // 2
+            this.getNowPlayingMovies(),          // 3
+            this.getPopularTvShows(),           // 4
+            this.getActionAdventureMovies(),    // 5
+            this.getTopRatedTvShows(),          // 6
+            this.getHorrorMovies(),             // 7
+            this.getTvByGenre('18'),            // 8  drama TV
+            this.getComedyMovies(),             // 9
+            this.getTvByGenre('35'),            // 10 comedy TV
+            this.getNostalgiaMovies(),          // 11
+            this.getTvByGenre('80'),            // 12 crime TV
+            this.getMoviesByGenre('878'),       // 13 sci-fi movies
+            this.getTvByGenre('10765'),         // 14 sci-fi & fantasy TV
+            this.getMoviesByGenre('16'),        // 15 animation movies
+            this.getTvByGenre('16'),            // 16 animation TV
+            this.getMoviesByGenre('53'),        // 17 thriller
+            this.getAiringTodayTvShows(),       // 18
+            this.getMoviesByGenre('10749'),     // 19 romance
+            this.getMoviesByGenre('99'),        // 20 documentary
+            this.getTvByGenre('99'),            // 21 documentary TV
+            this.getMoviesByGenre('10751'),     // 22 family
+            this.fetchMovies('/movie/top_rated'), // 23 top rated movies
         ]);
 
-        const [
-            trendingMovies,
-            sheedysPicks,
-            nowPlaying,
-            nostalgiaMovies,
-            horrorMovies,
-            comedyMovies,
-            actionAdventureMovies
-        ] = results.map(r => r.status === 'fulfilled' ? r.value : []);
+        const val = (i) => results[i]?.status === 'fulfilled' ? results[i].value : [];
 
-        const trendingIds = new Set((trendingMovies || []).map((movie) => movie.id));
-        const nonTrendingNowPlaying = [];
-        const trendingNowPlaying = [];
+        const trendingMovies = val(0);
+        const sheedysPicks   = val(1);
+        const trendingTv     = val(2);
+        const nowPlaying     = val(3);
+        const popularTv      = val(4);
+        const actionMovies   = val(5);
+        const topRatedTv     = val(6);
+        const horrorMovies   = val(7);
+        const dramaTV        = val(8);
+        const comedyMovies   = val(9);
+        const comedyTV       = val(10);
+        const nostalgiaMovies = val(11);
+        const crimeTV        = val(12);
+        const scifiMovies    = val(13);
+        const scifiTV        = val(14);
+        const animationMovies = val(15);
+        const animationTV    = val(16);
+        const thrillerMovies = val(17);
+        const airingTodayTv  = val(18);
+        const romanceMovies  = val(19);
+        const docMovies      = val(20);
+        const docTV          = val(21);
+        const familyMovies   = val(22);
+        const topRatedMovies = val(23);
 
-        (nowPlaying || []).forEach((movie) => {
-            if (trendingIds.has(movie.id)) {
-                trendingNowPlaying.push(movie);
-            } else {
-                nonTrendingNowPlaying.push(movie);
-            }
-        });
-
-        const orderedNowPlaying = [...nonTrendingNowPlaying, ...trendingNowPlaying];
+        // De-dupe now playing vs trending
+        const trendingIds = new Set((trendingMovies || []).map(m => m.id));
+        const orderedNowPlaying = [
+            ...(nowPlaying || []).filter(m => !trendingIds.has(m.id)),
+            ...(nowPlaying || []).filter(m => trendingIds.has(m.id)),
+        ];
 
         const sections = [
-            { title: '🔥 Trending Now', items: trendingMovies, type: 'movie', endpoint: 'trending', region: '' },
-            { title: "✨ Sheedy's Picks", items: sheedysPicks, type: 'movie', endpoint: 'sheedys_picks', region: '' },
-            { title: '🎬 Now Playing in Theaters', items: orderedNowPlaying, type: 'movie', endpoint: 'now_playing', region: '' },
-            { title: '🕰️ Nostalgia', items: nostalgiaMovies, type: 'movie', endpoint: 'discover', region: '' },
-            { title: '👻 Horror After Dark', items: horrorMovies, type: 'movie', endpoint: 'discover', region: '' },
-            { title: '😂 Comedy & More', items: comedyMovies, type: 'movie', endpoint: 'discover', region: '' },
-            { title: '⚡ Action & Adventure', items: actionAdventureMovies, type: 'movie', endpoint: 'discover', region: '' }
+            { title: '🔥 Trending Now',                items: trendingMovies,   type: 'movie', endpoint: 'trending',      region: '' },
+            { title: "✨ Sheedy's Picks",               items: sheedysPicks,     type: 'movie', endpoint: 'sheedys_picks', region: '' },
+            { title: '📺 Trending TV Shows',            items: trendingTv,       type: 'tv',    endpoint: 'trending',      region: '' },
+            { title: '🎬 Now Playing in Theaters',      items: orderedNowPlaying,type: 'movie', endpoint: 'now_playing',   region: '' },
+            { title: '⭐ Popular TV Shows',             items: popularTv,        type: 'tv',    endpoint: 'popular',       region: '' },
+            { title: '⚡ Action & Adventure',           items: actionMovies,     type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '🏆 Top Rated TV Shows',           items: topRatedTv,       type: 'tv',    endpoint: 'top_rated',     region: '' },
+            { title: '👻 Horror After Dark',            items: horrorMovies,     type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '💔 Drama Series',                 items: dramaTV,          type: 'tv',    endpoint: 'discover',      region: '' },
+            { title: '😂 Comedy & More',                items: comedyMovies,     type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '😄 Comedy TV Shows',              items: comedyTV,         type: 'tv',    endpoint: 'discover',      region: '' },
+            { title: '🕰️ Nostalgia',                    items: nostalgiaMovies,  type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '🔍 Crime & Mystery Shows',        items: crimeTV,          type: 'tv',    endpoint: 'discover',      region: '' },
+            { title: '🚀 Sci-Fi Movies',                items: scifiMovies,      type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '🌌 Sci-Fi & Fantasy Shows',       items: scifiTV,          type: 'tv',    endpoint: 'discover',      region: '' },
+            { title: '🎭 Thriller',                     items: thrillerMovies,   type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '📡 Airing Today',                 items: airingTodayTv,    type: 'tv',    endpoint: 'airing_today',  region: '' },
+            { title: '🎨 Animation',                    items: animationMovies,  type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '🐉 Animated Series',              items: animationTV,      type: 'tv',    endpoint: 'discover',      region: '' },
+            { title: '💝 Romance',                      items: romanceMovies,    type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '🎖️ Top Rated Movies',             items: topRatedMovies,   type: 'movie', endpoint: 'top_rated',     region: '' },
+            { title: '🎥 Documentary',                  items: docMovies,        type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '📰 Documentary Series',           items: docTV,            type: 'tv',    endpoint: 'discover',      region: '' },
+            { title: '👨‍👩‍👧‍👦 Family Movies',               items: familyMovies,     type: 'movie', endpoint: 'discover',      region: '' },
         ];
 
         let rendered = 0;
         sections.forEach(({ title, items, type, endpoint, region }) => {
+            if (!items?.length) return;
             const section = this.renderTMDBSection(title, items, type, endpoint, region);
-            if (section) {
-                container.appendChild(section);
-                rendered++;
-            }
+            if (section) { container.appendChild(section); rendered++; }
         });
 
-        if (rendered === 0) {
-            container.appendChild(this.renderRetrySection());
-        }
-
-        console.log(`✅ TMDB content sections loaded (${rendered}/7)`);
+        if (rendered === 0) container.appendChild(this.renderRetrySection());
+        console.log(`✅ TMDB home sections loaded (${rendered})`);
     },
 
-    // Render TMDB TV sections for the TV Shows page
+    // Render TMDB TV sections for the TV Shows page — rich genre breakdown
     async renderTvSections(container) {
         if (!container) return;
         console.log('📺 Loading TMDB TV shows sections...');
 
         const results = await Promise.allSettled([
-            this.getTrendingTvShows(),
-            this.getPopularTvShows(),
-            this.getTopRatedTvShows(),
-            this.getAiringTodayTvShows()
+            this.getTrendingTvShows(),          // 0
+            this.getPopularTvShows(),           // 1
+            this.getTopRatedTvShows(),          // 2
+            this.getAiringTodayTvShows(),       // 3
+            this.getTvByGenre('18'),            // 4  drama
+            this.getTvByGenre('35'),            // 5  comedy
+            this.getTvByGenre('10759'),         // 6  action & adventure
+            this.getTvByGenre('80'),            // 7  crime
+            this.getTvByGenre('10765'),         // 8  sci-fi & fantasy
+            this.getTvByGenre('10764'),         // 9  reality
+            this.getTvByGenre('16'),            // 10 animation
+            this.getTvByGenre('10751'),         // 11 family
+            this.getTvByGenre('99'),            // 12 documentary
+            this.fetchTv('/discover/tv', { with_original_language: 'ko', sort_by: 'popularity.desc' }), // 13 K-dramas
+            this.fetchTv('/discover/tv', { with_original_language: 'ja', sort_by: 'popularity.desc' }), // 14 anime / J-TV
         ]);
-        const [trending, popular, topRated, airingToday] = results.map(r => r.status === 'fulfilled' ? r.value : []);
+
+        const val = (i) => results[i]?.status === 'fulfilled' ? results[i].value : [];
 
         container.innerHTML = '';
         const sections = [
-            { title: '🔥 Trending TV', items: trending, type: 'tv', endpoint: 'trending', region: '' },
-            { title: '⭐ Popular TV', items: popular, type: 'tv', endpoint: 'popular', region: '' },
-            { title: '🏆 Top Rated', items: topRated, type: 'tv', endpoint: 'top_rated', region: '' },
-            { title: '📡 Airing Today', items: airingToday, type: 'tv', endpoint: 'airing_today', region: '' }
+            { title: '🔥 Trending TV',              items: val(0),  genre: 'trending',     endpoint: 'trending' },
+            { title: '⭐ Popular Right Now',         items: val(1),  genre: 'all',          endpoint: 'popular' },
+            { title: '🏆 Top Rated Shows',           items: val(2),  genre: 'all',          endpoint: 'top_rated' },
+            { title: '📡 Airing Today',              items: val(3),  genre: 'all',          endpoint: 'airing_today' },
+            { title: '💔 Drama',                     items: val(4),  genre: 'drama',        endpoint: 'discover' },
+            { title: '😄 Comedy',                    items: val(5),  genre: 'comedy',       endpoint: 'discover' },
+            { title: '⚡ Action & Adventure',        items: val(6),  genre: 'action',       endpoint: 'discover' },
+            { title: '🔍 Crime & Mystery',           items: val(7),  genre: 'crime',        endpoint: 'discover' },
+            { title: '🌌 Sci-Fi & Fantasy',          items: val(8),  genre: 'scifi',        endpoint: 'discover' },
+            { title: '🎭 Reality TV',                items: val(9),  genre: 'reality',      endpoint: 'discover' },
+            { title: '🐉 Animation',                 items: val(10), genre: 'animation',    endpoint: 'discover' },
+            { title: '👨‍👩‍👧‍👦 Kids & Family',           items: val(11), genre: 'family',       endpoint: 'discover' },
+            { title: '🎥 Documentary Series',        items: val(12), genre: 'documentary',  endpoint: 'discover' },
+            { title: '🇰🇷 K-Dramas',                 items: val(13), genre: 'drama',        endpoint: 'discover' },
+            { title: '🇯🇵 Anime & J-TV',             items: val(14), genre: 'animation',    endpoint: 'discover' },
         ];
-        sections.forEach(({ title, items, type, endpoint, region }) => {
-            const section = this.renderTMDBSection(title, items, type, endpoint, region);
-            if (section) container.appendChild(section);
+
+        sections.forEach(({ title, items, genre, endpoint }) => {
+            if (!items?.length) return;
+            const section = this.renderTMDBSection(title, items, 'tv', endpoint, '');
+            if (section) {
+                section.dataset.tvGenre = genre;
+                container.appendChild(section);
+            }
         });
     },
 

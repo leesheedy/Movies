@@ -1,88 +1,135 @@
-// TV Shows Module - Aggregates TV shows from Vidsrc
+// TV Shows Module — rich TMDB-powered sections with genre filtering
 const TVShowsModule = {
     state: {
         currentPage: 1,
         loadedShows: [],
         allProviders: [],
+        activeGenre: 'all',
     },
 
-    // Initialize TV shows module
     async init(providers) {
-        console.log('📺 Initializing TV Shows module with', providers.length, 'providers');
         this.state.allProviders = providers;
         this.state.currentPage = 1;
         this.state.loadedShows = [];
     },
 
-    // Render the TV shows page
     renderTVShowsPage() {
         const container = document.getElementById('tvShowsContent');
         if (!container) return;
-        
-        container.innerHTML = `
-            <div class="content-header">
-                <h1>📺 TV Shows</h1>
-                <p class="content-subtitle">Browse TV shows and series from Vidsrc</p>
-            </div>
-            
-            <div class="content-sections">
-                <div id="tvShowsGrid" class="posts-grid"></div>
-                <div id="tvShowsPagination" class="pagination"></div>
-            </div>
-        `;
-        
-        this.loadTVShows();
+
+        // Wire up genre pills
+        const pillsContainer = document.getElementById('tvGenrePills');
+        if (pillsContainer) {
+            pillsContainer.querySelectorAll('.nf-tv-genre-pill').forEach(pill => {
+                pill.addEventListener('click', () => {
+                    pillsContainer.querySelectorAll('.nf-tv-genre-pill').forEach(p => p.classList.remove('active'));
+                    pill.classList.add('active');
+                    this.state.activeGenre = pill.dataset.genre;
+                    this.filterSections(container, this.state.activeGenre);
+                });
+            });
+        }
+
+        container.innerHTML = '<div style="display:flex;justify-content:center;padding:60px"><div class="nf-spinner"></div></div>';
+
+        if (window.TMDBContentModule && typeof window.TMDBContentModule.renderTvSections === 'function') {
+            this.loadTmdbTvSections(container);
+        } else {
+            this.loadProviderTVShows(container);
+        }
     },
 
-    // Load TV shows from all providers
-    async loadTVShows(page = 1, append = false) {
-        const container = document.getElementById('tvShowsGrid');
-        const paginationContainer = document.getElementById('tvShowsPagination');
-        if (!container) return;
-        
-        showLoading(true, 'Loading TV shows from Vidsrc...');
-        
+    async loadTmdbTvSections(container) {
+        try {
+            await window.TMDBContentModule.renderTvSections(container);
+            this.tagSectionsWithGenre(container);
+        } catch (err) {
+            console.warn('[TVShows] TMDB sections failed, falling back to provider:', err);
+            this.loadProviderTVShows(container);
+        }
+    },
+
+    tagSectionsWithGenre(container) {
+        const titleGenreMap = [
+            ['trending',        'trending'],
+            ['drama',           'drama'],
+            ['comedy',          'comedy'],
+            ['action',          'action'],
+            ['adventure',       'action'],
+            ['crime',           'crime'],
+            ['thriller',        'crime'],
+            ['sci-fi',          'scifi'],
+            ['fantasy',         'scifi'],
+            ['mystery',         'crime'],
+            ['reality',         'reality'],
+            ['talk',            'reality'],
+            ['animation',       'animation'],
+            ['anime',           'animation'],
+            ['kids',            'family'],
+            ['family',          'family'],
+            ['children',        'family'],
+            ['documentary',     'documentary'],
+            ['news',            'documentary'],
+        ];
+
+        container.querySelectorAll('.netflix-section').forEach(section => {
+            const titleEl = section.querySelector('.netflix-section-title');
+            if (!titleEl) { section.dataset.tvGenre = 'all'; return; }
+            const titleLower = titleEl.textContent.toLowerCase();
+            let assigned = 'all';
+            for (const [key, genre] of titleGenreMap) {
+                if (titleLower.includes(key)) { assigned = genre; break; }
+            }
+            section.dataset.tvGenre = assigned;
+        });
+    },
+
+    filterSections(container, genre) {
+        container.querySelectorAll('.netflix-section').forEach(section => {
+            const sectionGenre = section.dataset.tvGenre || 'all';
+            section.style.display = (genre === 'all' || sectionGenre === genre) ? '' : 'none';
+        });
+    },
+
+    async loadProviderTVShows(container, page = 1, append = false) {
+        if (!append) {
+            container.innerHTML = `
+                <div class="content-sections">
+                    <div id="tvShowsGrid" class="posts-grid"></div>
+                    <div id="tvShowsPagination" class="pagination"></div>
+                </div>`;
+        }
+
+        const grid = document.getElementById('tvShowsGrid');
+        const pagination = document.getElementById('tvShowsPagination');
+        if (!grid) return;
+
+        showLoading(true, 'Loading TV shows...');
+
         try {
             const providers = this.state.allProviders;
             this.state.currentPage = page;
-            
-            // Calculate which providers to fetch from based on page
-            const providersPerPage = 8;
-            const startIndex = (page - 1) * providersPerPage;
-            const endIndex = startIndex + providersPerPage;
-            const providersToFetch = providers.slice(startIndex, endIndex);
-            
-            if (providersToFetch.length === 0) {
-                if (!append) {
-                    container.innerHTML = '<p style="color: #b3b3b3; grid-column: 1 / -1;">No more TV shows available.</p>';
-                }
-                paginationContainer.innerHTML = '<p style="color: #b3b3b3; text-align: center;">No more content available</p>';
+            const perPage = 8;
+            const start = (page - 1) * perPage;
+            const slice = providers.slice(start, start + perPage);
+
+            if (!slice.length) {
+                grid.innerHTML = '<p style="color:#b3b3b3;grid-column:1/-1">No more TV shows available.</p>';
                 showLoading(false);
                 return;
             }
-            
-            // Fetch TV shows from selected providers
-            const fetchPromises = providersToFetch.map(async (provider) => {
+
+            const results = await Promise.all(slice.map(async (provider) => {
                 try {
-                    // Get catalog to find TV show sections
                     const catalogData = await fetchCatalog(provider.value);
-                    
-                    // Find TV show-related sections
                     let tvFilter = '';
-                    if (catalogData.catalog && Array.isArray(catalogData.catalog)) {
-                        const tvSection = catalogData.catalog.find(item => {
-                            const title = item.title.toLowerCase();
-                            return title.includes('tv') || title.includes('show') || 
-                                   title.includes('series') || title.includes('web series');
+                    if (catalogData.catalog?.length) {
+                        const tv = catalogData.catalog.find(item => {
+                            const t = item.title.toLowerCase();
+                            return t.includes('tv') || t.includes('show') || t.includes('series');
                         });
-                        if (tvSection) {
-                            tvFilter = tvSection.filter;
-                        } else {
-                            // If no specific TV section, try second catalog item
-                            tvFilter = catalogData.catalog[1]?.filter || catalogData.catalog[0]?.filter || '';
-                        }
+                        tvFilter = tv?.filter || catalogData.catalog[1]?.filter || catalogData.catalog[0]?.filter || '';
                     }
-                    
                     const data = await fetchPosts(provider.value, tvFilter, 1);
                     const posts = Array.isArray(data) ? data : (data.posts || []);
                     const tvPosts = posts.filter(post => {
@@ -93,79 +140,46 @@ const TVShowsModule = {
                         if (link.includes('/meta/movie/')) return false;
                         return true;
                     });
-                    
-                    // Take first 12 posts from each provider
                     return {
                         posts: tvPosts.slice(0, 12).map(post => ({
-                            ...post, 
-                            media_type: 'tv',
-                            provider: provider.value,
-                            displayName: provider.display_name
+                            ...post, media_type: 'tv', provider: provider.value, displayName: provider.display_name
                         })),
                         provider: provider.value
                     };
-                } catch (error) {
-                    console.warn(`Failed to fetch TV shows from ${provider.value}:`, error);
-                    return { posts: [], provider: provider.value };
-                }
-            });
-            
-            const results = await Promise.all(fetchPromises);
-            
-            // Combine all posts
-            let newShows = [];
-            results.forEach(result => {
-                if (result.posts && result.posts.length > 0) {
-                    newShows = newShows.concat(result.posts);
-                }
-            });
-            
-            // Shuffle for variety
+                } catch { return { posts: [], provider: provider.value }; }
+            }));
+
+            let newShows = results.flatMap(r => r.posts);
             shuffleArray(newShows);
-            
-            // Append or replace posts
-            if (append) {
-                this.state.loadedShows = this.state.loadedShows.concat(newShows);
+
+            this.state.loadedShows = append
+                ? this.state.loadedShows.concat(newShows)
+                : newShows;
+
+            grid.innerHTML = '';
+            if (!this.state.loadedShows.length) {
+                grid.innerHTML = '<p style="color:#b3b3b3;grid-column:1/-1">No TV shows available.</p>';
             } else {
-                this.state.loadedShows = newShows;
+                this.state.loadedShows.forEach(post => grid.appendChild(renderPostCard(post, post.provider)));
             }
-            
-            // Render posts
-            container.innerHTML = '';
-            if (this.state.loadedShows.length === 0) {
-                container.innerHTML = '<p style="color: #b3b3b3; grid-column: 1 / -1;">No TV shows available.</p>';
-            } else {
-                this.state.loadedShows.forEach(post => {
-                    container.appendChild(renderPostCard(post, post.provider));
-                });
+
+            if (pagination) {
+                const hasMore = (start + perPage) < providers.length;
+                pagination.innerHTML = hasMore
+                    ? '<button class="load-more-btn" onclick="TVShowsModule.loadMoreTVShows()">&#8615; Load More TV Shows</button>'
+                    : '<p style="color:#b3b3b3;text-align:center">All shows loaded</p>';
             }
-            
-            // Render load more button
-            const hasMore = endIndex < providers.length;
-            if (hasMore) {
-                paginationContainer.innerHTML = `
-                    <button class="load-more-btn" onclick="TVShowsModule.loadMoreTVShows()">
-                        📥 Load More TV Shows
-                    </button>
-                `;
-            } else {
-                paginationContainer.innerHTML = '<p style="color: #b3b3b3; text-align: center;">No more TV shows available</p>';
-            }
-            
-        } catch (error) {
-            console.error('Failed to load TV shows:', error);
-            container.innerHTML = '<p style="color: #e50914; grid-column: 1 / -1;">Failed to load TV shows.</p>';
+        } catch (err) {
+            console.error('[TVShows] load error:', err);
+            grid.innerHTML = '<p style="color:#e50914;grid-column:1/-1">Failed to load TV shows.</p>';
         } finally {
             showLoading(false);
         }
     },
-    
-    // Load more TV shows
+
     async loadMoreTVShows() {
-        const nextPage = this.state.currentPage + 1;
-        await this.loadTVShows(nextPage, true);
+        await this.loadProviderTVShows(document.getElementById('tvShowsContent'), this.state.currentPage + 1, true);
     }
 };
 
-// Make TVShowsModule globally accessible
 window.TVShowsModule = TVShowsModule;

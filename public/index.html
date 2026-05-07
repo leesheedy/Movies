@@ -449,23 +449,35 @@
                     </div>
                     <div id="tmdbIframeContainer" class="tmdb-iframe-container nf-iframe-wrap"></div>
                     <div id="tmdbTvControls" class="tmdb-tv-controls nf-tv-controls" hidden>
-                        <div class="tmdb-tv-header nf-tv-header">
-                            <h2 id="tmdbTvTitle" class="nf-tv-title">TV Show</h2>
-                            <p id="tmdbTvEpisodeMeta" class="tmdb-tv-episode-meta nf-episode-meta"></p>
-                        </div>
-                        <div class="tmdb-tv-selects nf-tv-selects">
-                            <label class="nf-select-label">
-                                Season
-                                <select id="tmdbSeasonSelect" class="nf-select"></select>
-                            </label>
-                            <label class="nf-select-label">
-                                Episode
-                                <select id="tmdbEpisodeSelect" class="nf-select"></select>
-                            </label>
-                        </div>
-                        <div class="tmdb-tv-actions nf-episode-nav">
-                            <button id="tmdbPrevEpisode" class="tmdb-episode-btn nf-btn nf-btn--outline" type="button">‹ Prev</button>
-                            <button id="tmdbNextEpisode" class="tmdb-episode-btn nf-btn nf-btn--outline" type="button">Next ›</button>
+                        <div class="nf-tv-controls-inner">
+                            <div class="tmdb-tv-header nf-tv-header">
+                                <h2 id="tmdbTvTitle" class="nf-tv-title">TV Show</h2>
+                                <p id="tmdbTvEpisodeMeta" class="tmdb-tv-episode-meta nf-episode-meta"></p>
+                            </div>
+                            <div class="nf-tv-controls-row">
+                                <div class="tmdb-tv-selects nf-tv-selects">
+                                    <label class="nf-select-label">
+                                        <span class="nf-select-label-text">Season</span>
+                                        <select id="tmdbSeasonSelect" class="nf-select nf-select--tv"></select>
+                                    </label>
+                                    <label class="nf-select-label">
+                                        <span class="nf-select-label-text">Episode</span>
+                                        <select id="tmdbEpisodeSelect" class="nf-select nf-select--tv"></select>
+                                    </label>
+                                </div>
+                                <div class="tmdb-tv-actions nf-episode-nav">
+                                    <button id="tmdbPrevEpisode" class="tmdb-episode-btn nf-btn nf-btn--tv-nav" type="button">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+                                        <span>Prev</span>
+                                    </button>
+                                    <button id="tmdbNextEpisode" class="tmdb-episode-btn nf-btn nf-btn--tv-nav nf-btn--tv-next" type="button">
+                                        <span>Next</span>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 18l8.5-6L6 6v12zm2.5-6 5.5 3.9V8.1zM16 6h2v12h-2z"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="tvEpisodeGrid" class="nf-episode-grid-tv"></div>
+                            <p class="nf-tv-keyboard-hint">&#8592;&#8594; arrow keys &bull; Remote: OK to play, Back to exit</p>
                         </div>
                     </div>
                 </div>
@@ -506,14 +518,29 @@
 
         <!-- ── TV SHOWS VIEW ── -->
         <div id="tvShowsView" class="view" style="display:none;">
-            <div class="nf-view-header">
-                <button id="tvShowsBackBtn" class="nf-back-btn" type="button">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
-                    Back
-                </button>
-                <h1 class="nf-view-title">TV Shows</h1>
+            <div class="nf-tv-hero-bar">
+                <div class="nf-tv-hero-top">
+                    <button id="tvShowsBackBtn" class="nf-back-btn" type="button">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                        Back
+                    </button>
+                    <h1 class="nf-view-title">&#128250; TV Shows</h1>
+                </div>
+                <div id="tvGenrePills" class="nf-tv-genre-pills">
+                    <button class="nf-tv-genre-pill active" data-genre="all">All</button>
+                    <button class="nf-tv-genre-pill" data-genre="trending">Trending</button>
+                    <button class="nf-tv-genre-pill" data-genre="drama">Drama</button>
+                    <button class="nf-tv-genre-pill" data-genre="comedy">Comedy</button>
+                    <button class="nf-tv-genre-pill" data-genre="action">Action &amp; Adventure</button>
+                    <button class="nf-tv-genre-pill" data-genre="scifi">Sci-Fi &amp; Fantasy</button>
+                    <button class="nf-tv-genre-pill" data-genre="crime">Crime</button>
+                    <button class="nf-tv-genre-pill" data-genre="reality">Reality</button>
+                    <button class="nf-tv-genre-pill" data-genre="animation">Animation</button>
+                    <button class="nf-tv-genre-pill" data-genre="family">Kids &amp; Family</button>
+                    <button class="nf-tv-genre-pill" data-genre="documentary">Documentary</button>
+                </div>
             </div>
-            <div id="tvShowsContent" class="nf-view-body"></div>
+            <div id="tvShowsContent" class="nf-view-body nf-tv-body"></div>
         </div>
 
         <!-- ── MY LIST / HISTORY VIEW ── -->
@@ -530,6 +557,28 @@
     </main>
 
     <!-- Mobile bottom nav removed -->
+</div>
+
+<!-- ═══════════════════════════════ AD BLOCKER PROMPT ═══════════════════════════════ -->
+<div id="adblockPrompt" class="nf-adblock-banner" hidden>
+    <div class="nf-adblock-inner">
+        <div class="nf-adblock-icon">&#128737;&#65039;</div>
+        <div class="nf-adblock-text">
+            <strong>Get an ad-free experience</strong>
+            <span>No ad blocker detected. Install <a href="https://ublockorigin.com" target="_blank" rel="noopener" class="nf-adblock-link">uBlock Origin</a> — free, open source, and blocks ads &amp; popups automatically.</span>
+        </div>
+        <div class="nf-adblock-actions">
+            <a href="https://ublockorigin.com" target="_blank" rel="noopener" class="nf-btn nf-adblock-install-btn">Get uBlock Origin (Free)</a>
+            <button onclick="dismissAdblockPrompt()" class="nf-adblock-dismiss-btn" type="button">Not Now</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════ AD POPUP WARNING ═══════════════════════════════ -->
+<div id="adPopupBanner" class="nf-adpopup-banner" hidden>
+    <span class="nf-adpopup-icon">&#9888;&#65039;</span>
+    <span class="nf-adpopup-text">Ad popup blocked. <a href="https://ublockorigin.com" target="_blank" rel="noopener" class="nf-adblock-link">Install uBlock Origin</a> to stop these automatically.</span>
+    <button id="adPopupDismiss" class="nf-adpopup-close" type="button" aria-label="Dismiss">&times;</button>
 </div>
 
 <!-- ═══════════════════════════════ TOAST ═══════════════════════════════ -->

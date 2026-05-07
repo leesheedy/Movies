@@ -552,7 +552,47 @@ async function maybeShowAdblockPrompt() {
     const blocked = await detectAdBlocker();
     if (blocked) return;
     sessionStorage.setItem(ADBLOCK_PROMPT_SESSION_KEY, '1');
-    prompt.hidden = false;
+    // Show after 3 seconds so it doesn't interrupt initial load
+    setTimeout(() => { prompt.hidden = false; }, 3000);
+}
+
+function showAdPopupBanner() {
+    const banner = document.getElementById('adPopupBanner');
+    if (!banner) return;
+    banner.hidden = false;
+    const dismiss = document.getElementById('adPopupDismiss');
+    if (dismiss) dismiss.onclick = () => { banner.hidden = true; };
+    // Auto-hide after 8 seconds
+    setTimeout(() => { banner.hidden = true; }, 8000);
+}
+
+function installPopupBlocker() {
+    const originalOpen = window.open.bind(window);
+    window.open = function(url, target, features) {
+        if (!url) return null;
+        try {
+            const hostname = new URL(String(url), window.location.href).hostname.toLowerCase();
+            if (isAdHost(hostname)) { showAdPopupBanner(); return null; }
+        } catch (_) {}
+        // Only allow window.open when user has recently interacted
+        if (consumeExternalNavigationAllowance()) {
+            return originalOpen(url, target, features);
+        }
+        showAdPopupBanner();
+        return null;
+    };
+
+    // Block navigation-based ad redirects inside iframes via postMessage interception
+    window.addEventListener('message', (e) => {
+        const data = e?.data;
+        if (!data || typeof data !== 'object') return;
+        const redirect = data.redirect || data.url || data.href || '';
+        if (!redirect) return;
+        try {
+            const hostname = new URL(String(redirect), window.location.href).hostname.toLowerCase();
+            if (isAdHost(hostname)) { showAdPopupBanner(); }
+        } catch (_) {}
+    });
 }
 
 function buildCleanEmbedUrl(sourceUrl) {
@@ -1820,6 +1860,45 @@ function populateTmdbEpisodeSelect() {
     if (tmdbTvState.episodeNumber != null) {
         episodeSelect.value = String(tmdbTvState.episodeNumber);
     }
+
+    populateTmdbEpisodeGrid();
+}
+
+function populateTmdbEpisodeGrid() {
+    const grid = document.getElementById('tvEpisodeGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    if (!tmdbTvState.episodes.length) return;
+
+    tmdbTvState.episodes.forEach(episode => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'nf-ep-card';
+        if (episode.episode_number === tmdbTvState.episodeNumber) btn.classList.add('is-playing');
+        btn.dataset.ep = String(episode.episode_number);
+
+        const airDate = episode.air_date ? episode.air_date.slice(0, 7) : '';
+        btn.innerHTML = `
+            <span class="nf-ep-num">E${episode.episode_number}</span>
+            <span class="nf-ep-info">
+                <span class="nf-ep-title">${episode.name || 'Episode ' + episode.episode_number}</span>
+                ${airDate ? `<span class="nf-ep-airdate">${airDate}</span>` : ''}
+            </span>`;
+
+        btn.addEventListener('click', () => {
+            tmdbTvState.episodeNumber = episode.episode_number;
+            playTmdbEpisode();
+            // Update active state without full re-render
+            grid.querySelectorAll('.nf-ep-card').forEach(c => c.classList.remove('is-playing'));
+            btn.classList.add('is-playing');
+            btn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+        grid.appendChild(btn);
+    });
+
+    // Scroll to current episode
+    const active = grid.querySelector('.nf-ep-card.is-playing');
+    if (active) requestAnimationFrame(() => active.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
 }
 
 function playTmdbEpisode() {
@@ -4661,6 +4740,7 @@ async function init() {
 
     applySeasonalTheme();
     initAdBlocker();
+    installPopupBlocker();
     loadTmdbImdbCache();
     initProfileGate();
     initBackNavigationHandlers();

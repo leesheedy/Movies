@@ -2697,3 +2697,297 @@ ul { list-style: none; }
   .netflix-card { flex: 0 0 calc(50% - 3px); min-width: 120px; }
   .nf-billboard-title { font-size: .92rem; }
 }
+
+/* ============================================================
+   TV SHOWS PAGE — HERO BAR + GENRE PILLS
+   ============================================================ */
+.nf-tv-hero-bar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: linear-gradient(180deg, #141414 80%, transparent 100%);
+  padding: 16px 4% 12px;
+  backdrop-filter: blur(8px);
+}
+.nf-tv-hero-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.nf-tv-hero-top .nf-view-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  margin: 0;
+}
+.nf-tv-genre-pills {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.nf-tv-genre-pill {
+  background: rgba(255,255,255,.1);
+  border: 2px solid rgba(255,255,255,.18);
+  color: #fff;
+  border-radius: 24px;
+  padding: 8px 18px;
+  font-size: .9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .18s, border-color .18s, transform .12s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.nf-tv-genre-pill:hover {
+  background: rgba(255,255,255,.2);
+  border-color: rgba(255,255,255,.4);
+}
+.nf-tv-genre-pill.active {
+  background: var(--nf-red);
+  border-color: var(--nf-red);
+  color: #fff;
+}
+.nf-tv-genre-pill:focus {
+  outline: 3px solid var(--nf-red);
+  outline-offset: 2px;
+}
+.nf-tv-body {
+  padding-top: 8px;
+}
+
+/* ============================================================
+   TV PLAYER — IMPROVED CONTROLS
+   ============================================================ */
+.nf-tv-controls,
+.tmdb-tv-controls {
+  padding: 0;
+  background: rgba(0,0,0,.92);
+  backdrop-filter: blur(16px);
+}
+.nf-tv-controls-inner {
+  padding: 22px 32px 28px;
+}
+.nf-tv-header { margin-bottom: 20px; }
+.nf-tv-title { font-size: 1.6rem; font-weight: 800; }
+.nf-episode-meta { color: var(--nf-gray-lt); font-size: 1rem; margin-top: 6px; }
+.nf-tv-controls-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.nf-tv-selects { display: flex; gap: 20px; flex-wrap: wrap; }
+.nf-select-label {
+  font-size: .88rem;
+  color: var(--nf-gray-lt);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.nf-select-label-text { font-size: .78rem; }
+.nf-select {
+  background: #1e1e1e;
+  color: var(--nf-white);
+  border: 2px solid rgba(255,255,255,.22);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 1rem;
+  min-width: 200px;
+  cursor: pointer;
+  appearance: auto;
+}
+.nf-select--tv {
+  padding: 14px 18px;
+  font-size: 1.1rem;
+  min-width: 240px;
+  border-radius: 10px;
+  border-width: 2px;
+}
+.nf-select:focus,
+.nf-select--tv:focus {
+  outline: 3px solid var(--nf-red);
+  outline-offset: 2px;
+  border-color: var(--nf-red);
+}
+.nf-episode-nav { display: flex; gap: 14px; margin-top: 0; flex-wrap: wrap; align-items: flex-end; }
+.nf-btn--tv-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  border-radius: 10px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  min-width: 120px;
+  background: rgba(255,255,255,.1);
+  border: 2px solid rgba(255,255,255,.22);
+  color: #fff;
+  cursor: pointer;
+  transition: background .18s, border-color .18s;
+  font-family: inherit;
+}
+.nf-btn--tv-nav:hover { background: rgba(255,255,255,.2); border-color: rgba(255,255,255,.4); }
+.nf-btn--tv-nav:focus { outline: 3px solid var(--nf-red); outline-offset: 2px; }
+.nf-btn--tv-nav:disabled { opacity: .35; cursor: not-allowed; }
+.nf-btn--tv-next { flex-direction: row-reverse; }
+
+/* Episode grid under TV controls */
+.nf-episode-grid-tv {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 22px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.2) transparent;
+}
+.nf-episode-grid-tv:empty { display: none; }
+.nf-ep-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255,255,255,.06);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background .18s, border-color .18s;
+  text-align: left;
+  font-family: inherit;
+  color: #fff;
+}
+.nf-ep-card:hover { background: rgba(255,255,255,.14); }
+.nf-ep-card.is-playing { border-color: var(--nf-red); background: rgba(229,9,20,.12); }
+.nf-ep-card:focus { outline: 3px solid var(--nf-red); outline-offset: 2px; }
+.nf-ep-num { font-size: .75rem; font-weight: 700; color: var(--nf-gray-lt); min-width: 28px; }
+.nf-ep-info { flex: 1; min-width: 0; }
+.nf-ep-title { font-size: .88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nf-ep-airdate { font-size: .72rem; color: var(--nf-gray-lt); margin-top: 2px; }
+
+/* TV keyboard hint */
+.nf-tv-keyboard-hint {
+  color: rgba(255,255,255,.35);
+  font-size: .75rem;
+  margin-top: 14px;
+  text-align: center;
+}
+
+/* ============================================================
+   AD BLOCKER BANNER
+   ============================================================ */
+.nf-adblock-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  border-top: 2px solid rgba(229,9,20,.6);
+  padding: 16px 24px;
+  animation: slideUpBanner .35s ease;
+}
+@keyframes slideUpBanner {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.nf-adblock-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.nf-adblock-icon { font-size: 1.8rem; flex-shrink: 0; }
+.nf-adblock-text {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.nf-adblock-text strong { font-size: 1rem; color: #fff; }
+.nf-adblock-text span { font-size: .88rem; color: rgba(255,255,255,.7); }
+.nf-adblock-link { color: var(--nf-red); text-decoration: underline; }
+.nf-adblock-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.nf-adblock-install-btn {
+  background: var(--nf-red);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: .9rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  font-family: inherit;
+  transition: background .18s;
+}
+.nf-adblock-install-btn:hover { background: #c40812; }
+.nf-adblock-dismiss-btn {
+  background: transparent;
+  color: rgba(255,255,255,.55);
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 6px;
+  padding: 10px 16px;
+  font-size: .9rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color .18s, border-color .18s;
+}
+.nf-adblock-dismiss-btn:hover { color: #fff; border-color: rgba(255,255,255,.5); }
+
+/* Ad popup flash banner */
+.nf-adpopup-banner {
+  position: fixed;
+  top: 72px;
+  right: 16px;
+  z-index: 1100;
+  background: rgba(30,10,10,.97);
+  border: 1px solid rgba(229,9,20,.5);
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 380px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.6);
+  animation: slideInRight .28s ease;
+}
+@keyframes slideInRight {
+  from { transform: translateX(120%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.nf-adpopup-icon { font-size: 1.1rem; flex-shrink: 0; }
+.nf-adpopup-text { font-size: .83rem; color: rgba(255,255,255,.85); flex: 1; }
+.nf-adpopup-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,.5);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.nf-adpopup-close:hover { color: #fff; }
+
+@media (max-width: 600px) {
+  .nf-adblock-inner { flex-direction: column; align-items: flex-start; }
+  .nf-tv-genre-pills { gap: 8px; }
+  .nf-tv-genre-pill { padding: 7px 14px; font-size: .82rem; }
+  .nf-select--tv { min-width: 160px; }
+  .nf-episode-grid-tv { grid-template-columns: 1fr 1fr; }
+  .nf-tv-controls-inner { padding: 16px 16px 20px; }
+  .nf-btn--tv-nav { padding: 12px 18px; }
+}
