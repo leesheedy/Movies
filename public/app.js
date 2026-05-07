@@ -64,6 +64,10 @@ const profiles = [
 const profileSettings = loadProfileSettings();
 let activeProfileId = null;
 
+function escHtml(str) {
+    return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function loadProfileSettings() {
     try {
         const raw = localStorage.getItem(PROFILE_SETTINGS_KEY);
@@ -948,7 +952,7 @@ function showToast(message, type = 'info', duration = 1000) {
     `;
     
     const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
-    toast.innerHTML = `<span style="font-size: 18px;">${icon}</span><span style="flex: 1;">${message}</span>`;
+    toast.innerHTML = `<span style="font-size: 18px;">${icon}</span><span style="flex: 1;">${escHtml(message)}</span>`;
     
     toastContainer.appendChild(toast);
     
@@ -1113,7 +1117,7 @@ function renderTmdbIframe(embedUrl) {
     }
 
     const iframe = document.createElement('iframe');
-    iframe.setAttribute('allow', 'autoplay; fullscreen; clipboard-read; clipboard-write; encrypted-media; picture-in-picture; web-share; accelerometer; gyroscope; storage-access');
+    iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.setAttribute('loading', 'lazy');
 
@@ -1176,8 +1180,8 @@ function renderTmdbIframe(embedUrl) {
         updateNextBtn();
         if (tmdbMessage) tmdbMessage.textContent = `Loading source ${index + 1} of ${sources.length}…`;
         if (fallbackTimeout) clearTimeout(fallbackTimeout);
-        // No load event within 6s → auto-advance (server not responding at all)
-        fallbackTimeout = setTimeout(handleFailure, 6000);
+        // No load event within 4s → auto-advance (server not responding at all)
+        fallbackTimeout = setTimeout(handleFailure, 4000);
     };
 
     iframe.addEventListener('load', () => {
@@ -1747,18 +1751,18 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId, tmdbId }) {
         tmdbContainer.style.display = 'block';
     }
     const embedSources = [
-        tmdbId ? buildVidlinkMovieUrl(tmdbId)              : null,
         tmdbId ? buildVidsrcProMovieUrl(tmdbId)            : null,
-        tmdbId ? buildVidsrcIcuMovieUrl(tmdbId)            : null,
         tmdbId ? buildAutoEmbedMovieUrl(tmdbId)            : null,
-        tmdbId ? buildAutoEmbedCoMovieUrl(tmdbId)          : null,
-        tmdbId ? buildMultiEmbedMovieUrl(tmdbId)           : null,
-        imdbId ? buildVidsrcNetMovieEmbedUrl(imdbId)       : null,
-        imdbId ? buildVidsrcImdbMovieFallbackUrl(imdbId)   : null,
         tmdbId ? build2EmbedTmdbMovieFallbackUrl(tmdbId)   : null,
         imdbId ? build2EmbedImdbMovieFallbackUrl(imdbId)   : null,
+        tmdbId ? buildVidsrcIcuMovieUrl(tmdbId)            : null,
+        tmdbId ? buildAutoEmbedCoMovieUrl(tmdbId)          : null,
+        imdbId ? buildVidsrcNetMovieEmbedUrl(imdbId)       : null,
+        imdbId ? buildVidsrcImdbMovieFallbackUrl(imdbId)   : null,
+        tmdbId ? buildMultiEmbedMovieUrl(tmdbId)           : null,
         tmdbId ? buildVidplusMovieEmbedUrl(tmdbId)         : null,
         tmdbId ? buildVidsrcMovieFallbackUrl(tmdbId)        : null,
+        tmdbId ? buildVidlinkMovieUrl(tmdbId)              : null,
     ].filter(Boolean);
 
     if (tmdbMessage && embedSources.length === 0) {
@@ -1906,15 +1910,15 @@ function playTmdbEpisode() {
         return;
     }
     const embedSources = [
-        buildVidlinkTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         buildVidsrcProTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
-        buildVidsrcIcuTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         buildAutoEmbedTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
-        buildAutoEmbedCoTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
-        buildMultiEmbedTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
-        buildVidsrcMeTvEmbedUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         build2EmbedTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
+        buildVidsrcIcuTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
+        buildAutoEmbedCoTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
+        buildVidsrcMeTvEmbedUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
+        buildMultiEmbedTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         buildVidplusTvEmbedUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
+        buildVidlinkTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
     ];
     renderTmdbIframe(embedSources);
     updateTmdbTvMeta();
@@ -3141,10 +3145,10 @@ function renderPostCard(post, provider, options = {}) {
         : displayProvider;
     
     card.innerHTML = `
-        <img src="${postImage}" alt="${postTitle}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
+        <img src="${escHtml(postImage)}" alt="${escHtml(postTitle)}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E'" />
         <div class="post-card-content">
-            <h3>${postTitle}</h3>
-            <span class="provider-badge">${providerLabel}</span>
+            <h3>${escHtml(postTitle)}</h3>
+            <span class="provider-badge">${escHtml(providerLabel)}</span>
         </div>
     `;
     
@@ -3293,10 +3297,13 @@ async function renderCatalogSection(provider, catalogItem, page = 1) {
         section.className = 'catalog-section';
         section.innerHTML = `
             <div class="section-header">
-                <h2>${catalogItem.title}</h2>
-                <button class="view-all-btn" onclick="loadFullCatalog('${provider}', '${catalogItem.filter}', '${catalogItem.title}')">View All</button>
+                <h2>${escHtml(catalogItem.title)}</h2>
+                <button class="view-all-btn">View All</button>
             </div>
         `;
+        section.querySelector('.view-all-btn').addEventListener('click', () => {
+            loadFullCatalog(provider, catalogItem.filter, catalogItem.title);
+        });
         
         const grid = document.createElement('div');
         grid.className = 'posts-grid';
@@ -5489,13 +5496,16 @@ async function renderHeroBanner(provider, catalogData) {
             // Add content immediately
             heroBanner.innerHTML = `
                 <div class="hero-content">
-                    <h1 class="hero-title">${featuredTitle}</h1>
+                    <h1 class="hero-title">${escHtml(featuredTitle)}</h1>
                     <div class="hero-buttons">
-                        <button class="hero-btn hero-btn-play" onclick="openPlaybackTab('${provider}', '${featuredPost.link.replace(/'/g, "\\'")}')">▶ Play</button>
-                        <button class="hero-btn hero-btn-info" onclick="openPlaybackTab('${provider}', '${featuredPost.link.replace(/'/g, "\\'")}')">ℹ More Info</button>
+                        <button class="hero-btn hero-btn-play js-hero-play">&#9654; Play</button>
+                        <button class="hero-btn hero-btn-info js-hero-play">&#9432; More Info</button>
                     </div>
                 </div>
             `;
+            heroBanner.querySelectorAll('.js-hero-play').forEach(btn => {
+                btn.addEventListener('click', () => openPlaybackTab(provider, featuredPost.link));
+            });
             
             container.appendChild(heroBanner);
             prefetchMetaForPosts(provider, [featuredPost], 1);

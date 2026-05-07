@@ -1,4 +1,8 @@
 // TMDB Content Module - Fetches trending and popular content from TMDB
+function _escHtml(str) {
+    return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 const TMDBContentModule = {
     BASE_URL: 'https://api.themoviedb.org/3',
     IMAGE_BASE: 'https://image.tmdb.org/t/p',
@@ -309,9 +313,12 @@ const TMDBContentModule = {
         const header = document.createElement('div');
         header.className = 'netflix-section-header';
         header.innerHTML = `
-            <h3 class="netflix-section-title">${title}</h3>
-            <button class="netflix-view-all" onclick="TMDBContentModule.showFullTMDBSection('${title}', '${type}', '${endpoint}', '${region}')">View All ›</button>
+            <h3 class="netflix-section-title">${_escHtml(title)}</h3>
+            <button class="netflix-view-all">View All ›</button>
         `;
+        header.querySelector('.netflix-view-all').addEventListener('click', () => {
+            TMDBContentModule.showFullTMDBSection(title, type, endpoint, region);
+        });
         section.appendChild(header);
 
         const scrollContainer = document.createElement('div');
@@ -438,8 +445,8 @@ const TMDBContentModule = {
             modal.innerHTML = `
                 <div class="history-modal-content" style="max-width: 1400px;">
                     <div class="history-modal-header">
-                        <h2>"${title}" - Not Found</h2>
-                        <button onclick="TMDBContentModule.closeSearchModal()" class="history-close-btn">✕</button>
+                        <h2>${_escHtml(title)} - Not Found</h2>
+                        <button class="history-close-btn js-modal-close">✕</button>
                     </div>
                     <div class="history-modal-body">
                         <p style="color: var(--text-muted); text-align: center; padding: 40px;">
@@ -454,19 +461,19 @@ const TMDBContentModule = {
             modal.innerHTML = `
                 <div class="history-modal-content" style="max-width: 1400px;">
                     <div class="history-modal-header">
-                        <h2>"${title}" - Found in ${results.length} Provider(s)</h2>
-                        <button onclick="TMDBContentModule.closeSearchModal()" class="history-close-btn">✕</button>
+                        <h2>${_escHtml(title)} - Found in ${results.length} Provider(s)</h2>
+                        <button class="history-close-btn js-modal-close">✕</button>
                     </div>
                     <div class="history-modal-body">
                         ${results.map(result => `
                             <div class="tmdb-provider-section">
-                                <h3 class="tmdb-provider-name">📦 ${result.displayName}</h3>
+                                <h3 class="tmdb-provider-name">📦 ${_escHtml(result.displayName)}</h3>
                                 <div class="tmdb-results-grid">
                                     ${result.posts.map(post => `
-                                        <div class="tmdb-result-card" onclick="TMDBContentModule.closeSearchModal(); openPlaybackTab('${result.provider}', '${post.link}')">
-                                            <img src="${post.image}" alt="${post.title}" />
+                                        <div class="tmdb-result-card" data-provider="${_escHtml(result.provider)}" data-link="${_escHtml(post.link)}">
+                                            <img src="${_escHtml(post.image)}" alt="${_escHtml(post.title)}" />
                                             <div class="tmdb-result-info">
-                                                <h4>${post.title}</h4>
+                                                <h4>${_escHtml(post.title)}</h4>
                                             </div>
                                         </div>
                                     `).join('')}
@@ -478,7 +485,19 @@ const TMDBContentModule = {
                 </div>
             `;
         }
-        
+
+        modal.querySelector('.js-modal-close')?.addEventListener('click', () => TMDBContentModule.closeSearchModal());
+        modal.querySelectorAll('.tmdb-result-card').forEach(card => {
+            card.addEventListener('click', () => {
+                TMDBContentModule.closeSearchModal();
+                if (typeof openPlaybackTab === 'function') openPlaybackTab(card.dataset.provider, card.dataset.link);
+            });
+        });
+        modal.querySelectorAll('.tmdb-similar-card[data-item-id]').forEach(card => {
+            const cached = TMDBContentModule._detailsCache?.[card.dataset.itemId];
+            if (cached) card.addEventListener('click', () => TMDBContentModule.showTMDBDetails(cached.item, cached.type, false));
+        });
+
         document.body.appendChild(modal);
     },
     
@@ -489,64 +508,49 @@ const TMDBContentModule = {
     
     // Render Similar and Recommended sections
     renderSimilarAndRecommended(similarContent, recommendedContent, type) {
+        if (!TMDBContentModule._detailsCache) TMDBContentModule._detailsCache = {};
         let html = '';
-        
-        // Recommended section
+
+        const buildCard = (item) => {
+            const itemTitle = item.title || item.name;
+            const rating = item.vote_average ? item.vote_average.toFixed(1) : 'N/A';
+            const posterUrl = item.poster_path
+                ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
+                : 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E';
+            if (item.id != null) TMDBContentModule._detailsCache[item.id] = { item, type };
+            return `
+                <div class="tmdb-similar-card" data-item-id="${_escHtml(String(item.id ?? ''))}">
+                    <img src="${posterUrl}" alt="${_escHtml(itemTitle)}" />
+                    <div class="tmdb-similar-info">
+                        <h4>${_escHtml(itemTitle)}</h4>
+                        <span class="tmdb-rating">⭐ ${rating}</span>
+                    </div>
+                </div>
+            `;
+        };
+
         if (recommendedContent.length > 0) {
             html += `
                 <div class="tmdb-similar-section">
                     <h3 class="tmdb-section-title">⭐ Recommended for You</h3>
                     <div class="tmdb-similar-grid">
-                        ${recommendedContent.slice(0, 12).map(item => {
-                            const itemTitle = item.title || item.name;
-                            const rating = item.vote_average ? item.vote_average.toFixed(1) : 'N/A';
-                            const posterUrl = item.poster_path 
-                                ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
-                                : 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E';
-                            
-                            return `
-                                <div class="tmdb-similar-card" onclick='TMDBContentModule.showTMDBDetails(${JSON.stringify(item).replace(/'/g, "&apos;")}, "${type}", false)'>
-                                    <img src="${posterUrl}" alt="${itemTitle}" />
-                                    <div class="tmdb-similar-info">
-                                        <h4>${itemTitle}</h4>
-                                        <span class="tmdb-rating">⭐ ${rating}</span>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
+                        ${recommendedContent.slice(0, 12).map(buildCard).join('')}
                     </div>
                 </div>
             `;
         }
-        
-        // Similar section
+
         if (similarContent.length > 0) {
             html += `
                 <div class="tmdb-similar-section">
                     <h3 class="tmdb-section-title">🎬 Similar ${type === 'movie' ? 'Movies' : 'TV Shows'}</h3>
                     <div class="tmdb-similar-grid">
-                        ${similarContent.slice(0, 12).map(item => {
-                            const itemTitle = item.title || item.name;
-                            const rating = item.vote_average ? item.vote_average.toFixed(1) : 'N/A';
-                            const posterUrl = item.poster_path 
-                                ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
-                                : 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22%3E%3Crect width=%22200%22 height=%22300%22 fill=%22%23333%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22%3ENo Image%3C/text%3E%3C/svg%3E';
-                            
-                            return `
-                                <div class="tmdb-similar-card" onclick='TMDBContentModule.showTMDBDetails(${JSON.stringify(item).replace(/'/g, "&apos;")}, "${type}", false)'>
-                                    <img src="${posterUrl}" alt="${itemTitle}" />
-                                    <div class="tmdb-similar-info">
-                                        <h4>${itemTitle}</h4>
-                                        <span class="tmdb-rating">⭐ ${rating}</span>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
+                        ${similarContent.slice(0, 12).map(buildCard).join('')}
                     </div>
                 </div>
             `;
         }
-        
+
         return html;
     },
     
