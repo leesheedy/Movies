@@ -1752,7 +1752,6 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId, tmdbId }) {
     }
     const embedSources = [
         tmdbId ? buildVidsrcProMovieUrl(tmdbId)            : null,
-        tmdbId ? buildAutoEmbedMovieUrl(tmdbId)            : null,
         tmdbId ? build2EmbedTmdbMovieFallbackUrl(tmdbId)   : null,
         imdbId ? build2EmbedImdbMovieFallbackUrl(imdbId)   : null,
         tmdbId ? buildVidsrcIcuMovieUrl(tmdbId)            : null,
@@ -1762,6 +1761,7 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId, tmdbId }) {
         tmdbId ? buildMultiEmbedMovieUrl(tmdbId)           : null,
         tmdbId ? buildVidplusMovieEmbedUrl(tmdbId)         : null,
         tmdbId ? buildVidsrcMovieFallbackUrl(tmdbId)        : null,
+        tmdbId ? buildAutoEmbedMovieUrl(tmdbId)            : null,
         tmdbId ? buildVidlinkMovieUrl(tmdbId)              : null,
     ].filter(Boolean);
 
@@ -1911,13 +1911,13 @@ function playTmdbEpisode() {
     }
     const embedSources = [
         buildVidsrcProTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
-        buildAutoEmbedTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         build2EmbedTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         buildVidsrcIcuTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         buildAutoEmbedCoTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         buildVidsrcMeTvEmbedUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         buildMultiEmbedTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         buildVidplusTvEmbedUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
+        buildAutoEmbedTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
         buildVidlinkTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
     ];
     renderTmdbIframe(embedSources);
