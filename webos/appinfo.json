@@ -1,0 +1,17 @@
+{
+  "id": "com.notflix.app",
+  "version": "1.0.0",
+  "vendor": "Notflix",
+  "type": "web",
+  "main": "index.html",
+  "title": "Notflix",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "iconColor": "#E50914",
+  "bgColor": "#141414",
+  "splashBackground": "splash.png",
+  "disableBackHistoryAPI": true,
+  "handlesRelaunch": true,
+  "supportTouchMode": "full",
+  "resolution": "1920x1080"
+}

@@ -3,3 +3,5 @@ build/
 *.log
 *.env
 release/
+webos-build/
+*.ipk

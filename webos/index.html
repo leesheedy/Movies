@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1920, height=1080, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Notflix</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; background: #141414; overflow: hidden; font-family: Arial, "Helvetica Neue", sans-serif; }
+    #splash { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 34px; }
+    #splash img { width: 44vw; max-width: 620px; }
+    .bar { width: 240px; height: 4px; border-radius: 4px; background: rgba(255,255,255,.15); overflow: hidden; }
+    .bar::after { content: ''; display: block; height: 100%; width: 40%; background: #E50914; border-radius: 4px; animation: load 1.4s ease-in-out infinite; }
+    @keyframes load { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
+    .err { position: fixed; bottom: 40px; left: 0; right: 0; text-align: center; color: #b3b3b3; font-size: 22px; display: none; }
+  </style>
+</head>
+<body>
+  <div id="splash">
+    <img src="splash-logo.png" alt="Notflix" />
+    <div class="bar"></div>
+  </div>
+  <p class="err" id="err">Couldn't reach Notflix. Check the TV's internet connection.</p>
+  <script>
+    (function () {
+      // The Notflix experience is served from the cloud; this LG app launches it
+      // in 10-foot TV mode (spatial D-pad nav + Magic Remote support).
+      var TARGET = 'https://mittamovies.netlify.app/?tv=1&webos=1';
+
+      function go() { try { window.location.replace(TARGET); } catch (e) { window.location.href = TARGET; } }
+
+      // Show a brief branded splash, then launch.
+      var t = setTimeout(go, 700);
+
+      // If we're offline, surface a friendly message instead of a blank screen.
+      if (navigator && navigator.onLine === false) {
+        clearTimeout(t);
+        document.getElementById('err').style.display = 'block';
+        window.addEventListener('online', go, { once: true });
+      }
+    })();
+  </script>
+</body>
+</html>

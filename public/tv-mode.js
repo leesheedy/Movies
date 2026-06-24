@@ -223,6 +223,28 @@
     // Re-focus the first element whenever the visible view changes.
     window.addEventListener('hashchange', () => tvOn && requestAnimationFrame(focusFirst));
 
+    /* ─── LG webOS: exit the app when Back is pressed at the home screen ── */
+    const IS_WEBOS = /web ?0?s|webos/i.test(navigator.userAgent) ||
+        new URLSearchParams(location.search).get('webos') === '1';
+    if (IS_WEBOS) {
+        document.addEventListener('keydown', (e) => {
+            // 461 = LG Magic Remote BACK. Also handle the named variants.
+            if (e.keyCode === 461 || e.key === 'GoBack' || e.key === 'BrowserBack') {
+                const view = window.state && window.state.currentView;
+                const atRoot = !view || view === 'home';
+                if (atRoot) {
+                    // Nothing to go back to in-app → leave the app cleanly.
+                    try {
+                        if (window.webOSSystem && window.webOSSystem.platformBack) window.webOSSystem.platformBack();
+                        else if (window.webOS && window.webOS.platformBack) window.webOS.platformBack();
+                        else window.close();
+                    } catch { try { window.close(); } catch {} }
+                }
+                // Otherwise let the app's own Back handler navigate within the SPA.
+            }
+        });
+    }
+
     /* ─── boot ────────────────────────────────────────────────────────── */
     function boot() { applyTvMode(detectTv(), false); }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
