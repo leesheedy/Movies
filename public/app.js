@@ -4560,6 +4560,13 @@ async function performSearch(queryOverride = '', options = {}) {
         }
 
         const combined = [...movieResults, ...tvResults]
+            // Hide unreleased titles — they have no streamable source yet.
+            .filter(r => {
+                const d = r.release_date || r.first_air_date;
+                if (!d) return true;
+                const t = Date.parse(d);
+                return Number.isNaN(t) || t <= Date.now();
+            })
             .map(result => ({
                 ...result,
                 score: scoreSearchResult(result.title, normalizedQuery)

@@ -45,6 +45,16 @@ const TMDBContentModule = {
         return window.TMDBConfig?.ensureApiKey?.() || '';
     },
 
+    // True only when a title has a known release date in the future — i.e. it
+    // isn't out yet, so no streaming provider can have it. Unknown dates → false
+    // (assume available) to avoid over-filtering.
+    _isUnreleased(item) {
+        const d = item && (item.release_date || item.first_air_date);
+        if (!d) return false;
+        const t = Date.parse(d);
+        return !Number.isNaN(t) && t > Date.now();
+    },
+
     normalizeMovie(item) {
         return {
             tmdb_id: item.id,
@@ -305,7 +315,9 @@ const TMDBContentModule = {
 
     // Render a TMDB section
     renderTMDBSection(title, items, type = 'movie', endpoint = '', region = '') {
-        if (!items || items.length === 0) return null;
+        // Hide unreleased titles — they have no streamable source yet.
+        items = (items || []).filter(it => !this._isUnreleased(it));
+        if (!items.length) return null;
 
         const section = document.createElement('div');
         section.className = 'netflix-section';

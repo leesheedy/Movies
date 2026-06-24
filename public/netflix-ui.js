@@ -82,7 +82,10 @@
       if (!window.TMDBContentModule) { billboardDone = false; return; }
       const movies = await window.TMDBContentModule.getTrendingMovies();
       if (!movies?.length) return;
-      const item = movies[Math.floor(Math.random() * Math.min(5, movies.length))];
+      // Only feature a released, playable title (never a "coming soon" film).
+      const released = movies.filter(m => !window.TMDBContentModule._isUnreleased?.(m));
+      const pool = released.length ? released : movies;
+      const item = pool[Math.floor(Math.random() * Math.min(5, pool.length))];
       renderBillboard(section, item);
     } catch (e) {
       console.warn('[Billboard]', e);
