@@ -3258,3 +3258,88 @@ html.tv-mode .nf-live-player-shell { width: min(1480px, 94vw); }
 
 /* Smooth scrolling feels right on a remote */
 html.tv-mode { scroll-behavior: smooth; }
+
+/* ============================================================
+   NETFLIX-STYLE HOVER PREVIEW (floating trailer card)
+   ============================================================ */
+.nf-hover-preview {
+  position: fixed;
+  z-index: 6000;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #181818;
+  box-shadow: 0 18px 50px rgba(0,0,0,.75), 0 4px 14px rgba(0,0,0,.5);
+  opacity: 0;
+  transform: scale(.86) translateY(6px);
+  transform-origin: center center;
+  transition: opacity .22s ease, transform .26s cubic-bezier(.2,.7,.2,1);
+  pointer-events: auto;
+  will-change: transform, opacity;
+}
+.nf-hover-preview.is-visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+.nf-hp-media {
+  position: relative;
+  aspect-ratio: 16/9;
+  background: #0c0c0c;
+  overflow: hidden;
+}
+.nf-hp-img,
+.nf-hp-trailer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 0;
+}
+.nf-hp-trailer {
+  opacity: 0;
+  transition: opacity .5s ease;
+  /* Slight zoom so YouTube chrome/letterboxing is cropped out */
+  transform: scale(1.35);
+  pointer-events: none;
+}
+.nf-hp-trailer.is-on { opacity: 1; }
+.nf-hp-shade {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 50%;
+  background: linear-gradient(to top, #181818 2%, rgba(24,24,24,.2) 60%, transparent);
+  pointer-events: none;
+}
+.nf-hp-body { padding: 12px 16px 16px; }
+.nf-hp-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+.nf-hp-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: .82rem; font-weight: 700; border-radius: 999px;
+  padding: 7px 16px; cursor: pointer; transition: transform .12s, background .15s, opacity .15s;
+  white-space: nowrap;
+}
+.nf-hp-btn:hover { transform: translateY(-1px); }
+.nf-hp-play { background: #fff; color: #111; }
+.nf-hp-play:hover { background: #e6e6e6; }
+.nf-hp-info { background: rgba(255,255,255,.18); color: #fff; border: 1px solid rgba(255,255,255,.35); }
+.nf-hp-info:hover { background: rgba(255,255,255,.28); }
+.nf-hp-meta {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: .78rem; color: var(--nf-gray-lt); margin-bottom: 6px;
+}
+.nf-hp-rating { color: #46d369; font-weight: 700; }
+.nf-hp-badge {
+  border: 1px solid rgba(255,255,255,.3); border-radius: 4px;
+  padding: 1px 6px; font-size: .68rem; letter-spacing: .03em; color: #ddd;
+}
+.nf-hp-title {
+  font-size: 1rem; font-weight: 700; color: #fff; line-height: 1.25;
+  margin: 0 0 6px;
+}
+.nf-hp-overview {
+  font-size: .8rem; line-height: 1.45; color: #cfcfcf;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+/* No floating preview on touch / 10-foot UI */
+@media (hover: none), (pointer: coarse) { .nf-hover-preview { display: none !important; } }
+html.tv-mode .nf-hover-preview { display: none !important; }

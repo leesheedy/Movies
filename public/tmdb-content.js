@@ -327,7 +327,7 @@ const TMDBContentModule = {
         const row = document.createElement('div');
         row.className = 'netflix-row';
 
-        items.slice(0, 20).forEach(item => {
+        items.slice(0, 40).forEach(item => {
             const card = document.createElement('div');
             card.className = 'netflix-card tmdb-card';
             
@@ -351,38 +351,17 @@ const TMDBContentModule = {
                 this.showTMDBDetails(item, type);
             });
 
+            // Netflix-style hover preview — a floating, animated card with a
+            // muted trailer. Disabled on touch / TV mode (see _hoverEnabled).
             let hoverTimer = null;
             card.addEventListener('mouseenter', () => {
-                hoverTimer = setTimeout(async () => {
-                    try {
-                        const apiKey = this.getApiKey();
-                        if (!apiKey || !card.matches(':hover')) return;
-                        const mediaType = type === 'tv' ? 'tv' : 'movie';
-                        const res = await fetch(`https://api.themoviedb.org/3/${mediaType}/${item.id}/videos?api_key=${apiKey}`);
-                        const data = await res.json();
-                        const trailer = (data.results || []).find(v => v.site === 'YouTube' && v.type === 'Trailer')
-                            || (data.results || []).find(v => v.site === 'YouTube');
-                        if (!trailer || !card.matches(':hover')) return;
-                        const existing = card.querySelector('.nf-card-trailer');
-                        if (existing) return;
-                        const img = card.querySelector('img');
-                        if (img) img.style.opacity = '0';
-                        const iframe = document.createElement('iframe');
-                        iframe.className = 'nf-card-trailer';
-                        iframe.src = `https://www.youtube-nocookie.com/embed/${trailer.key}?autoplay=1&mute=0&controls=0&loop=1&playlist=${trailer.key}&modestbranding=1&rel=0`;
-                        iframe.allow = 'autoplay; encrypted-media';
-                        iframe.setAttribute('allowfullscreen', '');
-                        card.insertBefore(iframe, card.querySelector('.netflix-card-overlay'));
-                    } catch (e) {}
-                }, 5000);
+                if (!this._hoverEnabled()) return;
+                clearTimeout(hoverTimer);
+                hoverTimer = setTimeout(() => this._showHoverPreview(card, item, type), 550);
             });
             card.addEventListener('mouseleave', () => {
                 clearTimeout(hoverTimer);
-                hoverTimer = null;
-                const iframe = card.querySelector('.nf-card-trailer');
-                if (iframe) iframe.remove();
-                const img = card.querySelector('img');
-                if (img) img.style.opacity = '';
+                this._hideHoverPreviewSoon();
             });
 
             row.appendChild(card);
@@ -392,6 +371,117 @@ const TMDBContentModule = {
         section.appendChild(scrollContainer);
 
         return section;
+    },
+
+    // ── Netflix-style floating hover preview ──────────────────────────────
+    _hoverEnabled() {
+        try {
+            if (window.isTvMode && window.isTvMode()) return false;
+            return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+        } catch { return false; }
+    },
+
+    _ensureHoverPreview() {
+        if (this._hoverEl) return this._hoverEl;
+        const el = document.createElement('div');
+        el.className = 'nf-hover-preview';
+        el.style.display = 'none';
+        el.addEventListener('mouseenter', () => clearTimeout(this._hoverHideT));
+        el.addEventListener('mouseleave', () => this._hideHoverPreviewSoon());
+        document.body.appendChild(el);
+        // Fixed-positioned → detach on scroll/resize, so just hide it.
+        window.addEventListener('scroll', () => this._hideHoverPreview(), true);
+        window.addEventListener('resize', () => this._hideHoverPreview());
+        this._hoverEl = el;
+        return el;
+    },
+
+    async _showHoverPreview(card, item, type) {
+        if (!this._hoverEnabled()) return;
+        const rect = card.getBoundingClientRect();
+        if (!rect.width) return;
+        const el = this._ensureHoverPreview();
+        clearTimeout(this._hoverHideT);
+        this._hoverItemId = item.id;
+
+        const title    = item.title || item.name || '';
+        const rating   = item.vote_average ? item.vote_average.toFixed(1) : '';
+        const year     = (item.release_date || item.first_air_date || '').slice(0, 4);
+        const overview = (item.overview || '').trim();
+        const shortOv  = overview.length > 150 ? overview.slice(0, 150).trim() + '…' : overview;
+        const backdrop = item.backdrop_path
+            ? this.getBackdropUrl(item.backdrop_path, 'w780')
+            : this.getPosterUrl(item.poster_path);
+
+        el.innerHTML = `
+            <div class="nf-hp-media">
+                <img class="nf-hp-img" src="${backdrop}" alt="" />
+                <div class="nf-hp-shade"></div>
+            </div>
+            <div class="nf-hp-body">
+                <div class="nf-hp-actions">
+                    <button class="nf-hp-btn nf-hp-play" type="button">▶ Play</button>
+                    <button class="nf-hp-btn nf-hp-info" type="button">ℹ More Info</button>
+                </div>
+                <div class="nf-hp-meta">
+                    ${rating ? `<span class="nf-hp-rating">★ ${rating}</span>` : ''}
+                    ${year ? `<span>${year}</span>` : ''}
+                    <span class="nf-hp-badge">${type === 'tv' ? 'TV' : 'Movie'}</span>
+                </div>
+                <h4 class="nf-hp-title">${_escHtml(title)}</h4>
+                ${shortOv ? `<p class="nf-hp-overview">${_escHtml(shortOv)}</p>` : ''}
+            </div>`;
+
+        // Expand ~1.5× the card width, centred on the card, clamped to viewport.
+        const w = Math.min(Math.max(rect.width * 1.5, 300), 440);
+        let left = rect.left + rect.width / 2 - w / 2;
+        left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+        el.style.width = w + 'px';
+        el.style.left = left + 'px';
+        el.style.display = 'block';
+        el.classList.remove('is-visible');
+
+        requestAnimationFrame(() => {
+            const h = el.offsetHeight;
+            let top = rect.top + rect.height / 2 - h / 2;
+            top = Math.max(8, Math.min(top, window.innerHeight - h - 8));
+            el.style.top = top + 'px';
+            requestAnimationFrame(() => el.classList.add('is-visible'));
+        });
+
+        const open = (e) => { if (e) e.stopPropagation(); this._hideHoverPreview(); this.showTMDBDetails(item, type); };
+        el.querySelector('.nf-hp-play')?.addEventListener('click', open);
+        el.querySelector('.nf-hp-info')?.addEventListener('click', open);
+        el.querySelector('.nf-hp-img')?.addEventListener('click', open);
+
+        // Crossfade in a muted, looping trailer once it loads (if still hovered).
+        try {
+            const key = await this.fetchTrailerKey(item.id, type === 'tv' ? 'tv' : 'movie');
+            // Only inject if we're still previewing this exact item (not raced away).
+            if (key && this._hoverItemId === item.id && el.style.display === 'block') {
+                const media = el.querySelector('.nf-hp-media');
+                const iframe = document.createElement('iframe');
+                iframe.className = 'nf-hp-trailer';
+                iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
+                iframe.src = `https://www.youtube-nocookie.com/embed/${key}?autoplay=1&mute=1&controls=0&loop=1&playlist=${key}&modestbranding=1&rel=0&playsinline=1`;
+                media.appendChild(iframe);
+                requestAnimationFrame(() => iframe.classList.add('is-on'));
+            }
+        } catch { /* no trailer — poster stays */ }
+    },
+
+    _hideHoverPreviewSoon() {
+        clearTimeout(this._hoverHideT);
+        this._hoverHideT = setTimeout(() => this._hideHoverPreview(), 140);
+    },
+
+    _hideHoverPreview() {
+        this._hoverItemId = null;
+        const el = this._hoverEl;
+        if (!el) return;
+        el.classList.remove('is-visible');
+        el.style.display = 'none';
+        el.innerHTML = '';
     },
 
     // Show TMDB item details and search in all providers
@@ -755,6 +845,16 @@ const TMDBContentModule = {
             this.getTvByGenre('99'),            // 21 documentary TV
             this.getMoviesByGenre('10751'),     // 22 family
             this.fetchMovies('/movie/top_rated'), // 23 top rated movies
+            this.getPopularMovies(),            // 24 popular movies
+            this.getMoviesByGenre('14'),        // 25 fantasy
+            this.getMoviesByGenre('9648'),      // 26 mystery
+            this.getMoviesByGenre('10752'),     // 27 war
+            this.getMoviesByGenre('37'),        // 28 western
+            this.fetchMovies('/discover/movie', { with_original_language: 'ko', sort_by: 'popularity.desc' }), // 29 korean
+            this.fetchMovies('/discover/movie', { with_genres: '16', with_original_language: 'ja', sort_by: 'popularity.desc' }), // 30 anime movies
+            this.fetchMovies('/discover/movie', { 'vote_count.gte': '2000', sort_by: 'vote_average.desc' }), // 31 acclaimed
+            this.getMoviesByGenre('10402'),     // 32 music
+            this.fetchMovies('/discover/movie', { 'primary_release_date.gte': '2024-06-01', sort_by: 'primary_release_date.desc', 'vote_count.gte': '40' }), // 33 new releases
         ]);
 
         const val = (i) => results[i]?.status === 'fulfilled' ? results[i].value : [];
@@ -783,6 +883,16 @@ const TMDBContentModule = {
         const docTV          = val(21);
         const familyMovies   = val(22);
         const topRatedMovies = val(23);
+        const popularMovies  = val(24);
+        const fantasyMovies  = val(25);
+        const mysteryMovies  = val(26);
+        const warMovies      = val(27);
+        const westernMovies  = val(28);
+        const koreanMovies   = val(29);
+        const animeMovies    = val(30);
+        const acclaimedMovies = val(31);
+        const musicMovies    = val(32);
+        const newReleases    = val(33);
 
         // Global deduplication — track seen IDs separately for movies and TV
         const seenMovieIds = new Set();
@@ -824,6 +934,16 @@ const TMDBContentModule = {
             { title: '🎥 Documentary',             items: docMovies,        type: 'movie', endpoint: 'discover',      region: '' },
             { title: '📰 Documentary Series',      items: docTV,            type: 'tv',    endpoint: 'discover',      region: '' },
             { title: '👨‍👩‍👧‍👦 Family Movies',          items: familyMovies,     type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '🆕 New Releases',            items: newReleases,      type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '🍿 Popular Movies',          items: popularMovies,    type: 'movie', endpoint: 'popular',       region: '' },
+            { title: '🏅 Critically Acclaimed',    items: acclaimedMovies,  type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '🧙 Fantasy Adventures',      items: fantasyMovies,    type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '🕵️ Mystery & Suspense',      items: mysteryMovies,    type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '🇰🇷 Korean Cinema',          items: koreanMovies,     type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '🎌 Anime Movies',            items: animeMovies,      type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '🎖️ War Stories',             items: warMovies,        type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '🤠 Westerns',                items: westernMovies,    type: 'movie', endpoint: 'discover',      region: '' },
+            { title: '🎵 Music & Musicals',        items: musicMovies,      type: 'movie', endpoint: 'discover',      region: '' },
         ];
 
         let rendered = 0;
