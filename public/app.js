@@ -518,25 +518,58 @@ function openExternalUrl(url, options = {}) {
     return window.open(url, target, features);
 }
 
+// Detects whether ANY ad blocker (uBlock Origin, etc.) is active, using two
+// independent signals: a DOM bait element that filter lists hide, and a network
+// request to a known ad host that blockers cancel.
 function detectAdBlocker() {
     return new Promise((resolve) => {
-        if (typeof document === 'undefined') {
-            resolve(false);
-            return;
-        }
+        if (typeof document === 'undefined') { resolve(false); return; }
+
+        // 1) DOM bait — EasyList/uBlock hide these class names + id.
         const bait = document.createElement('div');
-        bait.className = 'adsbygoogle adblock-bait';
-        bait.style.cssText = 'position:absolute;left:-999px;top:-999px;height:10px;width:10px;';
+        bait.className = 'adsbygoogle ad-banner ad-placement textads banner-ads sponsored ad-unit';
+        bait.id = 'ad-banner-bait';
+        bait.style.cssText = 'position:absolute;left:-9999px;top:-9999px;height:12px;width:12px;';
+        bait.innerHTML = '&nbsp;';
         document.body.appendChild(bait);
+
+        // 2) Network bait — a request to a known ad host fails when blocked.
+        const netCheck = fetch('https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js', {
+            method: 'HEAD', mode: 'no-cors', cache: 'no-store',
+        }).then(() => false).catch(() => true);
+
         requestAnimationFrame(() => {
-            setTimeout(() => {
+            setTimeout(async () => {
                 const style = window.getComputedStyle(bait);
-                const blocked = bait.offsetHeight === 0 || bait.offsetParent === null || style.display === 'none' || style.visibility === 'hidden';
+                const domBlocked = bait.offsetHeight === 0 || bait.offsetParent === null ||
+                    style.display === 'none' || style.visibility === 'hidden' || bait.clientHeight === 0;
                 bait.remove();
-                resolve(blocked);
-            }, 60);
+                let netBlocked = false;
+                try {
+                    netBlocked = await Promise.race([netCheck, new Promise(r => setTimeout(() => r(false), 1600))]);
+                } catch { /* ignore */ }
+                resolve(Boolean(domBlocked || netBlocked));
+            }, 80);
         });
     });
+}
+
+// uBlock Origin only matters where browser extensions exist — desktop browsers.
+function isDesktopBrowser() {
+    const ua = navigator.userAgent || '';
+    if (/Mobi|Android|iPhone|iPad|iPod|Tablet|SmartTV|Smart-TV|Tizen|Web0S|webOS|AppleTV|Android ?TV|CrKey|PlayStation|Xbox/i.test(ua)) return false;
+    try { if (navigator.maxTouchPoints > 1 && !window.matchMedia('(pointer: fine)').matches) return false; } catch {}
+    return true;
+}
+
+// Point the installer straight at the right store for the user's browser.
+function getUblockInstallUrl() {
+    const ua = navigator.userAgent || '';
+    if (/Firefox\//i.test(ua)) return 'https://addons.mozilla.org/firefox/addon/ublock-origin/';
+    if (/OPR\//i.test(ua) || /\bOpera\b/i.test(ua)) return 'https://addons.opera.com/extensions/details/ublock-origin/';
+    if (/Edg\//i.test(ua)) return 'https://microsoftedge.microsoft.com/addons/detail/ublock-origin/odfafepnkmbhccpbejgmiehpchacaeak';
+    // Chrome / Brave / Vivaldi / Chromium → Chrome Web Store
+    return 'https://chromewebstore.google.com/detail/ublock-origin/cjpalhdlnbpafiamejdnhcphjbkeiagm';
 }
 
 function shouldShowAdblockPrompt() {
@@ -556,18 +589,26 @@ function dismissAdblockPrompt() {
 
 async function maybeShowAdblockPrompt() {
     if (!shouldShowAdblockPrompt()) return;
+    // Extensions only exist on desktop — don't nag mobile / TV users.
+    if (!isDesktopBrowser()) return;
     const prompt = document.getElementById('adblockPrompt');
     if (!prompt) return;
     const blocked = await detectAdBlocker();
-    if (blocked) return;
+    if (blocked) return; // they already block ads — leave them be
+    // Point both install links at the correct store for this browser.
+    const installUrl = getUblockInstallUrl();
+    document.querySelectorAll('.nf-adblock-install-link').forEach(a => { a.href = installUrl; });
     sessionStorage.setItem(ADBLOCK_PROMPT_SESSION_KEY, '1');
-    // Show after 3 seconds so it doesn't interrupt initial load
-    setTimeout(() => { prompt.hidden = false; }, 3000);
+    // Show after a couple of seconds so it doesn't interrupt initial load.
+    setTimeout(() => { prompt.hidden = false; }, 2500);
 }
 
 function showAdPopupBanner() {
     const banner = document.getElementById('adPopupBanner');
     if (!banner) return;
+    // Point the install link at the right store for this browser.
+    const link = banner.querySelector('.nf-adblock-install-link');
+    if (link && typeof getUblockInstallUrl === 'function') link.href = getUblockInstallUrl();
     banner.hidden = false;
     const dismiss = document.getElementById('adPopupDismiss');
     if (dismiss) dismiss.onclick = () => { banner.hidden = true; };

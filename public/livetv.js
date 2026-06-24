@@ -136,6 +136,9 @@
         btn._wired = true;
         const toast = (m) => { if (window.showToast) window.showToast(m, 'info', 2400); };
         const close = () => { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+        // Use the app's allowance-aware opener so the built-in pop-up blocker
+        // doesn't mistake this user-initiated cast for an ad pop-up.
+        const openExt = (url) => { if (window.openExternalUrl) return window.openExternalUrl(url); return window.open(url, '_blank', 'noopener'); };
 
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -153,14 +156,14 @@
         });
 
         $('liveCastNewTab')?.addEventListener('click', () => {
-            if (live.player.currentUrl) window.open(live.player.currentUrl, '_blank', 'noopener');
+            if (live.player.currentUrl) openExt(live.player.currentUrl);
             close();
         });
         $('liveCastCopy')?.addEventListener('click', async () => {
             const url = live.player.currentUrl;
             if (url) {
                 try { await navigator.clipboard.writeText(url); toast('Stream link copied'); }
-                catch { window.open(url, '_blank', 'noopener'); }
+                catch { openExt(url); }
             }
             close();
         });
@@ -169,8 +172,8 @@
             if (!url) return;
             if ('PresentationRequest' in window) {
                 try { await new PresentationRequest([url]).start(); toast('Casting to your device…'); }
-                catch { window.open(url, '_blank', 'noopener'); }
-            } else { toast('Casting not available here — opening in a new tab'); window.open(url, '_blank', 'noopener'); }
+                catch { openExt(url); }
+            } else { toast('Casting not available here — opening in a new tab'); openExt(url); }
             close();
         });
         $('liveCastAirplay')?.addEventListener('click', () => {
@@ -178,7 +181,7 @@
             // <video> directly. Opening it standalone exposes Safari's native
             // AirPlay control on the player.
             toast('Tap the AirPlay icon inside the player that opens');
-            if (live.player.currentUrl) window.open(live.player.currentUrl, '_blank', 'noopener');
+            if (live.player.currentUrl) openExt(live.player.currentUrl);
             close();
         });
     }
