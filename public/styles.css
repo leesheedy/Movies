@@ -3343,3 +3343,17 @@ html.tv-mode { scroll-behavior: smooth; }
 /* No floating preview on touch / 10-foot UI */
 @media (hover: none), (pointer: coarse) { .nf-hover-preview { display: none !important; } }
 html.tv-mode .nf-hover-preview { display: none !important; }
+
+/* Skeleton cards for lazy-loading home rows */
+.nf-skel-card {
+  flex: 0 0 calc(16.666% - 4px);
+  min-width: 140px;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--nf-radius);
+  background: linear-gradient(100deg, #161616 30%, #232323 50%, #161616 70%);
+  background-size: 200% 100%;
+  animation: nfShimmer 1.3s infinite;
+}
+.nf-lazy-row { min-height: 200px; }
+@media (max-width: 900px) { .nf-skel-card { flex: 0 0 calc(25% - 4px); } }
+@media (max-width: 600px) { .nf-skel-card { flex: 0 0 calc(33.333% - 4px); } }
