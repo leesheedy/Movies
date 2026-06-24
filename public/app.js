@@ -22,6 +22,7 @@ const state = {
     gamepadPolling: false,
     externalNavigationAllowedUntil: 0,
     cleanPlayerEnabled: false,
+    castStreamUrl: null,  // last resolved direct stream URL for T-Cast
 };
 
 // Expose state and API_BASE globally for modules
@@ -30,6 +31,10 @@ window.state = state;
 let detailsParallaxCleanup = null;
 let tmdbBaseSources = [];
 let tmdbNextSourceFn = null; // set by renderTmdbIframe, called by "Try Next Source" btn
+let tmdbSourceMeta = [];     // [{ url, label, id }] parallel to tmdbBaseSources — drives source chips
+let tmdbLoadSourceFn = null; // set by renderTmdbIframe → jump to a specific source index
+let tmdbActiveSourceIndex = 0;
+const tmdbAvailability = {};  // { providerId: 'ok' | 'down' | 'checking' }
 
 // API Base URL
 const API_BASE = window.location.origin;
@@ -608,8 +613,10 @@ function setCleanPlayerEnabled(enabled) {
     if (state.cleanPlayerEnabled === enabled) return;
     state.cleanPlayerEnabled = enabled;
     updateTmdbPlayerToolbar();
-    if (tmdbBaseSources.length) {
-        renderTmdbIframe(tmdbBaseSources);
+    // Re-render from the structured source metadata (not the stripped URL list)
+    // so provider chip labels/ids — and their availability dots — survive the toggle.
+    if (tmdbSourceMeta.length) {
+        renderTmdbIframe(tmdbSourceMeta);
     }
 }
 
@@ -990,75 +997,67 @@ function openPlaybackTab(provider, link) {
 
 window.openPlaybackTab = openPlaybackTab;
 
-function buildVidplusTvEmbedUrl(tvId, season, episode) {
-    return `https://player.vidplus.to/embed/tv/${tvId}/${season}/${episode}?autoplay=true&autonext=true`;
+// ── Streaming providers (TMDB-based embeds) ────────────────────────────────
+// Order = priority. 111movies is the primary source. All five providers below
+// were live-probed to be reachable, iframe-embeddable, and free of ad/popup
+// scripts in their player shell. ZStream is an open-source P-Stream fork with
+// no ads by design. Other clean, embeddable alternatives if you ever want to
+// swap one: vidlink.pro/{movie|tv}, bcine.ru/{movie|tv}, vyla.pages.dev,
+// bingr.live/embed/{movie|tv} (all verified clean + framable, FMHY-listed).
+const STREAM_PROVIDERS = [
+    {
+        id: '111movies', label: '111Movies', enabled: true,
+        movie: ({ tmdbId }) => tmdbId ? `https://111movies.net/movie/${tmdbId}` : '',
+        tv: ({ tmdbId, season, episode }) => tmdbId ? `https://111movies.net/tv/${tmdbId}/${season}/${episode}` : '',
+    },
+    {
+        id: 'vidlove', label: 'VidLove', enabled: true,
+        movie: ({ tmdbId }) => tmdbId ? `https://player.vidlove.cc/embed/movie/${tmdbId}?autoplay=true&poster=true&chromecast=true` : '',
+        tv: ({ tmdbId, season, episode }) => tmdbId ? `https://player.vidlove.cc/embed/tv/${tmdbId}/${season}/${episode}?autoplay=true&autonext=true&chromecast=true` : '',
+    },
+    {
+        // ZStream — open-source P-Stream fork, no ads by design (FMHY-listed).
+        id: 'zstream', label: 'ZStream', enabled: true,
+        movie: ({ tmdbId }) => tmdbId ? `https://zstream.mov/embed/movie/${tmdbId}` : '',
+        tv: ({ tmdbId, season, episode }) => tmdbId ? `https://zstream.mov/embed/tv/${tmdbId}/${season}/${episode}` : '',
+    },
+    {
+        // VidFast — clean, ad-light player (replaced VidSrc, which was geo-flaky).
+        id: 'vidfast', label: 'VidFast', enabled: true,
+        movie: ({ tmdbId }) => tmdbId ? `https://vidfast.pro/movie/${tmdbId}?autoPlay=true` : '',
+        tv: ({ tmdbId, season, episode }) => tmdbId ? `https://vidfast.pro/tv/${tmdbId}/${season}/${episode}?autoPlay=true&autoNext=true` : '',
+    },
+    {
+        // player.videasy.net 301-redirects to .to — point straight at .to to skip the hop.
+        id: 'videasy', label: 'Videasy', enabled: true,
+        movie: ({ tmdbId }) => tmdbId ? `https://player.videasy.to/movie/${tmdbId}` : '',
+        tv: ({ tmdbId, season, episode }) => tmdbId ? `https://player.videasy.to/tv/${tmdbId}/${season}/${episode}` : '',
+    },
+];
+window.STREAM_PROVIDERS = STREAM_PROVIDERS;
+
+function activeStreamProviders() {
+    return STREAM_PROVIDERS.filter(p => p.enabled);
 }
 
-// ── Movie embed builders ──────────────────────────────────────────────────
-function buildVidlinkMovieUrl(tmdbId) {
-    return `https://vidlink.pro/movie/${tmdbId}?autoplay=true`;
-}
-function buildVidsrcProMovieUrl(tmdbId) {
-    return `https://vidsrc.pro/embed/movie/${tmdbId}`;
-}
-function buildVidsrcIcuMovieUrl(tmdbId) {
-    return `https://vidsrc.icu/embed/movie/${tmdbId}`;
-}
-function buildAutoEmbedMovieUrl(tmdbId) {
-    return `https://player.autoembed.cc/embed/movie/${tmdbId}`;
-}
-function buildAutoEmbedCoMovieUrl(tmdbId) {
-    return `https://autoembed.co/movie/tmdb/${tmdbId}`;
-}
-function buildMultiEmbedMovieUrl(tmdbId) {
-    return `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`;
-}
-function buildVidsrcNetMovieEmbedUrl(imdbId) {
-    return `https://vidsrc.net/embed/movie?imdb=${imdbId}`;
-}
-function buildVidsrcImdbMovieFallbackUrl(imdbId) {
-    return `https://vidsrc.xyz/embed/movie?imdb=${imdbId}`;
-}
-function build2EmbedTmdbMovieFallbackUrl(movieId) {
-    return `https://www.2embed.cc/embed/tmdb/movie?id=${movieId}`;
-}
-function build2EmbedImdbMovieFallbackUrl(imdbId) {
-    return `https://www.2embed.cc/embed/imdb/movie?id=${imdbId}`;
-}
-function buildVidplusMovieEmbedUrl(movieId) {
-    return `https://player.vidplus.to/embed/movie/${movieId}?autoplay=true`;
-}
-function buildVidsrcMovieFallbackUrl(movieId) {
-    return `https://dl.vidsrc.vip/movie/${movieId}`;
+// Returns [{ url, label, id }] for a movie, primary provider first.
+function buildMovieEmbedSources(tmdbId, imdbId) {
+    return activeStreamProviders()
+        .map(p => {
+            const url = p.movie({ tmdbId, imdbId, self: p });
+            return url ? { url, label: p.label, id: p.id } : null;
+        })
+        .filter(Boolean);
 }
 
-// ── TV embed builders ─────────────────────────────────────────────────────
-function buildVidlinkTvUrl(tvId, season, episode) {
-    return `https://vidlink.pro/tv/${tvId}/${season}/${episode}?autoplay=true`;
-}
-function buildVidsrcProTvUrl(tvId, season, episode) {
-    return `https://vidsrc.pro/embed/tv/${tvId}/${season}/${episode}`;
-}
-function buildVidsrcIcuTvUrl(tvId, season, episode) {
-    return `https://vidsrc.icu/embed/tv/${tvId}/${season}/${episode}`;
-}
-function buildAutoEmbedTvUrl(tvId, season, episode) {
-    return `https://player.autoembed.cc/embed/tv/${tvId}/${season}/${episode}`;
-}
-function buildAutoEmbedCoTvUrl(tvId, season, episode) {
-    return `https://autoembed.co/tv/tmdb/${tvId}/${season}/${episode}`;
-}
-function buildMultiEmbedTvUrl(tvId, season, episode) {
-    return `https://multiembed.mov/?video_id=${tvId}&tmdb=1&s=${season}&e=${episode}`;
-}
-function buildVidsrcMeTvEmbedUrl(tvId, season, episode) {
-    return `https://vidsrc.net/embed/tv?tmdb=${tvId}&season=${season}&episode=${episode}`;
-}
-function build2EmbedTvUrl(tvId, season, episode) {
-    return `https://www.2embed.cc/embedtv/${tvId}&s=${season}&e=${episode}`;
-}
-function buildVidplusTvEmbedUrl(tvId, season, episode) {
-    return `https://player.vidplus.to/embed/tv/${tvId}/${season}/${episode}?autoplay=true&autonext=true`;
+// Returns [{ url, label, id }] for a TV episode, primary provider first.
+function buildTvEmbedSources(tvId, season, episode) {
+    return activeStreamProviders()
+        .map(p => {
+            const url = p.tv({ tmdbId: tvId, season, episode, self: p });
+            return url ? { url, label: p.label, id: p.id } : null;
+        })
+        .filter(Boolean);
 }
 
 async function fetchOmdbData(imdbId) {
@@ -1095,15 +1094,29 @@ function buildOmdbRatingBadges(omdb) {
     return parts.length ? `<div class="nf-ratings-row">${parts.join('')}</div>` : '';
 }
 
+// Accepts an array of plain URL strings OR { url, label, id } source objects.
+function normalizeEmbedSource(item, i) {
+    if (item && typeof item === 'object') {
+        return { url: item.url || '', label: item.label || `Source ${i + 1}`, id: item.id || `src${i + 1}` };
+    }
+    return { url: item || '', label: `Source ${i + 1}`, id: `src${i + 1}` };
+}
+
 function renderTmdbIframe(embedUrl) {
     const tmdbMessage = document.getElementById('tmdbPlayerMessage');
     const tmdbIframeContainer = document.getElementById('tmdbIframeContainer');
-    const baseSources = Array.isArray(embedUrl) ? embedUrl.filter(Boolean) : [embedUrl].filter(Boolean);
+    const rawList = Array.isArray(embedUrl) ? embedUrl : [embedUrl];
+    const meta = rawList.map(normalizeEmbedSource).filter(s => s.url);
+    const baseSources = meta.map(s => s.url);
     tmdbBaseSources = baseSources;
+    tmdbSourceMeta = meta;
+    state.castStreamUrl = null;
     updateTmdbPlayerToolbar();
 
     const cleanSources = state.cleanPlayerEnabled ? baseSources.map(buildCleanEmbedUrl).filter(Boolean) : [];
     const sources = state.cleanPlayerEnabled ? [...cleanSources, ...baseSources] : baseSources;
+    // Offset of the "real" provider sources inside `sources` (clean copies sit in front).
+    const providerBaseOffset = state.cleanPlayerEnabled ? cleanSources.length : 0;
 
     if (tmdbIframeContainer) {
         tmdbIframeContainer.innerHTML = '';
@@ -1172,17 +1185,22 @@ function renderTmdbIframe(embedUrl) {
 
     const loadSource = (index) => {
         currentIndex = index;
+        tmdbActiveSourceIndex = index;
         iframeInteracted = false;
         const nextUrl = sources[index];
         if (!nextUrl) return;
         iframe.src = nextUrl;
         tmdbNextSourceFn = currentIndex < sources.length - 1 ? handleFailure : null;
         updateNextBtn();
+        renderSourceChips(providerBaseOffset);
         if (tmdbMessage) tmdbMessage.textContent = `Loading source ${index + 1} of ${sources.length}…`;
         if (fallbackTimeout) clearTimeout(fallbackTimeout);
-        // No load event within 4s → auto-advance (server not responding at all)
-        fallbackTimeout = setTimeout(handleFailure, 4000);
+        // No load event within 8s → auto-advance (server not responding at all).
+        // 111movies/vidlove can be a little slow to hand off, so give them room.
+        fallbackTimeout = setTimeout(handleFailure, 8000);
     };
+    // Let the source chips jump straight to a chosen provider.
+    tmdbLoadSourceFn = (i) => loadSource(Math.max(0, Math.min(sources.length - 1, i)));
 
     iframe.addEventListener('load', () => {
         if (fallbackTimeout) { clearTimeout(fallbackTimeout); fallbackTimeout = null; }
@@ -1204,7 +1222,74 @@ function renderTmdbIframe(embedUrl) {
         tmdbIframeContainer.appendChild(iframe);
     }
     loadSource(0);
+    renderSourceChips(providerBaseOffset);
 }
+
+// Renders a labelled chip per provider in the player toolbar. Clicking a chip
+// jumps the player straight to that source. Each chip shows a live availability
+// badge once checkSourceAvailability() resolves.
+function renderSourceChips(providerBaseOffset = 0) {
+    const wrap = document.getElementById('tmdbSourceChips');
+    if (!wrap) return;
+    if (!tmdbSourceMeta.length) { wrap.innerHTML = ''; return; }
+
+    wrap.innerHTML = '';
+    tmdbSourceMeta.forEach((src, i) => {
+        const playableIndex = providerBaseOffset + i;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'nf-source-chip';
+        btn.dataset.provider = src.id;
+        // Highlight whether the raw provider source (offset+i) OR its clean-proxy
+        // copy (i) is the one currently playing.
+        if (tmdbActiveSourceIndex === playableIndex || tmdbActiveSourceIndex === i) {
+            btn.classList.add('is-active');
+        }
+
+        const status = tmdbAvailability[src.id];
+        let badge = '';
+        if (status === 'checking') badge = '<span class="nf-source-dot is-checking"></span>';
+        else if (status === 'ok')  badge = '<span class="nf-source-dot is-ok"></span>';
+        else if (status === 'down') { badge = '<span class="nf-source-dot is-down"></span>'; btn.classList.add('is-down'); }
+
+        btn.innerHTML = `${badge}<span class="nf-source-chip-label">${src.label}</span>`;
+        btn.addEventListener('click', () => {
+            if (typeof tmdbLoadSourceFn === 'function') tmdbLoadSourceFn(playableIndex);
+        });
+        wrap.appendChild(btn);
+    });
+}
+
+// Background "is this title actually on these sites?" probe. Uses the serverless
+// proxy (Netlify function / dev-server) because the providers send no CORS
+// headers, so the browser can't check them directly. Best-effort: if the proxy
+// isn't reachable, chips simply stay unbadged and playback is unaffected.
+async function checkSourceAvailability(type, tmdbId, season, episode) {
+    const providers = activeStreamProviders();
+    providers.forEach(p => { tmdbAvailability[p.id] = 'checking'; });
+    renderSourceChips(state.cleanPlayerEnabled ? tmdbSourceMeta.length : 0);
+
+    const params = new URLSearchParams({ type, id: String(tmdbId) });
+    if (season != null) params.set('season', String(season));
+    if (episode != null) params.set('episode', String(episode));
+
+    try {
+        const res = await fetch(`${API_BASE}/api/stream-check?${params.toString()}`, {
+            signal: AbortSignal.timeout(9000),
+        });
+        if (!res.ok) throw new Error('check unavailable');
+        const data = await res.json(); // { providerId: true|false }
+        providers.forEach(p => {
+            if (p.id in data) tmdbAvailability[p.id] = data[p.id] ? 'ok' : 'down';
+            else delete tmdbAvailability[p.id];
+        });
+    } catch {
+        // Proxy not available (e.g. pure static host) — clear the "checking" state.
+        providers.forEach(p => { delete tmdbAvailability[p.id]; });
+    }
+    renderSourceChips(state.cleanPlayerEnabled ? tmdbSourceMeta.length : 0);
+}
+window.checkSourceAvailability = checkSourceAvailability;
 
 const adBlockConfig = {
     hostKeywords: [
@@ -1750,25 +1835,14 @@ function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId, tmdbId }) {
     if (tmdbContainer) {
         tmdbContainer.style.display = 'block';
     }
-    const embedSources = [
-        tmdbId ? buildVidsrcProMovieUrl(tmdbId)            : null,
-        tmdbId ? build2EmbedTmdbMovieFallbackUrl(tmdbId)   : null,
-        imdbId ? build2EmbedImdbMovieFallbackUrl(imdbId)   : null,
-        tmdbId ? buildVidsrcIcuMovieUrl(tmdbId)            : null,
-        tmdbId ? buildAutoEmbedCoMovieUrl(tmdbId)          : null,
-        imdbId ? buildVidsrcNetMovieEmbedUrl(imdbId)       : null,
-        imdbId ? buildVidsrcImdbMovieFallbackUrl(imdbId)   : null,
-        tmdbId ? buildMultiEmbedMovieUrl(tmdbId)           : null,
-        tmdbId ? buildVidplusMovieEmbedUrl(tmdbId)         : null,
-        tmdbId ? buildVidsrcMovieFallbackUrl(tmdbId)        : null,
-        tmdbId ? buildAutoEmbedMovieUrl(tmdbId)            : null,
-        tmdbId ? buildVidlinkMovieUrl(tmdbId)              : null,
-    ].filter(Boolean);
+    const embedSources = buildMovieEmbedSources(tmdbId, imdbId);
 
     if (tmdbMessage && embedSources.length === 0) {
         tmdbMessage.textContent = 'Source unavailable';
     }
     renderTmdbIframe(embedSources);
+    // Background availability probe → annotates the source chips with ✓ / ✗.
+    if (tmdbId) checkSourceAvailability('movie', tmdbId);
 
     attemptPlayerFullscreen();
 }
@@ -1909,18 +1983,11 @@ function playTmdbEpisode() {
     if (!tmdbTvState.tvId || tmdbTvState.seasonNumber == null || tmdbTvState.episodeNumber == null) {
         return;
     }
-    const embedSources = [
-        buildVidlinkTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
-        buildMultiEmbedTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
-        buildVidsrcProTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
-        buildVidsrcIcuTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
-        buildAutoEmbedCoTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
-        buildVidsrcMeTvEmbedUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
-        buildVidplusTvEmbedUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
-        build2EmbedTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
-        buildAutoEmbedTvUrl(tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber),
-    ];
+    const embedSources = buildTvEmbedSources(
+        tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber
+    );
     renderTmdbIframe(embedSources);
+    checkSourceAvailability('tv', tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber);
     updateTmdbTvMeta();
     populateTmdbEpisodeSelect();
     updateTmdbEpisodeButtons();
@@ -2199,6 +2266,7 @@ function resetTmdbPlayer() {
         tmdbTvControls.hidden = true;
     }
     tmdbBaseSources = [];
+    state.castStreamUrl = null;
     resetTmdbTvState();
     if (videoPlayer) {
         videoPlayer.style.display = 'block';
@@ -2374,11 +2442,14 @@ function initCastButton() {
     const hasPresentationApi = 'PresentationRequest' in window;
     const hasShare           = !!navigator.share;
 
-    // T-Cast detects video by opening the URL and looking for <video> elements.
-    // The embed player URL (vidlink.pro/movie/...) has the actual <video> element,
-    // the page URL (mittamovies.netlify.app/...) only has a cross-origin iframe which
-    // T-Cast cannot see into → always share the embed URL for casting.
+    // T-Cast / Web Video Cast detects video by sniffing network requests for m3u8/mp4.
+    // Priority: (1) direct stream URL from provider (works best with T-Cast),
+    //           (2) embed iframe src (T-Cast opens the page and detects the video),
+    //           (3) current page URL as last resort.
     function getVideoUrl() {
+        // Direct stream from vidsrc provider — T-Cast handles m3u8/mp4 natively
+        if (state.castStreamUrl) return state.castStreamUrl;
+        // Embed player iframe — T-Cast opens the page and sniffs the video
         return document.querySelector('#tmdbIframeContainer iframe')?.src || '';
     }
     function getCastUrl() {
@@ -2561,6 +2632,7 @@ function showView(viewName) {
         movies: 'moviesView',
         tvshows: 'tvShowsView',
         history: 'historyView',
+        livetv: 'liveTvView',
     };
     const viewId = viewMap[viewName];
     if (viewId) {
@@ -3882,6 +3954,7 @@ async function playStream(stream) {
             useProxy = true;
         }
         
+        state.castStreamUrl = streamUrl;
         console.log('🎯 Attempting to play:', useProxy ? '[via proxy]' : '[direct]', streamUrl.substring(0, 100));
         
         // Check file type
@@ -4939,7 +5012,28 @@ async function init() {
             }
         });
     }
-    
+
+    // Live TV & Sports button
+    const liveTvBtn = document.getElementById('liveTvBtn');
+    if (liveTvBtn) {
+        liveTvBtn.addEventListener('click', () => {
+            if (window.loadLiveTvPage) {
+                window.loadLiveTvPage();
+            }
+        });
+    }
+    const liveTvBackBtn = document.getElementById('liveTvBackBtn');
+    if (liveTvBackBtn) {
+        liveTvBackBtn.addEventListener('click', () => {
+            if (window.closeLivePlayer) window.closeLivePlayer();
+            // showView('home') explicitly: loadHomePage() early-returns if no
+            // provider is selected, which would otherwise leave liveTvView visible.
+            showView('home');
+            loadHomePage();
+            updateNavLinks('home');
+        });
+    }
+
     // History button
     const historyBtn = document.getElementById('historyBtn');
     if (historyBtn) {
@@ -5018,6 +5112,7 @@ function updateNavLinks(active) {
         explore: 'exploreBtn',
         movies: 'moviesBtn',
         tvshows: 'tvShowsBtn',
+        livetv: 'liveTvBtn',
         history: 'historyBtn'
     };
     

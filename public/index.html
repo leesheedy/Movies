@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>MittaMovies — Stream Unlimited Movies &amp; TV Shows</title>
-    <meta name="description" content="Stream unlimited movies and TV shows on MittaMovies. Watch anywhere, anytime.">
+    <title>NOTFLIX — Movies, TV Shows &amp; Live Sports</title>
+    <meta name="description" content="Stream unlimited movies, TV shows and live sports on Notflix. Watch anywhere, on any screen — built for your TV.">
     <meta name="theme-color" content="#141414">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
@@ -115,7 +115,7 @@
             <a href="#" class="nf-link">Terms of Use</a>
             <a href="#" class="nf-link">Cookie Preferences</a>
         </div>
-        <p class="nf-footer-copy">MittaMovies Australia</p>
+        <p class="nf-footer-copy">Notflix</p>
     </footer>
 </div>
 
@@ -161,7 +161,7 @@
             <div id="signinProfileList" class="nf-quick-profile-list"></div>
 
             <p class="nf-signin-register">
-                New to MittaMovies?
+                New to Notflix?
                 <button id="gotoGetStarted" class="nf-link-btn" type="button">Sign up now.</button>
             </p>
 
@@ -309,7 +309,7 @@
                     </button>
                     <div class="nf-dropdown-sep"></div>
                     <button class="nf-dropdown-item" id="signOutBtn" type="button" role="menuitem">
-                        Sign out of MittaMovies
+                        Sign out of Notflix
                     </button>
                 </div>
             </div>
@@ -326,6 +326,7 @@
             <button id="homeBtn"     class="nav-link nf-nav-item active" type="button">Home</button>
             <button id="tvShowsBtn"  class="nav-link nf-nav-item" type="button">TV Shows</button>
             <button id="moviesBtn"   class="nav-link nf-nav-item" type="button">Movies</button>
+            <button id="liveTvBtn"   class="nav-link nf-nav-item nf-nav-item--live" type="button"><span class="nf-live-dot" aria-hidden="true"></span>Live TV &amp; Sports</button>
             <button id="exploreBtn"  class="nav-link nf-nav-item" type="button">New &amp; Popular</button>
             <button id="historyBtn"  class="nav-link nf-nav-item" type="button">My List</button>
         </nav>
@@ -440,8 +441,12 @@
                 <div id="tmdbPlayerContainer" class="tmdb-player-container nf-tmdb-player" style="display:none;">
                     <div id="tmdbPlayerMessage" class="tmdb-player-message"></div>
                     <div id="tmdbPlayerToolbar" class="tmdb-player-toolbar nf-player-toolbar" hidden>
+                        <div class="nf-source-row">
+                            <span class="nf-source-row-label">Servers</span>
+                            <div id="tmdbSourceChips" class="nf-source-chips"></div>
+                        </div>
                         <div class="tmdb-player-actions nf-player-actions">
-                            <button id="tmdbDirectBtn" class="tmdb-player-btn nf-player-source-btn is-active" type="button">Direct Player</button>
+                            <button id="tmdbDirectBtn" class="tmdb-player-btn nf-player-source-btn is-active" type="button" hidden>Direct Player</button>
                             <button id="tmdbNextSourceBtn" class="tmdb-player-btn nf-player-source-btn" type="button" title="Try next source if video is stuck">Try Next Source</button>
                             <button id="tmdbCleanBtn" class="tmdb-player-btn nf-player-source-btn" type="button" hidden>Clean Player (Beta)</button>
                         </div>
@@ -543,6 +548,43 @@
             <div id="tvShowsContent" class="nf-view-body nf-tv-body"></div>
         </div>
 
+        <!-- ── LIVE TV & SPORTS VIEW ── -->
+        <div id="liveTvView" class="view nf-live-view" style="display:none;">
+            <div class="nf-live-hero-bar">
+                <div class="nf-live-hero-top">
+                    <button id="liveTvBackBtn" class="nf-back-btn" type="button">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                        Back
+                    </button>
+                    <h1 class="nf-view-title"><span class="nf-live-dot" aria-hidden="true"></span>Live TV &amp; Sports</h1>
+                </div>
+                <div class="nf-live-tabs" role="tablist">
+                    <button class="nf-live-tab active" data-livetab="sports" role="tab" type="button">⚽ Sports</button>
+                    <button class="nf-live-tab" data-livetab="channels" role="tab" type="button">📺 Live Channels</button>
+                </div>
+            </div>
+
+            <!-- Sports panel -->
+            <section id="liveSportsPanel" class="nf-live-panel">
+                <div id="liveSportsFilters" class="nf-live-filter-row"></div>
+                <div id="liveSportsGrid" class="nf-live-grid"></div>
+                <div id="liveSportsEmpty" class="nf-live-empty" hidden></div>
+            </section>
+
+            <!-- Channels panel -->
+            <section id="liveChannelsPanel" class="nf-live-panel" hidden>
+                <div class="nf-live-channels-toolbar">
+                    <div class="nf-live-search-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input id="liveChannelSearch" class="nf-live-search-input" type="text" placeholder="Search 1,800+ channels…" autocomplete="off" />
+                    </div>
+                    <div id="liveChannelCountries" class="nf-live-filter-row nf-live-country-row"></div>
+                </div>
+                <div id="liveChannelsGrid" class="nf-live-grid nf-live-grid--channels"></div>
+                <div id="liveChannelsEmpty" class="nf-live-empty" hidden></div>
+            </section>
+        </div>
+
         <!-- ── MY LIST / HISTORY VIEW ── -->
         <div id="historyView" class="view" style="display:none;">
             <div class="nf-view-header">
@@ -581,6 +623,32 @@
     <button id="adPopupDismiss" class="nf-adpopup-close" type="button" aria-label="Dismiss">&times;</button>
 </div>
 
+<!-- ═══════════════════════════════ LIVE PLAYER MODAL ═══════════════════════════════ -->
+<div id="livePlayerModal" class="nf-live-player-modal" role="dialog" aria-modal="true" hidden>
+    <div class="nf-live-player-backdrop" id="livePlayerBackdrop" aria-hidden="true"></div>
+    <div class="nf-live-player-shell">
+        <div class="nf-live-player-bar">
+            <button id="livePlayerClose" class="nf-back-btn" type="button">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                Back
+            </button>
+            <div class="nf-live-player-titlewrap">
+                <h2 id="livePlayerTitle" class="nf-live-player-title">Live</h2>
+                <p id="livePlayerSubtitle" class="nf-live-player-subtitle"></p>
+            </div>
+            <span class="nf-live-badge">● LIVE</span>
+        </div>
+        <div class="nf-live-player-stage">
+            <div id="livePlayerFrameWrap" class="nf-live-player-frame"></div>
+            <div id="livePlayerMessage" class="nf-live-player-message"></div>
+        </div>
+        <div class="nf-live-player-servers">
+            <span class="nf-source-row-label">Servers</span>
+            <div id="livePlayerServers" class="nf-source-chips"></div>
+        </div>
+    </div>
+</div>
+
 <!-- ═══════════════════════════════ TOAST ═══════════════════════════════ -->
 <div id="toastContainer" class="nf-toast-container" aria-live="polite" aria-atomic="true"></div>
 
@@ -595,5 +663,7 @@
 <script src="/explore.js"></script>
 <script src="/movies.js"></script>
 <script src="/tvshows.js"></script>
+<script src="/livetv.js"></script>
+<script src="/tv-mode.js"></script>
 </body>
 </html>

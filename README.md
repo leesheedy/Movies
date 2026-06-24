@@ -1,13 +1,27 @@
-# MittaMedia Streaming
+# NOTFLIX — Movies, TV Shows & Live Sports
 
-MittaMedia Desktop is a hybrid Electron app that bundles the Vega provider ecosystem with a local Express API and a Chromium front-end. It delivers a self-contained streaming content explorer for Windows without requiring a system-wide Node.js install.
+NOTFLIX is a TMDB-driven streaming front-end (deployable as a static Netlify site or as a hybrid Electron app) with a full movie & TV catalogue, a combined **Live TV & Sports** hub, and a dedicated **10-foot TV mode** for couch/remote use.
 
 ## What this app includes
 
-- **Electron shell**: launches the local API, waits for `/health`, and opens a maximized window with standard controls.
-- **Provider engine**: TypeScript providers in `providers/` compile to `dist/` and power catalogs, metadata, and streams.
-- **Local API**: `dev-server.js` exposes `/api/:provider/catalog`, `/posts`, `/search`, `/meta`, `/episodes`, `/stream`, and proxy helpers.
-- **Streaming UI**: home dashboard, search, watch history, discovery, and TMDB-driven collections.
+- **Movies & TV**: TMDB-powered home, search, discovery and collections, played through embed providers.
+- **Live TV & Sports**: ~1,800 live channels (via ntv.cx) plus live sports (via streamed.pk) in one section with a server switcher.
+- **TV / 10-foot mode**: auto-detects Smart TVs, consoles and big screens, then switches to a large-type, focus-ring layout with full D-pad / gamepad spatial navigation. Force with `?tv=1` (or `window.toggleTvMode()`).
+- **Electron shell / Local API**: `dev-server.js` exposes the catalogue API plus the live/availability proxies; the Electron shell launches it and opens a window.
+
+## Streaming sources
+
+Movie/TV embeds are configured in `public/app.js` → `STREAM_PROVIDERS` (priority order):
+
+1. **111Movies** (`111movies.net`) — primary
+2. **VidLove** (`player.vidlove.cc`)
+3. **ZStream** (`zstream.mov`) — open-source P-Stream fork, **no ads by design** (FMHY-listed)
+4. **VidFast** (`vidfast.pro`) — clean, ad-light player
+5. **Videasy** (`player.videasy.to`)
+
+All five were live-probed to be reachable, iframe-embeddable, and free of ad/popup scripts in their player shell. Other clean, embeddable alternatives (verified, FMHY-listed) if you want to swap one: `vidlink.pro`, `bcine.ru`, `vyla.pages.dev`, `bingr.live`. (The original "Clinzo" request had no live domain, so it was replaced by ZStream.)
+
+The player shows a **server chip per provider** with a live availability dot (green = reachable, dim = down). Availability is probed by the serverless `/api/stream-check` endpoint (providers send no CORS, so the browser can't check them directly). Live-TV channel data is relayed through `/api/live` for the same reason. Both run as Netlify functions (`netlify/functions/`) in production and as `dev-server.js` routes locally.
 
 ## Designed for TV remotes & Xbox controllers
 

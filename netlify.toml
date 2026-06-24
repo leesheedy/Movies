@@ -17,6 +17,20 @@
   status = 200
   force = true
 
+# Live TV / sports data proxy (ntv.cx sends no CORS headers of its own)
+[[redirects]]
+  from = "/api/live"
+  to = "/.netlify/functions/live"
+  status = 200
+  force = true
+
+# Movie/TV source availability probe
+[[redirects]]
+  from = "/api/stream-check"
+  to = "/.netlify/functions/stream-check"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/env.js"
   to = "/.netlify/functions/env"

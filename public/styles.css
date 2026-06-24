@@ -2239,9 +2239,6 @@ ul { list-style: none; }
 }
 
 /* ── Cast panel ── */
-.nf-player-topbar {
-  position: relative; /* panel positions relative to topbar */
-}
 .nf-cast-panel {
   position: absolute;
   top: calc(100% + 8px);
@@ -2991,3 +2988,273 @@ ul { list-style: none; }
   .nf-tv-controls-inner { padding: 16px 16px 20px; }
   .nf-btn--tv-nav { padding: 12px 18px; }
 }
+
+/* ============================================================
+   PLAYER SOURCE CHIPS (111Movies / VidLove / VidSrc …)
+   ============================================================ */
+.nf-source-row {
+  display: flex; align-items: center; gap: 12px;
+  flex-wrap: wrap; padding: 4px 0 10px;
+}
+.nf-source-row-label {
+  font-size: .72rem; font-weight: 800; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--nf-gray-lt); flex-shrink: 0;
+}
+.nf-source-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.nf-source-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 16px; border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  border: 1.5px solid rgba(255,255,255,.14);
+  color: #e9e9e9; font-size: .86rem; font-weight: 600;
+  transition: transform .15s, background .15s, border-color .15s, box-shadow .15s;
+}
+.nf-source-chip:hover { background: rgba(255,255,255,.16); transform: translateY(-1px); }
+.nf-source-chip.is-active {
+  background: var(--nf-red); border-color: var(--nf-red); color: #fff;
+  box-shadow: 0 4px 16px rgba(229,9,20,.4);
+}
+.nf-source-chip.is-down { opacity: .5; }
+.nf-source-chip:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.nf-source-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.nf-source-dot.is-ok { background: #46d369; box-shadow: 0 0 6px rgba(70,211,105,.8); }
+.nf-source-dot.is-down { background: #e8703a; }
+.nf-source-dot.is-checking { background: #b3b3b3; animation: nfPulse 1s ease-in-out infinite; }
+@keyframes nfPulse { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+
+/* ============================================================
+   LIVE TV & SPORTS
+   ============================================================ */
+.nf-nav-item--live { display: inline-flex; align-items: center; gap: 7px; }
+.nf-live-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--nf-red); box-shadow: 0 0 0 0 rgba(229,9,20,.7);
+  animation: nfLivePulse 1.8s infinite; flex-shrink: 0;
+}
+@keyframes nfLivePulse {
+  0%   { box-shadow: 0 0 0 0 rgba(229,9,20,.7); }
+  70%  { box-shadow: 0 0 0 7px rgba(229,9,20,0); }
+  100% { box-shadow: 0 0 0 0 rgba(229,9,20,0); }
+}
+
+.nf-live-view { padding: calc(var(--nf-header-h) + 18px) 0 80px; }
+.nf-live-hero-bar { padding: 0 4vw 6px; }
+.nf-live-hero-top { display: flex; align-items: center; gap: 18px; margin-bottom: 18px; }
+.nf-live-hero-top .nf-view-title { display: inline-flex; align-items: center; gap: 12px; }
+
+.nf-live-tabs { display: flex; gap: 10px; border-bottom: 1px solid rgba(255,255,255,.1); }
+.nf-live-tab {
+  padding: 12px 22px; font-size: 1.02rem; font-weight: 700;
+  color: var(--nf-gray-lt); border-bottom: 3px solid transparent;
+  transition: color .15s, border-color .15s; margin-bottom: -1px;
+}
+.nf-live-tab:hover { color: #fff; }
+.nf-live-tab.active { color: #fff; border-bottom-color: var(--nf-red); }
+.nf-live-tab:focus-visible { outline: 3px solid var(--nf-red); outline-offset: 2px; border-radius: 4px; }
+
+.nf-live-panel { padding: 22px 4vw 0; }
+.nf-live-filter-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+.nf-live-chip {
+  padding: 9px 18px; border-radius: 999px; font-size: .9rem; font-weight: 600;
+  background: rgba(255,255,255,.08); border: 1.5px solid rgba(255,255,255,.12);
+  color: #ddd; white-space: nowrap; transition: background .15s, transform .15s, border-color .15s;
+}
+.nf-live-chip:hover { background: rgba(255,255,255,.16); transform: translateY(-1px); }
+.nf-live-chip.is-active { background: #fff; color: #111; border-color: #fff; }
+.nf-live-chip:focus-visible { outline: 3px solid var(--nf-red); outline-offset: 2px; }
+
+/* grids */
+.nf-live-grid {
+  display: grid; gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+.nf-live-grid--channels { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 14px; }
+
+/* sports card */
+.nf-live-card {
+  display: flex; flex-direction: column; text-align: left;
+  background: var(--nf-card); border: 1px solid rgba(255,255,255,.06);
+  border-radius: 12px; overflow: hidden; cursor: pointer;
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.nf-live-card:hover, .nf-live-card:focus-visible {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 14px 38px rgba(0,0,0,.6);
+  border-color: rgba(255,255,255,.18); outline: none;
+}
+.nf-live-card:focus-visible { outline: 3px solid var(--nf-red); outline-offset: 2px; }
+.nf-live-card-media {
+  position: relative; aspect-ratio: 16/9; background: #0c0c0c;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.nf-live-card-media img { width: 100%; height: 100%; object-fit: cover; }
+.nf-live-card-media--teams { gap: 14px; padding: 14px; background: linear-gradient(135deg,#1b1b1b,#0c0c0c); }
+.nf-live-card-media--teams img { width: 56px; height: 56px; object-fit: contain; }
+.nf-live-vs { font-weight: 800; color: var(--nf-gray-lt); font-size: .85rem; }
+.nf-live-card-media--plain {
+  background: linear-gradient(135deg, rgba(229,9,20,.25), rgba(0,0,0,.6));
+  font-weight: 800; letter-spacing: .08em; color: #fff; font-size: 1.1rem;
+}
+.nf-live-card-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 5px; }
+.nf-live-card-cat {
+  font-size: .68rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--nf-red);
+}
+.nf-live-card-title {
+  font-size: .98rem; font-weight: 600; line-height: 1.3; color: #fff;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.nf-live-card-meta { font-size: .82rem; color: var(--nf-gray-lt); }
+.nf-live-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: #ff4d4d; font-weight: 800; font-size: .78rem; letter-spacing: .04em;
+}
+
+/* channel card */
+.nf-live-card--channel { flex-direction: row; align-items: center; gap: 12px; padding: 12px; }
+.nf-live-chan-logo {
+  width: 56px; height: 56px; flex-shrink: 0; border-radius: 10px;
+  background: #0c0c0c; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; position: relative;
+}
+.nf-live-chan-logo img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+.nf-live-chan-fallback {
+  display: none; font-weight: 800; font-size: 1.1rem; color: var(--nf-gray-lt);
+}
+.nf-live-chan-logo.is-fallback .nf-live-chan-fallback { display: block; }
+.nf-live-chan-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.nf-live-chan-name {
+  font-size: .92rem; font-weight: 600; color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nf-live-chan-meta { font-size: .78rem; color: var(--nf-gray-lt); }
+
+/* channels toolbar */
+.nf-live-channels-toolbar { margin-bottom: 20px; }
+.nf-live-search-wrap {
+  display: flex; align-items: center; gap: 10px; max-width: 460px;
+  padding: 11px 16px; border-radius: 10px; margin-bottom: 16px;
+  background: rgba(255,255,255,.08); border: 1.5px solid rgba(255,255,255,.14);
+  color: var(--nf-gray-lt);
+}
+.nf-live-search-wrap:focus-within { border-color: var(--nf-red); }
+.nf-live-search-input {
+  flex: 1; background: none; border: none; outline: none; color: #fff; font-size: 1rem;
+}
+.nf-live-country-row { margin-bottom: 0; }
+
+/* skeleton + empty */
+.nf-live-skel {
+  aspect-ratio: 16/9; min-height: 120px;
+  background: linear-gradient(100deg, #161616 30%, #222 50%, #161616 70%);
+  background-size: 200% 100%; animation: nfShimmer 1.3s infinite; border: none;
+}
+@keyframes nfShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.nf-live-empty { text-align: center; padding: 70px 20px; color: var(--nf-gray-lt); }
+.nf-live-empty-icon { font-size: 3rem; margin-bottom: 14px; }
+.nf-live-empty-title { font-size: 1.3rem; font-weight: 700; color: #fff; margin-bottom: 6px; }
+.nf-live-empty-sub { font-size: .95rem; }
+
+/* ============================================================
+   LIVE PLAYER MODAL
+   ============================================================ */
+body.nf-live-modal-open { overflow: hidden; }
+.nf-live-player-modal { position: fixed; inset: 0; z-index: 4000; display: flex; }
+.nf-live-player-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.92); }
+.nf-live-player-shell {
+  position: relative; z-index: 1; margin: auto; width: min(1180px, 96vw);
+  display: flex; flex-direction: column; gap: 14px; padding: 18px;
+}
+.nf-live-player-bar { display: flex; align-items: center; gap: 16px; }
+.nf-live-player-titlewrap { flex: 1; min-width: 0; }
+.nf-live-player-title {
+  font-size: 1.35rem; font-weight: 800; color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nf-live-player-subtitle { font-size: .85rem; color: var(--nf-gray-lt); margin-top: 2px; }
+.nf-live-badge {
+  color: #ff4d4d; font-weight: 800; font-size: .8rem; letter-spacing: .05em;
+  border: 1.5px solid rgba(255,77,77,.5); border-radius: 999px; padding: 4px 12px; flex-shrink: 0;
+}
+.nf-live-player-stage {
+  position: relative; aspect-ratio: 16/9; width: 100%;
+  background: #000; border-radius: 12px; overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,.7);
+}
+.nf-live-player-frame, .nf-live-player-frame iframe {
+  position: absolute; inset: 0; width: 100%; height: 100%; border: 0;
+}
+.nf-live-player-message {
+  position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+  color: var(--nf-gray-lt); font-size: 1rem; text-align: center; padding: 20px;
+  pointer-events: none; background: rgba(0,0,0,.4);
+}
+.nf-live-player-servers { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+@media (max-width: 600px) {
+  .nf-live-player-shell { width: 100vw; height: 100%; padding: 12px; justify-content: flex-start; }
+  .nf-live-player-title { font-size: 1.05rem; }
+  .nf-live-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .nf-live-grid--channels { grid-template-columns: 1fr 1fr; }
+}
+
+/* ============================================================
+   CINEMA.MZ-STYLE POLISH (additive)
+   ============================================================ */
+.nf-source-chip, .nf-live-chip, .nf-live-tab, .nf-nav-item { -webkit-tap-highlight-color: transparent; }
+.nf-live-grid img { background: #0c0c0c; }
+/* smoother focus rings everywhere for keyboard + remote users */
+.nf-nav-item:focus-visible, .nf-back-btn:focus-visible, .nf-btn:focus-visible {
+  outline: 3px solid var(--nf-red); outline-offset: 3px; border-radius: 6px;
+}
+
+/* ============================================================
+   TV / 10-FOOT MODE  (html.tv-mode)
+   ============================================================ */
+html.tv-mode { font-size: 20px; }
+html.tv-mode body { cursor: none; letter-spacing: .01em; }
+html.tv-mode .nf-header { --nf-header-h: 92px; padding-top: 6px; }
+html.tv-mode .nf-nav { gap: 8px; }
+html.tv-mode .nf-nav-item { font-size: 1.18rem; padding: 10px 18px; border-radius: 8px; }
+html.tv-mode .nf-wordmark { font-size: 2rem; }
+
+/* Big, obvious focus treatment — the cornerstone of 10-foot UIs */
+html.tv-mode *:focus,
+html.tv-mode *:focus-visible { outline: none; }
+html.tv-mode a:focus,
+html.tv-mode button:focus,
+html.tv-mode input:focus,
+html.tv-mode select:focus,
+html.tv-mode [tabindex]:focus {
+  outline: 4px solid #fff !important;
+  outline-offset: 3px !important;
+  border-radius: 8px;
+}
+html.tv-mode .nf-card:focus,
+html.tv-mode .cinematic-tile:focus,
+html.tv-mode .nf-live-card:focus,
+html.tv-mode .nf-ep-card:focus {
+  transform: scale(1.08);
+  box-shadow: 0 0 0 4px var(--nf-red), 0 22px 50px rgba(0,0,0,.8);
+  z-index: 5; position: relative; outline: none !important;
+}
+html.tv-mode .nf-source-chip:focus,
+html.tv-mode .nf-live-chip:focus,
+html.tv-mode .nf-live-tab:focus {
+  outline: 4px solid #fff !important; outline-offset: 3px;
+}
+
+/* Larger hit targets + type for couch viewing */
+html.tv-mode .nf-live-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 26px; }
+html.tv-mode .nf-live-grid--channels { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+html.tv-mode .nf-live-card-title { font-size: 1.1rem; }
+html.tv-mode .nf-live-tab { font-size: 1.25rem; padding: 16px 30px; }
+html.tv-mode .nf-live-chip,
+html.tv-mode .nf-source-chip { font-size: 1.02rem; padding: 12px 24px; }
+html.tv-mode .nf-back-btn { font-size: 1.15rem; padding: 12px 22px; }
+html.tv-mode .nf-view-title { font-size: 2.1rem; }
+html.tv-mode .nf-live-search-input { font-size: 1.15rem; }
+html.tv-mode .nf-live-player-shell { width: min(1480px, 94vw); }
+
+/* Smooth scrolling feels right on a remote */
+html.tv-mode { scroll-behavior: smooth; }

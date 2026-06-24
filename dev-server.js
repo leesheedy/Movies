@@ -260,6 +260,71 @@ class DevServer {
       }
     });
 
+    // ── Live TV / sports data proxy (ntv.cx has no CORS) ──────────────────
+    const LIVE_UA =
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+      "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+    this.app.get("/api/live", async (req, res) => {
+      const resource = req.query.resource === "matches" ? "matches" : "channels";
+      const upstream =
+        resource === "matches"
+          ? "https://ntv.cx/api/get-matches"
+          : "https://ntv.cx/api/get-channels";
+      try {
+        const r = await fetch(upstream, {
+          headers: { "User-Agent": LIVE_UA, Referer: "https://ntv.cx/", Accept: "application/json" },
+          signal: AbortSignal.timeout(12000),
+        });
+        const body = await r.text();
+        res.set("Access-Control-Allow-Origin", "*");
+        res.type("application/json").status(r.ok ? 200 : 502).send(body);
+      } catch (error) {
+        res.set("Access-Control-Allow-Origin", "*");
+        res.status(502).json({ error: String((error && error.message) || error) });
+      }
+    });
+
+    // ── Movie/TV source availability probe ────────────────────────────────
+    this.app.get("/api/stream-check", async (req, res) => {
+      const { type = "movie", id, season = 1, episode = 1 } = req.query;
+      res.set("Access-Control-Allow-Origin", "*");
+      if (!id) return res.status(400).json({ error: "missing id" });
+      const isMovie = type !== "tv";
+      const targets = [
+        { id: "111movies", url: isMovie ? `https://111movies.net/movie/${id}` : `https://111movies.net/tv/${id}/${season}/${episode}`, ref: "https://111movies.net/" },
+        { id: "vidlove", url: isMovie ? `https://player.vidlove.cc/embed/movie/${id}` : `https://player.vidlove.cc/embed/tv/${id}/${season}/${episode}`, ref: "https://vidlove.cc/" },
+        { id: "zstream", url: isMovie ? `https://zstream.mov/embed/movie/${id}` : `https://zstream.mov/embed/tv/${id}/${season}/${episode}`, ref: "https://zstream.mov/" },
+        { id: "vidfast", url: isMovie ? `https://vidfast.pro/movie/${id}` : `https://vidfast.pro/tv/${id}/${season}/${episode}`, ref: "https://vidfast.pro/" },
+        { id: "videasy", url: isMovie ? `https://player.videasy.to/movie/${id}` : `https://player.videasy.to/tv/${id}/${season}/${episode}`, ref: "https://player.videasy.to/" },
+      ];
+      // Mirrors netlify/functions/stream-check.js probe() so local and prod agree.
+      const probe = async (t) => {
+        try {
+          const r = await fetch(t.url, {
+            redirect: "follow",
+            headers: { "User-Agent": LIVE_UA, Referer: t.ref, Accept: "text/html,*/*" },
+            signal: AbortSignal.timeout(6000),
+          });
+          if (r.status === 404 || r.status === 410) return false;
+          if (r.status >= 200 && r.status < 400) {
+            const body = await r.text();
+            const lower = body.slice(0, 4000).toLowerCase();
+            if (/not\s*found|no\s*sources|404|nothing here/.test(lower) && body.length < 2000) {
+              return false;
+            }
+            return true;
+          }
+          return null;
+        } catch {
+          return null;
+        }
+      };
+      const results = await Promise.all(targets.map(probe));
+      const out = {};
+      targets.forEach((t, i) => { if (results[i] !== null) out[t.id] = results[i]; });
+      res.json(out);
+    });
+
     // Get catalog for a provider
     this.app.get("/api/:provider/catalog", (req, res) => {
       try {
