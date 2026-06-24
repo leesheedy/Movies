@@ -8,7 +8,30 @@
     <meta name="theme-color" content="#141414">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Notflix">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Favicons -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="icon" href="/favicon-16.png" sizes="16x16" type="image/png">
+    <link rel="shortcut icon" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+    <!-- Social / link preview -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Notflix">
+    <meta property="og:title" content="NOTFLIX — Movies, TV Shows &amp; Live Sports">
+    <meta property="og:description" content="Stream unlimited movies, TV shows and live sports. Watch anywhere, on any screen — built for your TV.">
+    <meta property="og:url" content="https://mittamovies.netlify.app/">
+    <meta property="og:image" content="https://mittamovies.netlify.app/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="NOTFLIX — Movies, TV Shows &amp; Live Sports">
+    <meta name="twitter:description" content="Stream unlimited movies, TV shows and live sports — built for your TV.">
+    <meta name="twitter:image" content="https://mittamovies.netlify.app/og-image.png">
+
     <link rel="stylesheet" href="/styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -109,11 +132,11 @@
     <footer class="nf-landing-footer">
         <p>Questions? <a href="mailto:support@mitta.app" class="nf-link">Contact us</a></p>
         <div class="nf-footer-links">
+            <a href="/tv" class="nf-link">📺 Get Notflix on your TV</a>
             <a href="#" class="nf-link">FAQ</a>
             <a href="#" class="nf-link">Help Centre</a>
             <a href="#" class="nf-link">Privacy</a>
             <a href="#" class="nf-link">Terms of Use</a>
-            <a href="#" class="nf-link">Cookie Preferences</a>
         </div>
         <p class="nf-footer-copy">Notflix</p>
     </footer>
@@ -307,6 +330,14 @@
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
                         Account
                     </button>
+                    <a class="nf-dropdown-item nf-adblock-install-link" id="dropdownAdblockBtn" href="https://chromewebstore.google.com/detail/ublock-origin/cjpalhdlnbpafiamejdnhcphjbkeiagm" target="_blank" rel="noopener" role="menuitem">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                        Download Ad Blocker
+                    </a>
+                    <a class="nf-dropdown-item" id="dropdownTvBtn" href="/tv" target="_blank" rel="noopener" role="menuitem">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        Get Notflix on TV
+                    </a>
                     <div class="nf-dropdown-sep"></div>
                     <button class="nf-dropdown-item" id="signOutBtn" type="button" role="menuitem">
                         Sign out of Notflix

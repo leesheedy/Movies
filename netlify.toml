@@ -37,6 +37,12 @@
   status = 200
   force = true
 
+# "Get Notflix on your TV" install page (must precede the /tv/* SPA rule)
+[[redirects]]
+  from = "/tv"
+  to = "/tv.html"
+  status = 200
+
 [[redirects]]
   from = "/movie/*"
   to = "/index.html"

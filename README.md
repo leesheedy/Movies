@@ -34,6 +34,12 @@ The UI follows a “10-foot” layout and keyboard-first navigation so it works 
 
 If you’re using a TV remote, make sure it’s paired as a keyboard or gamepad; the interface uses focus states and large targets for quick left-right movement across rows.
 
+## Watch on your LG (webOS) TV
+
+- **Easiest:** open your TV’s web browser and go to `mittamovies.netlify.app/?tv=1`.
+- **As an app:** the in-app **/tv** page (`public/tv.html`) has copy-paste steps and
+  a direct `.ipk` download. Full CLI deploy steps are in [`webos/README-DEPLOY.md`](webos/README-DEPLOY.md).
+
 ## Run locally
 
 ### Prerequisites

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Get Notflix on your TV — LG webOS</title>
+  <meta name="description" content="Install Notflix on your LG Smart TV — instant in your TV browser, or as a full home-screen app.">
+  <meta name="theme-color" content="#141414">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta property="og:title" content="Get Notflix on your LG TV">
+  <meta property="og:description" content="Watch Notflix on your LG Smart TV — instant in the TV browser, or as a full app.">
+  <meta property="og:image" content="https://mittamovies.netlify.app/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    :root { --red:#E50914; --bg:#0b0b0b; --card:#181818; --muted:#b3b3b3; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:var(--bg); color:#fff; font-family:'Helvetica Neue',Arial,sans-serif; line-height:1.6; -webkit-font-smoothing:antialiased; }
+    a { color:#fff; }
+    .wrap { max-width:860px; margin:0 auto; padding:28px 20px 80px; }
+    header { display:flex; align-items:center; justify-content:space-between; margin-bottom:36px; }
+    .brand { font-weight:900; font-size:1.9rem; letter-spacing:-1px; color:var(--red); text-decoration:none; }
+    .home-link { color:var(--muted); text-decoration:none; font-size:.95rem; border:1px solid rgba(255,255,255,.2); padding:8px 16px; border-radius:999px; }
+    .home-link:hover { color:#fff; border-color:#fff; }
+    .hero { text-align:center; margin-bottom:46px; }
+    .hero .tvicon { font-size:3.4rem; }
+    h1 { font-size:2.3rem; font-weight:800; margin:10px 0 8px; }
+    .hero p { color:var(--muted); font-size:1.1rem; max-width:560px; margin:0 auto; }
+    .opt { background:var(--card); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:26px 26px 28px; margin-bottom:26px; }
+    .opt-tag { display:inline-block; background:var(--red); color:#fff; font-size:.72rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; padding:5px 12px; border-radius:999px; margin-bottom:14px; }
+    .opt-tag.alt { background:rgba(255,255,255,.12); }
+    .opt h2 { font-size:1.45rem; margin-bottom:6px; }
+    .opt > p { color:var(--muted); margin-bottom:16px; }
+    .url-box { display:flex; align-items:center; gap:12px; background:#000; border:1px solid rgba(255,255,255,.14); border-radius:10px; padding:14px 18px; flex-wrap:wrap; }
+    .url-box code { font-size:1.25rem; font-weight:700; color:#fff; word-break:break-all; }
+    .steps { list-style:none; counter-reset:s; margin-top:8px; }
+    .steps > li { counter-increment:s; position:relative; padding:14px 0 14px 52px; border-top:1px solid rgba(255,255,255,.07); }
+    .steps > li:first-child { border-top:0; }
+    .steps > li::before { content:counter(s); position:absolute; left:0; top:14px; width:34px; height:34px; border-radius:50%; background:var(--red); color:#fff; font-weight:800; display:flex; align-items:center; justify-content:center; }
+    .steps b { color:#fff; }
+    .steps .sub { color:var(--muted); font-size:.95rem; }
+    .cmd { display:flex; align-items:stretch; gap:0; margin-top:10px; background:#000; border:1px solid rgba(255,255,255,.14); border-radius:10px; overflow:hidden; }
+    .cmd code { flex:1; padding:12px 16px; font-family:'SF Mono',Consolas,Menlo,monospace; font-size:.92rem; color:#7ef7c4; white-space:pre-wrap; word-break:break-all; }
+    .copy { flex-shrink:0; border:0; border-left:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.06); color:#fff; padding:0 18px; cursor:pointer; font-weight:700; font-size:.85rem; }
+    .copy:hover { background:rgba(255,255,255,.16); }
+    .copy.done { color:#46d369; }
+    .btn { display:inline-flex; align-items:center; gap:10px; background:#fff; color:#111; font-weight:800; text-decoration:none; padding:14px 26px; border-radius:10px; font-size:1.05rem; margin-top:4px; }
+    .btn:hover { background:#e6e6e6; }
+    .btn.red { background:var(--red); color:#fff; }
+    .btn.red:hover { background:#f40612; }
+    .note { background:rgba(229,9,20,.08); border:1px solid rgba(229,9,20,.25); border-radius:10px; padding:14px 18px; color:#e8c9cb; font-size:.92rem; margin-top:18px; }
+    .muted { color:var(--muted); }
+    .foot { text-align:center; color:var(--muted); font-size:.9rem; margin-top:40px; }
+    @media (max-width:560px){ h1{font-size:1.7rem} .opt{padding:20px} }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="brand" href="/">NOTFLIX</a>
+    <a class="home-link" href="/">← Back to Notflix</a>
+  </header>
+
+  <div class="hero">
+    <div class="tvicon">📺</div>
+    <h1>Watch Notflix on your LG TV</h1>
+    <p>Two ways to get it — start watching in seconds in your TV browser, or install it as a proper app on your home screen.</p>
+  </div>
+
+  <!-- OPTION 1 -->
+  <section class="opt">
+    <span class="opt-tag">Easiest · 10 seconds</span>
+    <h2>Open it in your TV's web browser</h2>
+    <p>On your LG TV, open the <b>Web Browser</b> app and go to the address below. It loads straight into the big-screen TV layout — use your remote's arrows + OK to navigate.</p>
+    <div class="url-box">
+      <code id="tvUrl">mittamovies.netlify.app/?tv=1</code>
+      <button class="copy" data-copy="https://mittamovies.netlify.app/?tv=1">Copy</button>
+    </div>
+    <p class="muted" style="margin-top:12px;font-size:.9rem;">Tip: add it to your browser's bookmarks/favourites for one-tap access next time.</p>
+  </section>
+
+  <!-- OPTION 2 -->
+  <section class="opt">
+    <span class="opt-tag alt">Best experience · ~5 min</span>
+    <h2>Install Notflix as an app (red “N” on your home screen)</h2>
+    <p>LG TVs let you side-load apps in <b>Developer Mode</b>. You only do this setup once. You won't need your LG <i>password</i> on the computer — only the on-screen <b>passphrase</b> the TV shows you.</p>
+
+    <ol class="steps">
+      <li>
+        <b>On your TV:</b> install the <b>Developer Mode</b> app from the LG Content Store, open it, sign in with your LG account, then turn <b>Dev Mode Status = ON</b> and <b>Key Server = ON</b>.
+        <div class="sub">Write down the <b>IP address</b> and the 6-character <b>passphrase</b> it shows.</div>
+      </li>
+      <li>
+        <b>On your computer:</b> install <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a>, then the webOS CLI:
+        <div class="cmd"><code>npm install -g @webos-tools/cli</code><button class="copy" data-copy="npm install -g @webos-tools/cli">Copy</button></div>
+      </li>
+      <li>
+        <b>Download the Notflix app file</b> (.ipk):
+        <div style="margin-top:10px;"><a class="btn red" href="/notflix-webos.ipk" download>⬇ Download notflix-webos.ipk</a></div>
+      </li>
+      <li>
+        <b>Connect your TV</b> — replace <code style="color:#ff9">TV_IP</code> with your TV's IP, run both lines, and enter the passphrase when asked:
+        <div class="cmd"><code>ares-setup-device --add notflixtv --info "host=TV_IP port=9922 username=prisoner"</code><button class="copy" data-copy='ares-setup-device --add notflixtv --info "host=TV_IP port=9922 username=prisoner"'>Copy</button></div>
+        <div class="cmd"><code>ares-novacom --device notflixtv --getkey</code><button class="copy" data-copy="ares-novacom --device notflixtv --getkey">Copy</button></div>
+      </li>
+      <li>
+        <b>Install &amp; launch Notflix</b> (run from the folder where you saved the .ipk):
+        <div class="cmd"><code>ares-install --device notflixtv notflix-webos.ipk</code><button class="copy" data-copy="ares-install --device notflixtv notflix-webos.ipk">Copy</button></div>
+        <div class="cmd"><code>ares-launch --device notflixtv com.notflix.app</code><button class="copy" data-copy="ares-launch --device notflixtv com.notflix.app">Copy</button></div>
+      </li>
+    </ol>
+
+    <p style="margin-top:18px;">Notflix now appears on your TV's home launcher with the red “N” icon. 🎉</p>
+    <div class="note">⏱️ <b>Heads up:</b> LG side-loaded apps pause after ~50 hours and the TV renews them automatically as long as the <b>Developer Mode</b> app stays installed and signed in. This is an LG limitation for all dev-mode apps.</div>
+  </section>
+
+  <p class="foot">Need the source or to publish to the LG Content Store? See <a href="https://github.com/leesheedy/Movies/tree/main/webos" target="_blank" rel="noopener">the webOS app folder</a>.</p>
+</div>
+
+<script>
+  document.querySelectorAll('.copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var text = btn.getAttribute('data-copy');
+      function ok() { var t = btn.textContent; btn.textContent = '✓ Copied'; btn.classList.add('done'); setTimeout(function(){ btn.textContent = t; btn.classList.remove('done'); }, 1600); }
+      if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(ok).catch(fallback); }
+      else fallback();
+      function fallback() {
+        var ta = document.createElement('textarea'); ta.value = text; ta.style.position='fixed'; ta.style.left='-9999px';
+        document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); ok(); } catch(e){} document.body.removeChild(ta);
+      }
+    });
+  });
+</script>
+</body>
+</html>

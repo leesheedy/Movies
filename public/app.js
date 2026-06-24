@@ -4869,6 +4869,9 @@ async function init() {
     applySeasonalTheme();
     initAdBlocker();
     installPopupBlocker();
+    // Point every "install uBlock" link (dropdown, prompt, popup banner) at the
+    // correct store for this browser.
+    try { document.querySelectorAll('.nf-adblock-install-link').forEach(a => { a.href = getUblockInstallUrl(); }); } catch {}
     loadTmdbImdbCache();
     initProfileGate();
     initBackNavigationHandlers();
