@@ -16,8 +16,33 @@
     const live = {
         tab: 'sports',
         sports: { loaded: false, matches: [], categories: [], filter: 'live' },
-        channels: { loaded: false, all: [], country: 'all', query: '' },
+        // Default the live-TV country to Australia (this app's home region).
+        channels: { loaded: false, all: [], country: 'au', category: 'all', query: '' },
         player: { source: 'sports', servers: [], index: 0 },
+    };
+
+    // Infer a rough genre/category for a channel from its name (there's no EPG
+    // category in the feed). Used to power the "TV guide" quick-select.
+    // Strong keywords (sport/news/movie/kids/music) match as substrings so
+    // plurals and prefixes work ("Fox Sports", "9News", "ABC Kids"); short
+    // ambiguous abbreviations keep \b boundaries to avoid false positives.
+    const CATEGORY_RULES = [
+        ['sports',   /(sport|espn|bein|dazn|\bnba\b|\bnfl\b|\bnhl\b|\bmlb\b|\bufc\b|\bwwe\b|golf|tennis|cricket|rugby|eurosport|boxing|kayo|footy|motogp|\bf1\b)/i],
+        ['news',     /(news|cnn|msnbc|jazeera|bloomberg|cnbc|euronews)/i],
+        ['movies',   /(movie|cinema|cinemax|\bhbo\b|starz|showtime|\bfilm|\bmgm\b|\btcm\b|epix)/i],
+        ['kids',     /(kids|cartoon|disney|nick|junior|boomerang|cbeebies|cartoonito|baby)/i],
+        ['music',    /(music|\bmtv\b|vevo|\bvh1\b|\bcmt\b|trace)/i],
+        ['docs',     /(discovery|history|nat ?geo|geographic|animal ?planet|documentary|smithsonian)/i],
+        ['ent',      /(comedy|drama|bravo|\btlc\b|lifetime|\bfx\b|\bamc\b|peacock|hallmark|syfy|reality)/i],
+    ];
+    function inferCategory(name) {
+        const n = String(name || '');
+        for (const [cat, re] of CATEGORY_RULES) if (re.test(n)) return cat;
+        return 'general';
+    }
+    const CATEGORY_LABELS = {
+        all: '📺 All', sports: '⚽ Sports', news: '📰 News', movies: '🎬 Movies',
+        ent: '🎭 Entertainment', kids: '🧒 Kids', music: '🎵 Music', docs: '🌍 Docs', general: '📡 General',
     };
 
     /* ─── helpers ─────────────────────────────────────────────────────── */
@@ -100,6 +125,62 @@
         }
         $('livePlayerClose')?.addEventListener('click', closeLivePlayer);
         $('livePlayerBackdrop')?.addEventListener('click', closeLivePlayer);
+        initLiveCast();
+    }
+
+    /* ─── cast / AirPlay for the live player ──────────────────────────── */
+    function initLiveCast() {
+        const btn = $('livePlayerCast');
+        const panel = $('livePlayerCastPanel');
+        if (!btn || !panel || btn._wired) return;
+        btn._wired = true;
+        const toast = (m) => { if (window.showToast) window.showToast(m, 'info', 2400); };
+        const close = () => { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const open = panel.hidden;
+            panel.hidden = !open;
+            btn.setAttribute('aria-expanded', String(open));
+            if (open) {
+                const url = live.player.currentUrl || '';
+                const qr = $('liveCastQr');
+                if (qr && url) qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=ffffff&bgcolor=1a1a1a&data=${encodeURIComponent(url)}`;
+            }
+        });
+        document.addEventListener('click', (e) => {
+            if (!panel.hidden && !panel.contains(e.target) && e.target !== btn) close();
+        });
+
+        $('liveCastNewTab')?.addEventListener('click', () => {
+            if (live.player.currentUrl) window.open(live.player.currentUrl, '_blank', 'noopener');
+            close();
+        });
+        $('liveCastCopy')?.addEventListener('click', async () => {
+            const url = live.player.currentUrl;
+            if (url) {
+                try { await navigator.clipboard.writeText(url); toast('Stream link copied'); }
+                catch { window.open(url, '_blank', 'noopener'); }
+            }
+            close();
+        });
+        $('liveCastChromecast')?.addEventListener('click', async () => {
+            const url = live.player.currentUrl;
+            if (!url) return;
+            if ('PresentationRequest' in window) {
+                try { await new PresentationRequest([url]).start(); toast('Casting to your device…'); }
+                catch { window.open(url, '_blank', 'noopener'); }
+            } else { toast('Casting not available here — opening in a new tab'); window.open(url, '_blank', 'noopener'); }
+            close();
+        });
+        $('liveCastAirplay')?.addEventListener('click', () => {
+            // The stream is inside a cross-origin iframe, so we can't drive its
+            // <video> directly. Opening it standalone exposes Safari's native
+            // AirPlay control on the player.
+            toast('Tap the AirPlay icon inside the player that opens');
+            if (live.player.currentUrl) window.open(live.player.currentUrl, '_blank', 'noopener');
+            close();
+        });
     }
 
     function switchTab(tab) {
@@ -243,8 +324,12 @@
                 if (seen.has(k)) return false;
                 seen.add(k);
                 return true;
-            });
+            }).map(c => ({ ...c, _cat: inferCategory(c.channel_name) }));
+            // If Australia has no channels, fall back to showing all countries.
+            const auCount = live.channels.all.filter(c => (c.channel_code || '').toLowerCase() === 'au').length;
+            if (live.channels.country === 'au' && auCount === 0) live.channels.country = 'all';
             live.channels.loaded = true;
+            renderCategoryFilters();
             renderCountryFilters();
             renderChannels();
         } catch (e) {
@@ -253,18 +338,47 @@
         }
     }
 
+    // Category quick-select — the "TV guide" rail.
+    function renderCategoryFilters() {
+        const row = $('liveChannelCategories');
+        if (!row) return;
+        // Count categories within the current country scope.
+        const scope = live.channels.country === 'all'
+            ? live.channels.all
+            : live.channels.all.filter(c => (c.channel_code || '').toLowerCase() === live.channels.country);
+        const counts = {};
+        scope.forEach(c => { counts[c._cat] = (counts[c._cat] || 0) + 1; });
+        const order = ['all', 'sports', 'news', 'movies', 'ent', 'kids', 'music', 'docs', 'general'];
+        const cats = order.filter(k => k === 'all' || counts[k]);
+        row.innerHTML = '';
+        cats.forEach(k => {
+            const n = k === 'all' ? scope.length : counts[k];
+            const b = el('button', 'nf-live-chip' + (live.channels.category === k ? ' is-active' : ''),
+                `${esc(CATEGORY_LABELS[k] || k)}${n ? ` <span class="nf-live-chip-count">${n}</span>` : ''}`);
+            b.type = 'button';
+            b.addEventListener('click', () => { live.channels.category = k; renderCategoryFilters(); renderChannels(); });
+            row.appendChild(b);
+        });
+    }
+
     function renderCountryFilters() {
         const row = $('liveChannelCountries');
         if (!row) return;
         const counts = {};
         live.channels.all.forEach(c => { const k = (c.channel_code || 'xx').toLowerCase(); counts[k] = (counts[k] || 0) + 1; });
         const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k]) => k);
+        // Always offer Australia up front (this app's home region).
+        if (!top.includes('au') && counts['au']) top.unshift('au');
         const chips = [{ code: 'all', label: '🌐 All' }, ...top.map(c => ({ code: c, label: `${flag(c)} ${c.toUpperCase()}` }))];
         row.innerHTML = '';
         chips.forEach(c => {
             const b = el('button', 'nf-live-chip' + (live.channels.country === c.code ? ' is-active' : ''), esc(c.label));
             b.type = 'button';
-            b.addEventListener('click', () => { live.channels.country = c.code; renderCountryFilters(); renderChannels(); });
+            b.addEventListener('click', () => {
+                live.channels.country = c.code;
+                live.channels.category = 'all';
+                renderCategoryFilters(); renderCountryFilters(); renderChannels();
+            });
             row.appendChild(b);
         });
     }
@@ -274,6 +388,7 @@
         if (!grid) return;
         let list = live.channels.all;
         if (live.channels.country !== 'all') list = list.filter(c => (c.channel_code || '').toLowerCase() === live.channels.country);
+        if (live.channels.category !== 'all') list = list.filter(c => c._cat === live.channels.category);
         if (live.channels.query) list = list.filter(c => (c.channel_name || '').toLowerCase().includes(live.channels.query));
 
         if (!list.length) {
@@ -326,6 +441,8 @@
         if (!modal) return;
         modal.hidden = true;
         $('livePlayerFrameWrap').innerHTML = '';
+        const castPanel = $('livePlayerCastPanel');
+        if (castPanel) castPanel.hidden = true;
         document.body.classList.remove('nf-live-modal-open');
     }
 
@@ -353,6 +470,7 @@
         const s = live.player.servers[i];
         if (!s) return;
         live.player.index = i;
+        live.player.currentUrl = s.url;
         renderServerChips();
         const wrap = $('livePlayerFrameWrap');
         if (!wrap) return;

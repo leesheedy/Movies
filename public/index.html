@@ -578,6 +578,8 @@
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                         <input id="liveChannelSearch" class="nf-live-search-input" type="text" placeholder="Search 1,800+ channels…" autocomplete="off" />
                     </div>
+                    <div class="nf-live-guide-label">TV Guide</div>
+                    <div id="liveChannelCategories" class="nf-live-filter-row nf-live-cat-row"></div>
                     <div id="liveChannelCountries" class="nf-live-filter-row nf-live-country-row"></div>
                 </div>
                 <div id="liveChannelsGrid" class="nf-live-grid nf-live-grid--channels"></div>
@@ -635,6 +637,34 @@
             <div class="nf-live-player-titlewrap">
                 <h2 id="livePlayerTitle" class="nf-live-player-title">Live</h2>
                 <p id="livePlayerSubtitle" class="nf-live-player-subtitle"></p>
+            </div>
+            <div class="nf-live-cast-wrap">
+                <button id="livePlayerCast" class="nf-cast-btn" type="button" title="Cast / AirPlay" aria-expanded="false">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 3H3c-1.1 0-2 .9-2 2v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11z"/></svg>
+                    Cast
+                </button>
+                <div id="livePlayerCastPanel" class="nf-cast-panel nf-live-cast-panel" hidden>
+                    <p class="nf-cast-panel-title">Stream to another device</p>
+                    <button id="liveCastAirplay" class="nf-cast-option" type="button">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 22h12l-6-6zM3 3v14h4l2-2H5V5h14v10h-4l2 2h4V3z"/></svg>
+                        AirPlay
+                    </button>
+                    <button id="liveCastChromecast" class="nf-cast-option" type="button">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 3H3c-1.1 0-2 .9-2 2v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7z"/></svg>
+                        Chromecast
+                    </button>
+                    <button id="liveCastNewTab" class="nf-cast-option" type="button">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        Open in New Tab
+                    </button>
+                    <button id="liveCastCopy" class="nf-cast-option" type="button">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        Copy Stream Link
+                    </button>
+                    <div class="nf-cast-divider"></div>
+                    <p class="nf-cast-hint">Or scan to open on your phone / TV browser</p>
+                    <div class="nf-cast-qr-wrap"><img id="liveCastQr" class="nf-cast-qr-img" src="" alt="QR code" /></div>
+                </div>
             </div>
             <span class="nf-live-badge">● LIVE</span>
         </div>

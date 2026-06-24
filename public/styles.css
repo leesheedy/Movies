@@ -3344,6 +3344,28 @@ html.tv-mode { scroll-behavior: smooth; }
 @media (hover: none), (pointer: coarse) { .nf-hover-preview { display: none !important; } }
 html.tv-mode .nf-hover-preview { display: none !important; }
 
+/* ── Live TV guide (category rail) + live cast panel ── */
+.nf-live-guide-label {
+  font-size: .72rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--nf-gray-lt); margin: 4px 0 8px;
+}
+.nf-live-cat-row { margin-bottom: 14px; }
+.nf-live-chip-count {
+  display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px;
+  background: rgba(0,0,0,.3); font-size: .72rem; font-weight: 700; line-height: 1.6;
+}
+.nf-live-chip.is-active .nf-live-chip-count { background: rgba(0,0,0,.22); }
+
+.nf-live-cast-wrap { position: relative; flex-shrink: 0; }
+.nf-live-cast-panel {
+  position: absolute; top: calc(100% + 10px); right: 0;
+  width: 260px; z-index: 50;
+}
+.nf-live-cast-panel:not([hidden]) { display: block; }
+@media (max-width: 600px) {
+  .nf-live-cast-panel { right: -8px; width: min(280px, 86vw); }
+}
+
 /* Skeleton cards for lazy-loading home rows */
 .nf-skel-card {
   flex: 0 0 calc(16.666% - 4px);
