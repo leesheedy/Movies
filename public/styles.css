@@ -3287,8 +3287,37 @@ html.tv-mode .nf-view-title { font-size: 2.1rem; }
 html.tv-mode .nf-live-search-input { font-size: 1.15rem; }
 html.tv-mode .nf-live-player-shell { width: min(1480px, 94vw); }
 
-/* Smooth scrolling feels right on a remote */
-html.tv-mode { scroll-behavior: smooth; }
+/* Instant scrolling — smooth scroll janks on low-power TV browsers. */
+html.tv-mode { scroll-behavior: auto; }
+
+/* ── TV cinema mode (html.tv-cinema) — toggled by showView() ───────────────
+   The webOS browser is already full-screen and the Fullscreen API is flaky,
+   so when a movie/show plays on a TV we fill the viewport with the embed and
+   float the controls on top so the remote can still change source / exit. */
+html.tv-cinema #tmdbPlayerContainer {
+  position: fixed; inset: 0; z-index: 900; margin: 0; background: #000;
+}
+html.tv-cinema #tmdbIframeContainer { position: absolute; inset: 0; z-index: 1; }
+html.tv-cinema #tmdbIframeContainer iframe { width: 100%; height: 100%; border: 0; display: block; }
+/* Server/source chips — top overlay (always reachable to change source). */
+html.tv-cinema #tmdbPlayerToolbar {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 3; margin: 0;
+  padding: 84px 40px 22px; /* room for the Back row above */
+  background: linear-gradient(to bottom, rgba(0,0,0,.85), transparent);
+}
+/* Season/episode controls (TV shows) — bottom overlay. */
+html.tv-cinema #tmdbTvControls {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; margin: 0;
+  max-height: 50vh; overflow-y: auto;
+  background: linear-gradient(to top, rgba(0,0,0,.94), rgba(0,0,0,.45) 65%, transparent);
+}
+/* Back / cast row floats above everything. */
+html.tv-cinema .nf-player-topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 910;
+  padding: 22px 40px; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(0,0,0,.8), transparent);
+}
+html.tv-cinema .nf-player-topbar > * { pointer-events: auto; }
 
 /* ============================================================
    NETFLIX-STYLE HOVER PREVIEW (floating trailer card)

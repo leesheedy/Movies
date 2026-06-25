@@ -1201,6 +1201,9 @@ function renderTmdbIframe(embedUrl) {
     iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.setAttribute('loading', 'lazy');
+    // Keep the D-pad out of the cross-origin embed (it would swallow the remote);
+    // the app's own controls drive source switching and exit on TV.
+    iframe.tabIndex = -1;
 
     let fallbackTimeout = null;
     let currentIndex = 0;
@@ -2487,7 +2490,16 @@ function requestFullscreenForElement(element) {
     return true;
 }
 
+function isTvModeActive() {
+    try { return !!(window.isTvMode && window.isTvMode()); } catch { return false; }
+}
+
 function requestPlayerFullscreen() {
+    // On a TV the browser is already full-screen and the Fullscreen API is
+    // unreliable (it also needs a live user gesture, which has expired by the
+    // time the embed iframe loads). showView() handles TV "cinema mode" via CSS
+    // instead, so there's nothing to do here.
+    if (isTvModeActive()) return true;
     const tmdbContainer = document.getElementById('tmdbPlayerContainer');
     const tmdbIframeContainer = document.getElementById('tmdbIframeContainer');
     const video = document.getElementById('videoPlayer');
@@ -2498,6 +2510,21 @@ function requestPlayerFullscreen() {
         return requestFullscreenForElement(video);
     }
     return false;
+}
+
+// TV: a cross-origin embed swallows the remote once it has focus, so pull focus
+// back to the app's own player controls (server chips / Back) — this is what
+// lets the user change sources and exit while the video keeps playing.
+function focusPlayerControlsSoon() {
+    let tries = 0;
+    const tryFocus = () => {
+        if (state.currentView !== 'player') return;
+        const target = document.querySelector('#tmdbSourceChips .nf-source-chip')
+            || document.getElementById('playerBackBtn');
+        if (target) { try { target.focus(); } catch { /* ignore */ } return; }
+        if (++tries < 10) setTimeout(tryFocus, 200);
+    };
+    setTimeout(tryFocus, 350);
 }
 
 function initCastButton() {
@@ -2709,6 +2736,15 @@ function showView(viewName) {
     state.currentView = viewName;
     if (viewName !== 'player') {
         state.fullscreenExitArmed = false;
+    }
+
+    // TV "cinema mode": fill the screen with the player via CSS (the webOS
+    // browser is already full-screen) and pull focus to the player controls.
+    if (viewName === 'player' && isTvModeActive()) {
+        document.documentElement.classList.add('tv-cinema');
+        focusPlayerControlsSoon();
+    } else {
+        document.documentElement.classList.remove('tv-cinema');
     }
 
     const playerView = document.getElementById('playerView');
