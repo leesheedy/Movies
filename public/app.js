@@ -61,9 +61,11 @@ const profiles = [
     { id: 'guest', name: 'Guest', avatar: 'G' },
     { id: 'digby', name: 'Digby', avatar: 'D' },
     { id: 'lee', name: 'Lee', avatar: 'L' },
-    { id: 'ryan', name: 'Ryan', avatar: 'R' },
+    { id: 'ryan', name: 'Ryan', avatar: 'R', image: '/assets/profile-ryan.jpg' },
     { id: 'issy', name: 'Issy', avatar: 'I' },
     { id: 'renee', name: 'Renee', avatar: 'R' },
+    // Bec gets a photo avatar and re-brands the app to Love Island while active.
+    { id: 'bec', name: 'Bec', avatar: 'B', image: '/assets/profile-bec.jpg', brandLogo: '/assets/loveisland-logo.png' },
     { id: 'dom-and-isla', name: 'Dom and Isla', avatar: 'DI' }
 ];
 const profileSettings = loadProfileSettings();
@@ -99,8 +101,24 @@ function resolveProfile(profile) {
         ...profile,
         name: settings.name || profile.name,
         avatar: settings.avatar || profile.avatar,
+        image: settings.image || profile.image || '',
+        brandLogo: profile.brandLogo || '',
         accentColor: settings.accentColor || ''
     };
+}
+
+// Render an avatar into a container element — a photo if the profile has an
+// image URL, otherwise the initials text. Used for the header chip, the
+// dropdown, and (via markup) the profile gate cards.
+function applyAvatar(el, resolved) {
+    if (!el) return;
+    if (resolved.image) {
+        el.classList.add('has-avatar-image');
+        el.innerHTML = `<img class="nf-avatar-img" src="${escHtml(resolved.image)}" alt="${escHtml(resolved.name || '')}" />`;
+    } else {
+        el.classList.remove('has-avatar-image');
+        el.textContent = resolved.avatar;
+    }
 }
 
 function updateProfileAccent(profile) {
@@ -166,13 +184,24 @@ function applyProfile(profile) {
     if (profileName) {
         profileName.textContent = resolved.name;
     }
-    if (profileAvatar) {
-        profileAvatar.textContent = resolved.avatar;
-    }
-    if (dropdownAvatar) {
-        dropdownAvatar.textContent = resolved.avatar;
-    }
+    applyAvatar(profileAvatar, resolved);
+    applyAvatar(dropdownAvatar, resolved);
+    applyBrandLogo(resolved);
     updateProfileAccent(resolved);
+}
+
+// Swap the header wordmark for a profile-specific brand logo (e.g. Bec → Love
+// Island), and restore plain NOTFLIX for everyone else.
+function applyBrandLogo(resolved) {
+    const logoBtn = document.getElementById('logoHomeBtn');
+    if (!logoBtn) return;
+    if (resolved.brandLogo) {
+        logoBtn.classList.add('has-brand-img');
+        logoBtn.innerHTML = `<img class="nf-brand-img" src="${escHtml(resolved.brandLogo)}" alt="${escHtml(resolved.name)}" />`;
+    } else {
+        logoBtn.classList.remove('has-brand-img');
+        logoBtn.innerHTML = '<span class="nf-wordmark">NOTFLIX</span>';
+    }
 }
 
 function renderProfileGate(profile, gate) {
@@ -191,9 +220,12 @@ function renderProfileGate(profile, gate) {
         if (item.id === profile.id) {
             selectButton.setAttribute('aria-pressed', 'true');
         }
+        const avatarInner = resolved.image
+            ? `<img class="nf-avatar-img" src="${escHtml(resolved.image)}" alt="${escHtml(resolved.name)}" />`
+            : escHtml(resolved.avatar);
         selectButton.innerHTML = `
-            <div class="profile-card-avatar">${resolved.avatar}</div>
-            <div class="profile-card-name">${resolved.name}</div>
+            <div class="profile-card-avatar${resolved.image ? ' has-avatar-image' : ''}">${avatarInner}</div>
+            <div class="profile-card-name">${escHtml(resolved.name)}</div>
         `;
         selectButton.addEventListener('click', () => {
             saveActiveProfile(item.id);
@@ -208,6 +240,27 @@ function renderProfileGate(profile, gate) {
         card.appendChild(selectButton);
         profileList.appendChild(card);
     });
+
+    // On a TV there's no pointer — focus the active profile (or the first) once
+    // the gate is on screen so the D-pad can move between them and OK selects
+    // immediately. The gate's visibility is toggled elsewhere, so focus when it
+    // is actually visible.
+    if (window.isTvMode && window.isTvMode()) {
+        const focusActive = () => {
+            if (!gate || gate.hasAttribute('hidden')) return;
+            const buttons = [...profileList.querySelectorAll('.profile-card-button')];
+            const target = buttons.find(b => b.getAttribute('aria-pressed') === 'true') || buttons[0];
+            if (target) target.focus();
+        };
+        if (gate && gate.hasAttribute('hidden')) {
+            const obs = new MutationObserver(() => {
+                if (!gate.hasAttribute('hidden')) { obs.disconnect(); requestAnimationFrame(focusActive); }
+            });
+            obs.observe(gate, { attributes: true, attributeFilter: ['hidden'] });
+        } else {
+            requestAnimationFrame(focusActive);
+        }
+    }
 }
 
 function openProfileSettings(profileId) {

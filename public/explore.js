@@ -161,14 +161,23 @@ const ExploreModule = {
         showLoading(true, 'Loading curated lists...');
 
         try {
-            const [sheedysSelections, digbysFlix, ryansRecommendations, parkersPicks] = await Promise.all([
+            const [sheedysSelections, digbysFlix, ryansRecommendations, parkersPicks, becsBinges] = await Promise.all([
                 window.TMDBContentModule?.getSheedysPicks?.() || [],
                 this.getDigbysFlix(),
                 this.getRyansRecommendations(),
-                this.getParkersPicks()
+                this.getParkersPicks(),
+                this.getBecsBinges()
             ]);
 
             container.innerHTML = '';
+
+            const becsSection = this.buildCuratedSection({
+                id: 'becs-binges',
+                title: "💖 Bec's Binges",
+                items: becsBinges,
+                type: 'movie'
+            });
+            if (becsSection) container.appendChild(becsSection);
 
             const sheedysSection = this.buildCuratedSection({
                 id: 'sheedys-picks',
@@ -204,6 +213,7 @@ const ExploreModule = {
 
             this.updateSpotlight({
                 collections: [
+                    { title: "💖 Bec's Binges", items: becsBinges, type: 'movie' },
                     { title: "✨ Sheedy's Picks", items: sheedysSelections, type: 'movie' },
                     { title: "🎥 Digby's Flix", items: digbysFlix, type: 'movie' },
                     { title: "🍿 Ryan's Recommendations", items: ryansRecommendations, type: 'movie' },
@@ -534,6 +544,30 @@ const ExploreModule = {
         return movies;
     },
 
+    // Bec's Binges — every Spider-Man film plus Love Island USA.
+    async getBecsBinges() {
+        const TMDB = window.TMDBContentModule;
+        if (!TMDB?.fetchMovies) return [];
+        try {
+            const [spider, loveIsland] = await Promise.all([
+                TMDB.fetchMovies('/search/movie', { query: 'spider-man', include_adult: false }).catch(() => []),
+                TMDB.fetchTv
+                    ? TMDB.fetchTv('/search/tv', { query: 'Love Island USA' }).catch(() => [])
+                    : Promise.resolve([])
+            ]);
+            // Keep the actual Spider-Man films (live-action + Spider-Verse).
+            const spiderFilms = (spider || []).filter(m => /spider/i.test(m.title || ''));
+            // Pick the USA edition of Love Island (fall back to any Love Island).
+            const liAll = (loveIsland || []).filter(t => /love island/i.test(t.name || ''));
+            const liUsa = liAll.filter(t => /u\.?s\.?a\.?\b/i.test(t.name || '') || /usa/i.test(t.name || ''));
+            const lovePick = (liUsa.length ? liUsa : liAll).slice(0, 1);
+            return [...lovePick, ...spiderFilms];
+        } catch (error) {
+            console.warn("Failed to build Bec's Binges:", error);
+            return [];
+        }
+    },
+
     async getParkersPicks() {
         if (!window.TMDBContentModule?.fetchMovies) {
             return [];
@@ -608,7 +642,9 @@ const ExploreModule = {
 
             card.addEventListener('click', () => {
                 if (item.tmdb_id && window.TMDBContentModule?.showTMDBDetails) {
-                    window.TMDBContentModule.showTMDBDetails(item, type);
+                    // Respect each item's own media type so mixed lists (e.g. Bec's
+                    // Binges with a TV show among films) open the right details.
+                    window.TMDBContentModule.showTMDBDetails(item, item.media_type || type);
                     return;
                 }
                 if (item.imdb_id) {

@@ -85,7 +85,7 @@
         '.tmdb-card', '.tmdb-result-card', '.tmdb-similar-card', '.tmdb-rec-card',
         '.bollywood-card', '.genre-card', '.genre-movie-card',
         '.star-movie-card', '.star-credit-card', '.popular-star-card', '.view-all-star-card',
-        '.history-full-card', '.post-card', '.episode-card', '.profile-card',
+        '.history-full-card', '.post-card', '.episode-card',
         '.card',
     ].join(',');
 
@@ -129,13 +129,18 @@
         return s.visibility !== 'hidden' && s.display !== 'none' && s.opacity !== '0';
     }
 
-    // Like isVisible but ignores viewport bounds. D-pad nav must be able to
-    // target rows below the fold (the TV hero fills the screen) and cards
-    // scrolled off the side of a row — move() scrolls the chosen one into view.
+    // D-pad candidate filter. Allows elements up to one screen outside the
+    // viewport in any direction — so the row below the full-screen hero and
+    // cards scrolled just off a row are reachable — WITHOUT scanning the whole
+    // DOM every keypress (that makes nav laggy on low-power TVs). move() scrolls
+    // the chosen element into view. Cheap rect maths run before getComputedStyle
+    // so the style read only happens for the bounded in-band set.
     function isRendered(elm) {
         if (!elm) return false;
         const r = elm.getBoundingClientRect();
         if (r.width <= 1 || r.height <= 1) return false;
+        if (r.bottom < -innerHeight || r.top > innerHeight * 2) return false;
+        if (r.right < -innerWidth || r.left > innerWidth * 2) return false;
         const s = getComputedStyle(elm);
         return s.visibility !== 'hidden' && s.display !== 'none' && s.opacity !== '0';
     }
@@ -152,7 +157,9 @@
     }
 
     function scrollTo(elm) {
-        try { elm.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' }); } catch { /* ignore */ }
+        // Instant, not smooth — smooth scroll animation janks badly on low-power
+        // TV browsers and is the main source of "laggy" D-pad navigation.
+        try { elm.scrollIntoView({ block: 'center', inline: 'center', behavior: 'auto' }); } catch { /* ignore */ }
     }
 
     // Pick the nearest focusable in a given direction from the current element.
@@ -186,12 +193,43 @@
         return false;
     }
 
+    // Move focus from the search box into the first result. Results may still be
+    // loading (search is debounced / async), so poll briefly until one appears.
+    function focusSearchResults() {
+        let tries = 0;
+        const tryFocus = () => {
+            const c = document.getElementById('searchMenuResults') || document.getElementById('searchResults');
+            const first = c && c.querySelector(CARD_SEL + ', a[href], button:not([disabled])');
+            if (first) {
+                if (!first.hasAttribute('tabindex')) first.setAttribute('tabindex', '0');
+                first.focus();
+                scrollTo(first);
+                return;
+            }
+            if (++tries < 12) setTimeout(tryFocus, 120); // up to ~1.4s
+        };
+        tryFocus();
+    }
+
     function onKeyDown(e) {
         if (!tvOn) return;
         const t = e.target;
         const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
         const k = e.key;
         const isArrow = k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowDown';
+
+        // Search box: don't trap the user inside it. Enter (search) or Down jumps
+        // straight to the results so they can browse them with the D-pad. Other
+        // keys type normally.
+        if (typing && t && (t.id === 'searchInputHeader' || (t.classList && t.classList.contains('nf-search-input')))) {
+            if (k === 'Enter' || k === 'ArrowDown') {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                if (k === 'Enter' && window.performSearch) { try { window.performSearch(); } catch { /* ignore */ } }
+                focusSearchResults();
+            }
+            return;
+        }
 
         // In the player view, app.js owns the arrow keys (prev/next episode &
         // its own cinematic-tile nav). Defer to it entirely so they don't both fire.
@@ -208,11 +246,12 @@
             return;
         }
         if (k === 'Enter' && t && t !== document.body && !typing) {
-            // Let native button/link activation happen; for tagged cards, click.
-            if (t.matches(CARD_SEL) && t.tagName !== 'BUTTON' && t.tagName !== 'A') {
-                e.preventDefault();
-                t.click();
-            }
+            // TV browsers don't reliably synthesise a click from OK/Enter on the
+            // focused element (this is why "Who's watching?" felt stuck), so do it
+            // explicitly. preventDefault stops any second native activation.
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            t.click();
         }
     }
 

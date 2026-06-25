@@ -1421,6 +1421,16 @@ ul { list-style: none; }
 .nf-avatar-box { display: flex; }
 .nf-avatar-box--sm .nf-avatar-initials { width: 28px; height: 28px; border-radius: 3px; font-size: .75rem; }
 
+/* Photo avatars — fill the square container and crop to cover. */
+.profile-card-avatar.has-avatar-image,
+.nf-avatar-initials.has-avatar-image { padding: 0; overflow: hidden; background: #000; }
+.nf-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
+
+/* Profile-specific brand logo in the header (e.g. Bec → Love Island). */
+.nf-logo-btn.has-brand-img { padding: 0; }
+.nf-brand-img { height: 40px; width: auto; display: block; object-fit: contain; }
+html.tv-mode .nf-brand-img { height: 60px; }
+
 /* Dropdown profile row */
 .nf-dropdown-profile {
   display: flex; align-items: center; gap: 10px;

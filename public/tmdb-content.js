@@ -363,18 +363,24 @@ const TMDBContentModule = {
                 this.showTMDBDetails(item, type);
             });
 
-            // Netflix-style hover preview — a floating, animated card with a
-            // muted trailer. Disabled on touch / TV mode (see _hoverEnabled).
+            // Netflix-style preview — a floating, animated card with a trailer.
+            // On desktop it fires on hover; on a TV it fires when the card is
+            // "preselected" (focused via the D-pad), matching the web version.
             let hoverTimer = null;
-            card.addEventListener('mouseenter', () => {
-                if (!this._hoverEnabled()) return;
+            const armPreview = () => {
+                if (!this._hoverEnabled() && !this._focusPreviewEnabled()) return;
                 clearTimeout(hoverTimer);
-                hoverTimer = setTimeout(() => this._showHoverPreview(card, item, type), 550);
-            });
-            card.addEventListener('mouseleave', () => {
+                hoverTimer = setTimeout(() => this._showHoverPreview(card, item, type),
+                    this._focusPreviewEnabled() ? 650 : 550);
+            };
+            const disarmPreview = () => {
                 clearTimeout(hoverTimer);
                 this._hideHoverPreviewSoon();
-            });
+            };
+            card.addEventListener('mouseenter', armPreview);
+            card.addEventListener('mouseleave', disarmPreview);
+            card.addEventListener('focus', armPreview);
+            card.addEventListener('blur', disarmPreview);
 
             row.appendChild(card);
         });
@@ -393,6 +399,12 @@ const TMDBContentModule = {
         } catch { return false; }
     },
 
+    // On a TV there's no pointer hover, so trailer previews are triggered by
+    // D-pad focus instead (card "preselection"), mirroring the web hover.
+    _focusPreviewEnabled() {
+        try { return !!(window.isTvMode && window.isTvMode()); } catch { return false; }
+    },
+
     _ensureHoverPreview() {
         if (this._hoverEl) return this._hoverEl;
         const el = document.createElement('div');
@@ -401,15 +413,17 @@ const TMDBContentModule = {
         el.addEventListener('mouseenter', () => clearTimeout(this._hoverHideT));
         el.addEventListener('mouseleave', () => this._hideHoverPreviewSoon());
         document.body.appendChild(el);
-        // Fixed-positioned → detach on scroll/resize, so just hide it.
-        window.addEventListener('scroll', () => this._hideHoverPreview(), true);
+        // Fixed-positioned → detach on scroll/resize, so just hide it. On a TV,
+        // D-pad navigation scrolls constantly (scrollIntoView), so don't hide on
+        // scroll there — focus/blur on the cards drives show/hide instead.
+        window.addEventListener('scroll', () => { if (!this._focusPreviewEnabled()) this._hideHoverPreview(); }, true);
         window.addEventListener('resize', () => this._hideHoverPreview());
         this._hoverEl = el;
         return el;
     },
 
     async _showHoverPreview(card, item, type) {
-        if (!this._hoverEnabled()) return;
+        if (!this._hoverEnabled() && !this._focusPreviewEnabled()) return;
         const rect = card.getBoundingClientRect();
         if (!rect.width) return;
         const el = this._ensureHoverPreview();
