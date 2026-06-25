@@ -1242,9 +1242,21 @@ function renderTmdbIframe(embedUrl) {
     iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.setAttribute('loading', 'lazy');
-    // The embed is focusable so the user can step into it (Down from the server
-    // row) to use the player's own unmute / fullscreen controls; Back steps out.
-    iframe.tabIndex = 0;
+    // Keep the cross-origin embed OUT of the remote's focus path. When it holds
+    // focus it swallows the D-pad, so the user can't switch servers or go Back.
+    // The app's controls drive everything; the gate gives the first server sound,
+    // and cinema mode already provides fullscreen.
+    iframe.tabIndex = -1;
+    // Some embeds grab focus on load/play anyway — yank it back to the controls
+    // (bounded so an aggressive embed can't cause a focus loop).
+    let _refocusTries = 0;
+    iframe.addEventListener('focus', () => {
+        if (!isTvModeActive() || state.currentView !== 'player') return;
+        if (_refocusTries++ > 8) return;
+        const ctrl = document.querySelector('#tmdbSourceChips .nf-source-chip')
+            || document.getElementById('playerBackBtn');
+        if (ctrl) setTimeout(() => { try { ctrl.focus(); } catch (e) { /* ignore */ } }, 0);
+    });
 
     let fallbackTimeout = null;
     let currentIndex = 0;
@@ -1299,6 +1311,7 @@ function renderTmdbIframe(embedUrl) {
         currentIndex = index;
         tmdbActiveSourceIndex = index;
         iframeInteracted = false;
+        _refocusTries = 0;
         const nextUrl = sources[index];
         if (!nextUrl) return;
         iframe.src = nextUrl;
