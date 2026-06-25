@@ -41,9 +41,31 @@
 
 <!-- ═══════════════════════════════ APP LOADER ═══════════════════════════════ -->
 <div id="appLoader" class="app-loader">
-    <span class="app-loader-logo nf-wordmark">NOTFLIX</span>
+    <img class="app-loader-logo-img" src="/notflixlogo.png" alt="Notflix" />
     <div class="app-loader-bar"><div class="app-loader-bar-fill"></div></div>
+    <span class="app-loader-version" id="appVersion">build 236</span>
 </div>
+<script>
+  /* Netflix-style intro sound on every app open. Autoplay-with-sound is blocked
+     without a gesture on most browsers (but allowed on most webOS TVs); if it's
+     blocked, play on the first key/click instead. */
+  (function () {
+    try {
+      var a = new Audio('/assets/app-intro.mp3');
+      a.volume = 1;
+      var p = a.play();
+      if (p && p.catch) p.catch(function () {
+        var once = function () {
+          a.play().catch(function () {});
+          document.removeEventListener('keydown', once);
+          document.removeEventListener('pointerdown', once);
+        };
+        document.addEventListener('keydown', once, { once: true });
+        document.addEventListener('pointerdown', once, { once: true });
+      });
+    } catch (e) { /* ignore */ }
+  })();
+</script>
 
 <!-- ═══════════════════════════════ LANDING PAGE ═══════════════════════════════ -->
 <div id="landingPage" class="nf-page nf-page--landing" hidden>

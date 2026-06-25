@@ -146,7 +146,12 @@
     }
 
     function focusables() {
-        return [...document.querySelectorAll(FOCUS_SEL)].filter(e =>
+        // When the live-player modal is open, keep navigation inside it so the
+        // D-pad can't wander onto the page behind the overlay.
+        const liveModal = document.body.classList.contains('nf-live-modal-open')
+            ? document.getElementById('livePlayerModal') : null;
+        const scope = (liveModal && !liveModal.hidden) ? liveModal : document;
+        return [...scope.querySelectorAll(FOCUS_SEL)].filter(e =>
             isRendered(e) && !e.closest('[hidden]') && e.offsetParent !== null);
     }
 
@@ -222,10 +227,12 @@
         // straight to the results so they can browse them with the D-pad. Other
         // keys type normally.
         if (typing && t && (t.id === 'searchInputHeader' || (t.classList && t.classList.contains('nf-search-input')))) {
-            if (k === 'Enter' || k === 'ArrowDown') {
+            // Let OK/Enter and the on-screen keyboard work natively (intercepting
+            // Enter blocked the webOS keyboard from opening). Only Down jumps from
+            // the field to the results so the user isn't trapped in the box.
+            if (k === 'ArrowDown') {
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                if (k === 'Enter' && window.performSearch) { try { window.performSearch(); } catch { /* ignore */ } }
                 focusSearchResults();
             }
             return;

@@ -522,6 +522,9 @@
             '<span class="nf-live-playgate-label">Tap to play with sound</span>';
         gate.addEventListener('click', () => loadFrame(wrap, s));
         wrap.appendChild(gate);
+        // On a TV there's no pointer — focus the gate so OK plays it (otherwise
+        // OK lands on whatever's behind the modal and the stream never starts).
+        requestAnimationFrame(() => { try { gate.focus(); } catch (e) { /* ignore */ } });
     }
 
     function setServerMessage(msg) {

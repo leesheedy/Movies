@@ -1575,6 +1575,15 @@ html.tv-mode .nf-brand-img { height: 120px; }
   display: block;
   margin-bottom: 32px;
 }
+/* App-loader logo image (replaces the wordmark) + subtle build tag */
+.app-loader-logo-img { display: block; width: min(360px, 60vw); height: auto; margin: 0 auto 32px; }
+html.tv-mode .app-loader-logo-img { width: min(520px, 42vw); }
+.app-loader-version {
+  position: fixed; left: 20px; bottom: 16px; z-index: 1;
+  font-size: .72rem; letter-spacing: .05em; color: rgba(255,255,255,.28);
+  font-family: 'Helvetica Neue', Arial, sans-serif; user-select: none;
+}
+html.tv-mode .app-loader-version { font-size: 1rem; left: 28px; bottom: 22px; }
 /* Dropdown item buttons */
 .nf-dropdown-item {
   display: flex; align-items: center; gap: 10px;
