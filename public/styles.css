@@ -3287,6 +3287,11 @@ html.tv-mode .nf-view-title { font-size: 2.1rem; }
 html.tv-mode .nf-live-search-input { font-size: 1.15rem; }
 html.tv-mode .nf-live-player-shell { width: min(1480px, 94vw); }
 
+/* Hide remote-irrelevant controls on TV (no pointer, no notifications panel). */
+html.tv-mode .nf-cast-btn,
+html.tv-mode #castBtn,
+html.tv-mode button[aria-label="Notifications"] { display: none !important; }
+
 /* Instant scrolling — smooth scroll janks on low-power TV browsers. */
 html.tv-mode { scroll-behavior: auto; }
 

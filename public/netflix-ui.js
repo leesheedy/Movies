@@ -32,9 +32,14 @@
 
     const gate = $('profileGate');
     const hasStoredProfile = Boolean(localStorage.getItem('mitta_active_profile_v1'));
+    // On a TV, always start at "Who's watching?" — even with a saved profile.
+    const isTv = new URLSearchParams(location.search).get('tv') === '1'
+      || (window.isTvMode && window.isTvMode())
+      || document.documentElement.classList.contains('tv-mode');
+    const skipGate = hasStoredProfile && !isTv;
 
     if (gate) {
-      if (!hasStoredProfile) {
+      if (!skipGate) {
         gate.removeAttribute('hidden');
       }
 
@@ -47,8 +52,8 @@
       });
       obs.observe(gate, { attributes: true, attributeFilter: ['hidden'] });
 
-      // If profile already stored, init billboard immediately
-      if (hasStoredProfile) {
+      // If we're skipping the gate (desktop, profile already stored), init now
+      if (skipGate) {
         initBillboard();
       }
     }
