@@ -325,7 +325,11 @@ const ExploreModule = {
             this.updateSpotlight({ collections: this.state.spotlightCollections });
         };
 
-        if (item?.tmdb_id && window.TMDBContentModule?.fetchTrailerKey) {
+        // Skip the autoplay spotlight trailer on TV — a second heavy YouTube
+        // embed adds memory pressure that can crash low-memory TV browsers. The
+        // poster/backdrop still shows.
+        const onTv = !!(window.isTvMode && window.isTvMode());
+        if (!onTv && item?.tmdb_id && window.TMDBContentModule?.fetchTrailerKey) {
             window.TMDBContentModule.fetchTrailerKey(item.tmdb_id, collection.type || 'movie')
                 .then((trailerKey) => {
                     if (!trailerKey) return;
