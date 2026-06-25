@@ -1143,7 +1143,7 @@ function activeStreamProviders() {
 // servers are tried first.
 function orderSourcesForTv(sources) {
     if (!isTvModeActive()) return sources;
-    const demoted = ['vidlove', 'zstream']; // order here = order at the end
+    const demoted = ['vidlove', 'zstream', 'vidfast']; // order here = order at the end (VidFast last)
     const keep = sources.filter(s => !demoted.includes(s.id));
     const tail = demoted.map(id => sources.find(s => s.id === id)).filter(Boolean);
     return [...keep, ...tail];
