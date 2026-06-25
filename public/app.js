@@ -717,43 +717,17 @@ function scoreSearchResult(title, normalizedQuery) {
     if (!normalizedQuery) return 0;
     const normalizedTitle = normalizeSearchTitle(title);
     if (!normalizedTitle) return 0;
-    if (normalizedTitle === normalizedQuery) return 120;
-    if (normalizedTitle.startsWith(normalizedQuery)) return 100;
-    if (normalizedTitle.includes(normalizedQuery)) return 80;
+    // Also compare a space-stripped form so "spiderman" matches "Spider-Man"
+    // (which normalises to "spider man") and other run-together spellings.
+    const compactTitle = normalizedTitle.replace(/ /g, '');
+    const compactQuery = normalizedQuery.replace(/ /g, '');
+    if (normalizedTitle === normalizedQuery || compactTitle === compactQuery) return 120;
+    if (normalizedTitle.startsWith(normalizedQuery) || compactTitle.startsWith(compactQuery)) return 100;
+    if (normalizedTitle.includes(normalizedQuery) || compactTitle.includes(compactQuery)) return 80;
     const queryTokens = normalizedQuery.split(' ').filter(Boolean);
     if (queryTokens.length === 0) return 0;
     const matchCount = queryTokens.filter(token => normalizedTitle.includes(token)).length;
     return 50 + matchCount * 5;
-}
-
-function selectExactMatchResults(results, normalizedQuery) {
-    if (!Array.isArray(results) || !normalizedQuery) return [];
-    const exactMatches = results.filter(result => normalizeSearchTitle(result.title) === normalizedQuery);
-    if (exactMatches.length === 0) return [];
-
-    exactMatches.sort((a, b) => {
-        const mediaBoostA = a.media_type === 'tv' ? 1 : 0;
-        const mediaBoostB = b.media_type === 'tv' ? 1 : 0;
-        if (mediaBoostA !== mediaBoostB) {
-            return mediaBoostB - mediaBoostA;
-        }
-
-        const popularityA = Number(a.popularity) || 0;
-        const popularityB = Number(b.popularity) || 0;
-        if (popularityA !== popularityB) {
-            return popularityB - popularityA;
-        }
-
-        const voteCountA = Number(a.vote_count) || 0;
-        const voteCountB = Number(b.vote_count) || 0;
-        if (voteCountA !== voteCountB) {
-            return voteCountB - voteCountA;
-        }
-
-        return 0;
-    });
-
-    return [exactMatches[0]];
 }
 
 function applySearchProviderFilter(results) {
@@ -4612,10 +4586,17 @@ async function performSearch(queryOverride = '', options = {}) {
                 ...result,
                 score: scoreSearchResult(result.title, normalizedQuery)
             }))
-            .sort((a, b) => b.score - a.score);
+            // Best title match first; break ties by popularity so the headline
+            // entry of a franchise leads, but every related title still shows.
+            .sort((a, b) => {
+                if (b.score !== a.score) return b.score - a.score;
+                return (Number(b.popularity) || 0) - (Number(a.popularity) || 0);
+            });
 
-        const exactMatchResults = selectExactMatchResults(combined, normalizedQuery);
-        const results = exactMatchResults.length > 0 ? exactMatchResults : combined.slice(0, 30);
+        // Show the whole related set — e.g. "spiderman" returns every Spider-Man
+        // film and show, not just the one exact-title match. (Previously a single
+        // exact match collapsed the list to one result.)
+        const results = combined.slice(0, 60);
 
         if (requestId !== state.searchRequestId) {
             return;

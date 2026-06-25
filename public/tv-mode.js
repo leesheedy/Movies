@@ -73,7 +73,21 @@
         'a[href]', 'button:not([disabled])', 'input:not([disabled])',
         'select:not([disabled])', 'textarea:not([disabled])', '[tabindex]:not([tabindex="-1"])',
     ].join(',');
-    const CARD_SEL = '.nf-card,.cinematic-tile,.nf-live-card,.nf-ep-card,.nf-source-chip,.movie-card,.poster-card,.nf-result-card,.nf-search-result,.card';
+    // Every clickable content tile across the app. These are mostly plain
+    // <div>s with click handlers (not <a>/<button>), so they aren't natively
+    // focusable — we tag them with tabindex so the D-pad can land on them.
+    // Keep this in sync when new tile classes are added.
+    const CARD_SEL = [
+        '.nf-card', '.cinematic-tile', '.cinematic-poster-card',
+        '.netflix-card', '.movie-card', '.poster-card',
+        '.nf-live-card', '.nf-ep-card', '.nf-source-chip',
+        '.nf-result-card', '.nf-search-result',
+        '.tmdb-card', '.tmdb-result-card', '.tmdb-similar-card', '.tmdb-rec-card',
+        '.bollywood-card', '.genre-card', '.genre-movie-card',
+        '.star-movie-card', '.star-credit-card', '.popular-star-card', '.view-all-star-card',
+        '.history-full-card', '.post-card', '.episode-card', '.profile-card',
+        '.card',
+    ].join(',');
 
     let navStarted = false;
     let cardObserver = null;
@@ -83,10 +97,15 @@
         navStarted = true;
 
         // Make clickable cards focusable so native focus + geometry nav works.
-        const tagCards = (scope) => (scope || document).querySelectorAll
-            ? (scope || document).querySelectorAll(CARD_SEL).forEach(c => {
-                if (!c.hasAttribute('tabindex')) c.setAttribute('tabindex', '0');
-            }) : null;
+        // Tag both descendants AND the scope node itself — when a single card
+        // is inserted directly, querySelectorAll wouldn't include it.
+        const tag = (c) => { if (c.nodeType === 1 && !c.hasAttribute('tabindex')) c.setAttribute('tabindex', '0'); };
+        const tagCards = (scope) => {
+            scope = scope || document;
+            if (!scope.querySelectorAll) return;
+            if (scope.matches && scope.matches(CARD_SEL)) tag(scope);
+            scope.querySelectorAll(CARD_SEL).forEach(tag);
+        };
         tagCards(document);
         cardObserver = new MutationObserver(muts => {
             muts.forEach(m => m.addedNodes && m.addedNodes.forEach(n => { if (n.nodeType === 1) tagCards(n); }));
@@ -110,9 +129,20 @@
         return s.visibility !== 'hidden' && s.display !== 'none' && s.opacity !== '0';
     }
 
+    // Like isVisible but ignores viewport bounds. D-pad nav must be able to
+    // target rows below the fold (the TV hero fills the screen) and cards
+    // scrolled off the side of a row — move() scrolls the chosen one into view.
+    function isRendered(elm) {
+        if (!elm) return false;
+        const r = elm.getBoundingClientRect();
+        if (r.width <= 1 || r.height <= 1) return false;
+        const s = getComputedStyle(elm);
+        return s.visibility !== 'hidden' && s.display !== 'none' && s.opacity !== '0';
+    }
+
     function focusables() {
         return [...document.querySelectorAll(FOCUS_SEL)].filter(e =>
-            isVisible(e) && !e.closest('[hidden]') && e.offsetParent !== null);
+            isRendered(e) && !e.closest('[hidden]') && e.offsetParent !== null);
     }
 
     function focusFirst() {
