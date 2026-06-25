@@ -1428,8 +1428,8 @@ ul { list-style: none; }
 
 /* Profile-specific brand logo in the header (e.g. Bec → Love Island). */
 .nf-logo-btn.has-brand-img { padding: 0; }
-.nf-brand-img { height: 40px; width: auto; display: block; object-fit: contain; }
-html.tv-mode .nf-brand-img { height: 60px; }
+.nf-brand-img { height: 80px; width: auto; display: block; object-fit: contain; }
+html.tv-mode .nf-brand-img { height: 120px; }
 
 /* Dropdown profile row */
 .nf-dropdown-profile {
