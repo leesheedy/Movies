@@ -1139,11 +1139,14 @@ function activeStreamProviders() {
     return STREAM_PROVIDERS.filter(p => p.enabled);
 }
 
-// On a TV, push VidLove to the end — its player starts muted and is awkward to
-// drive with a remote — so the other servers are tried first.
+// On a TV, push the flaky/muted players to the end (ZStream last) so the better
+// servers are tried first.
 function orderSourcesForTv(sources) {
     if (!isTvModeActive()) return sources;
-    return [...sources.filter(s => s.id !== 'vidlove'), ...sources.filter(s => s.id === 'vidlove')];
+    const demoted = ['vidlove', 'zstream']; // order here = order at the end
+    const keep = sources.filter(s => !demoted.includes(s.id));
+    const tail = demoted.map(id => sources.find(s => s.id === id)).filter(Boolean);
+    return [...keep, ...tail];
 }
 
 // Returns [{ url, label, id }] for a movie, primary provider first.
@@ -1316,6 +1319,10 @@ function renderTmdbIframe(embedUrl) {
         // Iframe loaded something — might be blank/ad. Show a gentle prompt to advance
         // so user isn't stuck staring at a black box.
         showLoadedPrompt();
+        // TV: the embed often grabs keyboard focus on load, trapping the remote
+        // inside it. Pull focus back to the app's controls so Up/Left/Right still
+        // switch servers and Back still works. (Press Down to step into the video.)
+        if (isTvModeActive()) focusPlayerControlsSoon();
     });
 
     iframe.addEventListener('pointerdown', () => {
