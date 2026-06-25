@@ -308,7 +308,9 @@
             });
         });
         if (!servers.length) { setServerMessage('No live servers available for this event yet.'); return; }
-        setServers(servers);
+        // Gate the first load behind a tap — see playServer() for why this is
+        // what gives sports streams their audio.
+        setServers(servers, { gate: true });
     }
 
     /* ─── LIVE CHANNELS ───────────────────────────────────────────────── */
@@ -449,10 +451,10 @@
         document.body.classList.remove('nf-live-modal-open');
     }
 
-    function setServers(servers) {
+    function setServers(servers, opts) {
         live.player.servers = servers;
         renderServerChips();
-        playServer(0);
+        playServer(0, opts);
     }
 
     function renderServerChips() {
@@ -469,7 +471,7 @@
     }
 
     let frameTimer = null;
-    function playServer(i) {
+    function playServer(i, opts) {
         const s = live.player.servers[i];
         if (!s) return;
         live.player.index = i;
@@ -477,6 +479,19 @@
         renderServerChips();
         const wrap = $('livePlayerFrameWrap');
         if (!wrap) return;
+        // AUDIO: sports embeds (embed.st) use an autostart player. Browsers only
+        // allow a cross-origin iframe to autoplay WITH SOUND when the iframe is
+        // created during a live user gesture. Sports servers are fetched async,
+        // so by the time we get here the click that opened the player has
+        // expired → the embed is forced to play muted. Gating the first load
+        // behind a "Tap to play" button means the iframe is created from that
+        // tap's own gesture, so the stream keeps its audio. Channels and server
+        // switches already run inside a live click, so they load immediately.
+        if (opts && opts.gate) showPlayGate(wrap, s);
+        else loadFrame(wrap, s);
+    }
+
+    function loadFrame(wrap, s) {
         setServerMessage('Loading stream…');
         wrap.innerHTML = '';
         const iframe = document.createElement('iframe');
@@ -492,6 +507,21 @@
             else setServerMessage('');
         }, 9000);
         wrap.appendChild(iframe);
+    }
+
+    // One-tap "play" overlay. The tap is the user gesture that lets the embedded
+    // player start with sound (see playServer).
+    function showPlayGate(wrap, s) {
+        clearTimeout(frameTimer);
+        setServerMessage('');
+        wrap.innerHTML = '';
+        const gate = el('button', 'nf-live-playgate');
+        gate.type = 'button';
+        gate.innerHTML =
+            '<span class="nf-live-playgate-circle">▶</span>' +
+            '<span class="nf-live-playgate-label">Tap to play with sound</span>';
+        gate.addEventListener('click', () => loadFrame(wrap, s));
+        wrap.appendChild(gate);
     }
 
     function setServerMessage(msg) {

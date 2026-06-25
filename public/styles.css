@@ -3189,6 +3189,27 @@ body.nf-live-modal-open { overflow: hidden; }
   color: var(--nf-gray-lt); font-size: 1rem; text-align: center; padding: 20px;
   pointer-events: none; background: rgba(0,0,0,.4);
 }
+/* One-tap "play with sound" gate — the tap is the user gesture that lets the
+   cross-origin sports embed start unmuted (otherwise browsers force muted). */
+.nf-live-playgate {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; border: 0; cursor: pointer; color: #fff; z-index: 2;
+  background: radial-gradient(ellipse at center, rgba(25,25,25,.45), rgba(0,0,0,.86));
+  -webkit-tap-highlight-color: transparent;
+}
+.nf-live-playgate-circle {
+  width: 84px; height: 84px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2.1rem; padding-left: 6px; line-height: 1;
+  background: var(--nf-red); color: #fff;
+  box-shadow: 0 8px 30px rgba(229,9,20,.55);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.nf-live-playgate:hover .nf-live-playgate-circle,
+.nf-live-playgate:focus-visible .nf-live-playgate-circle { transform: scale(1.07); box-shadow: 0 10px 38px rgba(229,9,20,.72); }
+.nf-live-playgate:focus-visible { outline: none; }
+.nf-live-playgate-label { font-size: 1.05rem; font-weight: 600; letter-spacing: .01em; }
 .nf-live-player-servers { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
 @media (max-width: 600px) {
