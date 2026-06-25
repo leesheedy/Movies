@@ -399,10 +399,12 @@ const TMDBContentModule = {
         } catch { return false; }
     },
 
-    // On a TV there's no pointer hover, so trailer previews are triggered by
-    // D-pad focus instead (card "preselection"), mirroring the web hover.
+    // DISABLED on TV. Autoplaying trailer previews on D-pad focus spawned heavy
+    // YouTube embeds (with sound) as the user navigated, which could exhaust a
+    // low-memory TV browser and crash/reboot the set. Desktop hover previews are
+    // unaffected. Re-enable only with a much lighter, poster-only preview.
     _focusPreviewEnabled() {
-        try { return !!(window.isTvMode && window.isTvMode()); } catch { return false; }
+        return false;
     },
 
     _ensureHoverPreview() {
