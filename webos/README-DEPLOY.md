@@ -39,7 +39,7 @@ good idea to change any password you've shared in chat.)
 
 3. Register the TV with the CLI:
    ```powershell
-   ares-setup-device --add notflixtv --info "host=<TV_IP> port=9922 username=prisoner"
+   ares-setup-device --add notflixtv -i "host=<TV_IP>" -i "port=9922" -i "username=prisoner"
    ares-novacom --device notflixtv --getkey      # prompts for the on-screen passphrase
    ```
    (Or run `ares-setup-device` with no args for the interactive editor.)

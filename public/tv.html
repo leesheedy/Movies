@@ -149,7 +149,7 @@
           <a class="btn" href="/notflix-webos.ipk" download style="font-size:.95rem;padding:11px 20px;">⬇ Download notflix-webos.ipk</a>
           <p class="muted small" style="margin:14px 0 4px;">Then run (replace <code style="color:#ff9">TV_IP</code>):</p>
           <div class="cmd"><code>npm install -g @webos-tools/cli</code><button class="copy" data-copy="npm install -g @webos-tools/cli">Copy</button></div>
-          <div class="cmd"><code>ares-setup-device --add notflixtv --info "host=TV_IP port=9922 username=prisoner"</code><button class="copy" data-copy='ares-setup-device --add notflixtv --info "host=TV_IP port=9922 username=prisoner"'>Copy</button></div>
+          <div class="cmd"><code>ares-setup-device --add notflixtv -i "host=TV_IP" -i "port=9922" -i "username=prisoner"</code><button class="copy" data-copy='ares-setup-device --add notflixtv -i "host=TV_IP" -i "port=9922" -i "username=prisoner"'>Copy</button></div>
           <div class="cmd"><code>ares-novacom --device notflixtv --getkey</code><button class="copy" data-copy="ares-novacom --device notflixtv --getkey">Copy</button></div>
           <div class="cmd"><code>ares-install --device notflixtv notflix-webos.ipk</code><button class="copy" data-copy="ares-install --device notflixtv notflix-webos.ipk">Copy</button></div>
           <div class="cmd"><code>ares-launch --device notflixtv com.notflix.app</code><button class="copy" data-copy="ares-launch --device notflixtv com.notflix.app">Copy</button></div>
@@ -209,7 +209,7 @@
       'echo.',
       'echo [2/5] Registering your TV...',
       'call ares-setup-device --remove notflixtv >nul 2>&1',
-      'call ares-setup-device --add notflixtv --info "host=' + ip + ' port=9922 username=prisoner"',
+      'call ares-setup-device --add notflixtv -i "host=' + ip + '" -i "port=9922" -i "username=prisoner"',
       'echo.',
       'echo [3/5] Getting the dev key. Enter the PASSPHRASE shown in the',
       'echo       Developer Mode app on your TV when you are asked:',
@@ -236,7 +236,7 @@
       'npm install -g @webos-tools/cli',
       'echo "==> Registering your TV..."',
       'ares-setup-device --remove notflixtv >/dev/null 2>&1 || true',
-      'ares-setup-device --add notflixtv --info "host=' + ip + ' port=9922 username=prisoner"',
+      'ares-setup-device --add notflixtv -i "host=' + ip + '" -i "port=9922" -i "username=prisoner"',
       'echo "==> Enter the PASSPHRASE shown on your TV when prompted..."',
       'ares-novacom --device notflixtv --getkey',
       'echo "==> Downloading the Notflix app..."',
