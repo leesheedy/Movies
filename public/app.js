@@ -1292,7 +1292,15 @@ function renderTmdbIframe(embedUrl) {
     if (tmdbIframeContainer) {
         tmdbIframeContainer.appendChild(iframe);
     }
-    loadSource(0);
+    // On a TV, gate the first load behind an OK press so the embed is created
+    // with the page already user-activated and plays WITH SOUND (cross-origin
+    // autoplay is force-muted otherwise). Switching sources later happens from a
+    // click/OK too, so sound is preserved.
+    if (isTvModeActive() && tmdbIframeContainer) {
+        showTmdbPlayGate(tmdbIframeContainer, () => { loadSource(0); focusPlayerControlsSoon(); });
+    } else {
+        loadSource(0);
+    }
     renderSourceChips(providerBaseOffset);
 }
 
@@ -2519,12 +2527,38 @@ function focusPlayerControlsSoon() {
     let tries = 0;
     const tryFocus = () => {
         if (state.currentView !== 'player') return;
-        const target = document.querySelector('#tmdbSourceChips .nf-source-chip')
+        // Prefer the "press OK to play" gate (so OK starts playback with sound),
+        // then the source chips, then Back.
+        const target = document.querySelector('.nf-tmdb-playgate')
+            || document.querySelector('#tmdbSourceChips .nf-source-chip')
             || document.getElementById('playerBackBtn');
         if (target) { try { target.focus(); } catch { /* ignore */ } return; }
         if (++tries < 10) setTimeout(tryFocus, 200);
     };
     setTimeout(tryFocus, 350);
+}
+
+// TV-only "press OK to play" gate. Loading the embed from the resulting click
+// gives the page user-activation, so the stream plays WITH SOUND instead of
+// being force-muted by the browser's cross-origin autoplay policy.
+function showTmdbPlayGate(container, onPlay) {
+    if (!container) { onPlay(); return; }
+    container.querySelector('.nf-tmdb-playgate')?.remove();
+    const gate = document.createElement('button');
+    gate.type = 'button';
+    gate.className = 'nf-live-playgate nf-tmdb-playgate';
+    gate.innerHTML =
+        '<span class="nf-live-playgate-circle">▶</span>' +
+        '<span class="nf-live-playgate-label">Press OK to play with sound</span>';
+    let used = false;
+    gate.addEventListener('click', () => {
+        if (used) return;
+        used = true;
+        gate.remove();
+        onPlay();
+    });
+    container.appendChild(gate);
+    requestAnimationFrame(() => { try { gate.focus(); } catch { /* ignore */ } });
 }
 
 function initCastButton() {
@@ -2643,6 +2677,13 @@ function handleBackAction() {
         return;
     }
 
+    // TV cinema mode has no real fullscreen to exit, so Back leaves the player
+    // (the Back button knows how to return to details/home).
+    if (state.currentView === 'player' && isTvModeActive()) {
+        document.getElementById('playerBackBtn')?.click();
+        return;
+    }
+
     if (state.fullscreenExitArmed) {
         state.fullscreenExitArmed = false;
         if (state.selectedProvider) {
@@ -2676,7 +2717,8 @@ function initBackNavigationHandlers() {
             event.preventDefault();
             return;
         }
-        if (key === 'Escape' || key === 'BrowserBack' || key === 'Backspace') {
+        if (key === 'Escape' || key === 'BrowserBack' || key === 'Backspace'
+            || key === 'GoBack' || event.keyCode === 461) {
             handleBackAction();
         }
     });
