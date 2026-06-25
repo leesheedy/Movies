@@ -231,14 +231,18 @@
             return;
         }
 
-        // In the player view, app.js owns the arrow keys (prev/next episode &
-        // its own cinematic-tile nav). Defer to it entirely so they don't both fire.
+        // In the player, app.js owns arrows for episode/cinematic-tile nav — but
+        // the cinema overlay controls (server chips + Back row) need spatial nav
+        // too, otherwise Left/Right won't move between servers and Down can't
+        // reach the video. Drive those ourselves; defer everything else in-player.
         const inPlayer = window.state && window.state.currentView === 'player';
+        const onCinemaControl = !!(t && t.closest &&
+            (t.closest('#tmdbPlayerToolbar') || t.closest('.nf-player-topbar')));
 
-        if (!typing && !inPlayer && isArrow) {
+        if (!typing && isArrow && (!inPlayer || onCinemaControl)) {
             const dir = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }[k];
-            // tv-mode is the SOLE arrow handler outside the player: always swallow
-            // the event (even when there's nowhere to move) so app.js's own
+            // tv-mode is the SOLE arrow handler here: always swallow the event
+            // (even when there's nowhere to move) so app.js's own
             // focusClosestCinematicTile handler can't double-fire.
             e.preventDefault();
             e.stopImmediatePropagation();

@@ -1139,24 +1139,31 @@ function activeStreamProviders() {
     return STREAM_PROVIDERS.filter(p => p.enabled);
 }
 
+// On a TV, push VidLove to the end — its player starts muted and is awkward to
+// drive with a remote — so the other servers are tried first.
+function orderSourcesForTv(sources) {
+    if (!isTvModeActive()) return sources;
+    return [...sources.filter(s => s.id !== 'vidlove'), ...sources.filter(s => s.id === 'vidlove')];
+}
+
 // Returns [{ url, label, id }] for a movie, primary provider first.
 function buildMovieEmbedSources(tmdbId, imdbId) {
-    return activeStreamProviders()
+    return orderSourcesForTv(activeStreamProviders()
         .map(p => {
             const url = p.movie({ tmdbId, imdbId, self: p });
             return url ? { url, label: p.label, id: p.id } : null;
         })
-        .filter(Boolean);
+        .filter(Boolean));
 }
 
 // Returns [{ url, label, id }] for a TV episode, primary provider first.
 function buildTvEmbedSources(tvId, season, episode) {
-    return activeStreamProviders()
+    return orderSourcesForTv(activeStreamProviders()
         .map(p => {
             const url = p.tv({ tmdbId: tvId, season, episode, self: p });
             return url ? { url, label: p.label, id: p.id } : null;
         })
-        .filter(Boolean);
+        .filter(Boolean));
 }
 
 async function fetchOmdbData(imdbId) {
@@ -1232,9 +1239,9 @@ function renderTmdbIframe(embedUrl) {
     iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.setAttribute('loading', 'lazy');
-    // Keep the D-pad out of the cross-origin embed (it would swallow the remote);
-    // the app's own controls drive source switching and exit on TV.
-    iframe.tabIndex = -1;
+    // The embed is focusable so the user can step into it (Down from the server
+    // row) to use the player's own unmute / fullscreen controls; Back steps out.
+    iframe.tabIndex = 0;
 
     let fallbackTimeout = null;
     let currentIndex = 0;
@@ -2708,9 +2715,17 @@ function handleBackAction() {
         return;
     }
 
-    // TV cinema mode has no real fullscreen to exit, so Back leaves the player
-    // (the Back button knows how to return to details/home).
+    // TV cinema mode has no real fullscreen to exit.
     if (state.currentView === 'player' && isTvModeActive()) {
+        // If we've stepped into the video embed, Back returns to the controls
+        // (server chips) rather than leaving the player.
+        const iframe = document.querySelector('#tmdbIframeContainer iframe');
+        if (iframe && document.activeElement === iframe) {
+            const ctrl = document.querySelector('#tmdbSourceChips .nf-source-chip')
+                || document.getElementById('playerBackBtn');
+            if (ctrl) { try { ctrl.focus(); } catch { /* ignore */ } return; }
+        }
+        // Otherwise Back leaves the player (returns to details/home).
         document.getElementById('playerBackBtn')?.click();
         return;
     }
