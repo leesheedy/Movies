@@ -204,6 +204,36 @@ function applyBrandLogo(resolved) {
     }
 }
 
+// Bec's signature: a short Michael Jackson clip when she signs in — plays the
+// first ~10s then fades out. Called from the profile-select click so the
+// browser allows it to play with sound.
+let becSignInAudio = null;
+function playBecSignInSound() {
+    try {
+        if (becSignInAudio) { becSignInAudio.pause(); becSignInAudio = null; }
+        const audio = new Audio('/assets/bec-signin.mp3');
+        becSignInAudio = audio;
+        audio.volume = 1;
+        audio.play().catch(() => { /* autoplay blocked — ignore */ });
+        const FADE_START = 9000;   // ~9s at full volume...
+        const FADE_MS = 1500;      // ...then fade out, silent by ~10.5s
+        setTimeout(() => {
+            if (becSignInAudio !== audio) return;
+            const steps = 15, stepMs = FADE_MS / steps, start = audio.volume;
+            let i = 0;
+            const fade = setInterval(() => {
+                i += 1;
+                audio.volume = Math.max(0, start * (1 - i / steps));
+                if (i >= steps) {
+                    clearInterval(fade);
+                    audio.pause();
+                    if (becSignInAudio === audio) becSignInAudio = null;
+                }
+            }, stepMs);
+        }, FADE_START);
+    } catch { /* ignore */ }
+}
+
 function renderProfileGate(profile, gate) {
     const profileList = document.getElementById('profileList');
     if (!profileList) return;
@@ -228,6 +258,7 @@ function renderProfileGate(profile, gate) {
             <div class="profile-card-name">${escHtml(resolved.name)}</div>
         `;
         selectButton.addEventListener('click', () => {
+            if (item.id === 'bec') playBecSignInSound();
             saveActiveProfile(item.id);
             activeProfileId = item.id;
             applyProfile(item);
