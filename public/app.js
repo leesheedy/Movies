@@ -1151,14 +1151,17 @@ function activeStreamProviders() {
     return STREAM_PROVIDERS.filter(p => p.enabled);
 }
 
-// On a TV, push the flaky/muted players to the end (ZStream last) so the better
-// servers are tried first.
+// On a TV (D-pad, no easy click into the cross-origin embed), prefer the players
+// that AUTOPLAY so the movie starts on its own instead of waiting on an in-embed
+// Play button: VidFast first (clean + ad-light + autoPlay=true), then VidLove
+// (autoplay=true) as the autoplay fallback. The manual-play servers (111movies,
+// Videasy, ZStream) follow in their original order.
 function orderSourcesForTv(sources) {
     if (!isTvModeActive()) return sources;
-    const demoted = ['vidlove', 'zstream', 'vidfast']; // order here = order at the end (VidFast last)
-    const keep = sources.filter(s => !demoted.includes(s.id));
-    const tail = demoted.map(id => sources.find(s => s.id === id)).filter(Boolean);
-    return [...keep, ...tail];
+    const autoplayFirst = ['vidfast', 'vidlove']; // order here = order at the front
+    const head = autoplayFirst.map(id => sources.find(s => s.id === id)).filter(Boolean);
+    const rest = sources.filter(s => !autoplayFirst.includes(s.id));
+    return [...head, ...rest];
 }
 
 // Returns [{ url, label, id }] for a movie, primary provider first.
