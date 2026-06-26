@@ -3231,6 +3231,28 @@ body.nf-live-modal-open { overflow: hidden; }
 .nf-live-playgate-label { font-size: 1.05rem; font-weight: 600; letter-spacing: .01em; }
 .nf-live-player-servers { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
+/* TV: focusable click-surface over the cinema embed. Transparent so the video
+   shows through; when the D-pad lands on it a clear box + hint appears, and OK
+   "steps into" the embed (see stepIntoEmbed). Sits BELOW the play-gate (z-index 2)
+   so the gate is shown/used first. Only created in TV mode. */
+.nf-video-surface {
+  position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1;
+  border: 0; background: transparent; cursor: pointer; padding: 0;
+  display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6%;
+  -webkit-tap-highlight-color: transparent;
+}
+.nf-video-surface:focus, .nf-video-surface:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 4px var(--nf-red), inset 0 0 0 9px rgba(0,0,0,.45);
+}
+.nf-video-surface-hint {
+  background: rgba(0,0,0,.78); color: #fff; padding: 9px 20px; border-radius: 999px;
+  font-size: 1.05rem; font-weight: 600; letter-spacing: .01em; opacity: 0;
+  transition: opacity .18s ease; pointer-events: none;
+}
+.nf-video-surface:focus .nf-video-surface-hint,
+.nf-video-surface:focus-visible .nf-video-surface-hint { opacity: 1; }
+
 @media (max-width: 600px) {
   .nf-live-player-shell { width: 100vw; height: 100%; padding: 12px; justify-content: flex-start; }
   .nf-live-player-title { font-size: 1.05rem; }

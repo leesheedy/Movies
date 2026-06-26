@@ -244,7 +244,8 @@
         // reach the video. Drive those ourselves; defer everything else in-player.
         const inPlayer = window.state && window.state.currentView === 'player';
         const onCinemaControl = !!(t && t.closest &&
-            (t.closest('#tmdbPlayerToolbar') || t.closest('.nf-player-topbar')));
+            (t.closest('#tmdbPlayerToolbar') || t.closest('.nf-player-topbar')
+                || (t.id === 'tmdbVideoSurface')));
 
         if (!typing && isArrow && (!inPlayer || onCinemaControl)) {
             const dir = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }[k];

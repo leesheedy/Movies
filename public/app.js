@@ -1244,6 +1244,7 @@ function renderTmdbIframe(embedUrl) {
     tmdbBaseSources = baseSources;
     tmdbSourceMeta = meta;
     state.castStreamUrl = null;
+    state.embedFocusLocked = false;
     updateTmdbPlayerToolbar();
 
     const cleanSources = state.cleanPlayerEnabled ? baseSources.map(buildCleanEmbedUrl).filter(Boolean) : [];
@@ -1272,9 +1273,12 @@ function renderTmdbIframe(embedUrl) {
     // and cinema mode already provides fullscreen.
     iframe.tabIndex = -1;
     // Some embeds grab focus on load/play anyway — yank it back to the controls
-    // (bounded so an aggressive embed can't cause a focus loop).
+    // (bounded so an aggressive embed can't cause a focus loop). EXCEPT when the
+    // user has deliberately "stepped into" the video (see stepIntoEmbed): then we
+    // hand the remote to the embed so its own Play/pause controls are usable.
     let _refocusTries = 0;
     iframe.addEventListener('focus', () => {
+        if (state.embedFocusLocked) return;
         if (!isTvModeActive() || state.currentView !== 'player') return;
         if (_refocusTries++ > 8) return;
         const ctrl = document.querySelector('#tmdbSourceChips .nf-source-chip')
@@ -1375,6 +1379,11 @@ function renderTmdbIframe(embedUrl) {
 
     if (tmdbIframeContainer) {
         tmdbIframeContainer.appendChild(iframe);
+        // TV only: a focusable, transparent surface over the video. It's the D-pad's
+        // landing spot (so OK plays the movie instead of hitting Back), and pressing
+        // OK on it "steps into" the embed so the remote can reach the embed's own
+        // Play button. Sits under the play-gate (z-index) so the gate shows first.
+        if (isTvModeActive()) addVideoSurface(tmdbIframeContainer);
     }
     // On a TV, gate the first load behind an OK press so the embed is created
     // with the page already user-activated and plays WITH SOUND (cross-origin
@@ -2430,6 +2439,7 @@ function resetTmdbPlayer() {
     }
     tmdbBaseSources = [];
     state.castStreamUrl = null;
+    state.embedFocusLocked = false;
     resetTmdbTvState();
     if (videoPlayer) {
         videoPlayer.style.display = 'block';
@@ -2611,9 +2621,11 @@ function focusPlayerControlsSoon() {
     let tries = 0;
     const tryFocus = () => {
         if (state.currentView !== 'player') return;
-        // Prefer the "press OK to play" gate (so OK starts playback with sound),
-        // then the source chips, then Back.
+        // Prefer the "press OK to play" gate, then the video surface (so OK starts
+        // playback / steps into the video — NOT the Back button, which would exit),
+        // then the source chips, then Back as a last resort.
         const target = document.querySelector('.nf-tmdb-playgate')
+            || document.getElementById('tmdbVideoSurface')
             || document.querySelector('#tmdbSourceChips .nf-source-chip')
             || document.getElementById('playerBackBtn');
         if (target) { try { target.focus(); } catch { /* ignore */ } return; }
@@ -2643,6 +2655,49 @@ function showTmdbPlayGate(container, onPlay) {
     });
     container.appendChild(gate);
     requestAnimationFrame(() => { try { gate.focus(); } catch { /* ignore */ } });
+}
+
+// TV: a focusable transparent overlay over the embed. Cross-origin embeds (Videasy,
+// 111movies, …) often show their OWN play button that the D-pad can't reach because
+// we deliberately keep the iframe out of the focus path. This surface is the D-pad
+// target instead: focusing it draws a box over the video, and pressing OK "steps
+// into" the embed so the embed's controls become operable (and the Magic Remote
+// pointer is no longer intercepted by the overlay). Back steps out again.
+function addVideoSurface(container) {
+    if (!container) return;
+    const existing = container.querySelector('#tmdbVideoSurface');
+    if (existing) existing.remove();
+    const surf = document.createElement('button');
+    surf.type = 'button';
+    surf.id = 'tmdbVideoSurface';
+    surf.className = 'nf-video-surface';
+    surf.tabIndex = 0;
+    surf.innerHTML = '<span class="nf-video-surface-hint">Press OK to play · Back to exit</span>';
+    surf.addEventListener('click', stepIntoEmbed);
+    container.appendChild(surf);
+}
+
+// Hand the remote to the embed: suspend the focus-yank, make the iframe focusable
+// and focus it, and hide the surface so the Magic Remote pointer can reach the
+// embed's Play button. Back (handleBackAction) calls stepOutOfEmbed to return.
+function stepIntoEmbed() {
+    const iframe = document.querySelector('#tmdbIframeContainer iframe');
+    if (!iframe) return;
+    state.embedFocusLocked = true;
+    const surface = document.getElementById('tmdbVideoSurface');
+    if (surface) surface.style.display = 'none';
+    iframe.tabIndex = 0;
+    try { iframe.focus(); } catch (e) { /* ignore */ }
+    showToast('Use the remote to play · press Back to return to the menu', 'info', 3500);
+}
+
+function stepOutOfEmbed() {
+    state.embedFocusLocked = false;
+    const iframe = document.querySelector('#tmdbIframeContainer iframe');
+    if (iframe) iframe.tabIndex = -1;
+    const surface = document.getElementById('tmdbVideoSurface');
+    if (surface) { surface.style.display = ''; try { surface.focus(); } catch (e) { /* ignore */ } }
+    else focusPlayerControlsSoon();
 }
 
 function initCastButton() {
@@ -2763,13 +2818,12 @@ function handleBackAction() {
 
     // TV cinema mode has no real fullscreen to exit.
     if (state.currentView === 'player' && isTvModeActive()) {
-        // If we've stepped into the video embed, Back returns to the controls
-        // (server chips) rather than leaving the player.
+        // If we've stepped into the video embed, Back returns to the player's own
+        // controls (video surface / server chips) rather than leaving the player.
         const iframe = document.querySelector('#tmdbIframeContainer iframe');
-        if (iframe && document.activeElement === iframe) {
-            const ctrl = document.querySelector('#tmdbSourceChips .nf-source-chip')
-                || document.getElementById('playerBackBtn');
-            if (ctrl) { try { ctrl.focus(); } catch { /* ignore */ } return; }
+        if (state.embedFocusLocked || (iframe && document.activeElement === iframe)) {
+            stepOutOfEmbed();
+            return;
         }
         // Otherwise Back leaves the player (returns to details/home).
         document.getElementById('playerBackBtn')?.click();
