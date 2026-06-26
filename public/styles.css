@@ -3253,6 +3253,63 @@ body.nf-live-modal-open { overflow: hidden; }
 .nf-video-surface:focus .nf-video-surface-hint,
 .nf-video-surface:focus-visible .nf-video-surface-hint { opacity: 1; }
 
+/* ── Sign-in "how to scroll with your remote" tip ─────────────────────────── */
+.nf-remote-tip {
+  position: fixed; right: 0; top: 50%; z-index: 99990;
+  width: min(420px, 40vw);
+  display: flex; gap: 18px; align-items: center;
+  padding: 22px 24px;
+  background: linear-gradient(135deg, rgba(26,26,26,.97), rgba(12,12,12,.98));
+  border: 1px solid rgba(229,9,20,.5); border-right: 0;
+  border-radius: 16px 0 0 16px;
+  box-shadow: -10px 18px 60px rgba(0,0,0,.6);
+  transform: translate(110%, -50%); opacity: 0;
+  transition: transform .5s cubic-bezier(.2,.9,.25,1.15), opacity .45s ease;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.nf-remote-tip.is-in { transform: translate(0, -50%); opacity: 1; }
+.nf-remote-tip.is-leaving { transform: translate(110%, -50%); opacity: 0; }
+.nf-remote-tip-close {
+  position: absolute; top: 6px; right: 12px; font-size: 22px; line-height: 1;
+  color: #9a9a9a; background: none; padding: 4px;
+}
+.nf-remote-tip-art { flex: 0 0 auto; }
+.nf-remote-tip-text h4 { font-size: 1.2rem; font-weight: 800; margin: 0 0 6px; color: #fff; }
+.nf-remote-tip-text p { font-size: .94rem; color: #d2d2d2; margin: 0 0 10px; line-height: 1.45; }
+.nf-remote-tip-text b { color: #fff; }
+.nf-remote-tip-text ul { display: grid; gap: 7px; margin: 0; padding: 0; }
+.nf-remote-tip-text li { display: flex; gap: 9px; align-items: center; font-size: .86rem; color: #bdbdbd; }
+.nf-remote-tip-text li span { color: #e50914; font-weight: 800; font-size: 1.1em; }
+/* Bigger + more readable at 10 feet */
+.tv-mode .nf-remote-tip { width: min(560px, 46vw); padding: 28px 30px; gap: 24px; border-radius: 22px 0 0 22px; }
+.tv-mode .nf-remote-tip-text h4 { font-size: 1.6rem; }
+.tv-mode .nf-remote-tip-text p { font-size: 1.18rem; }
+.tv-mode .nf-remote-tip-text li { font-size: 1.06rem; }
+@media (max-width: 600px) { .nf-remote-tip { width: 88vw; gap: 14px; padding: 16px; } }
+
+/* Animated remote illustration */
+.nf-remote-shake { transform-box: fill-box; transform-origin: center; animation: nfRemoteShake 4.8s ease-in-out infinite; }
+@keyframes nfRemoteShake {
+  0%, 84%, 100% { transform: rotate(0deg); }
+  86% { transform: rotate(-4deg); } 88% { transform: rotate(4deg); }
+  90% { transform: rotate(-3deg); } 92% { transform: rotate(3deg); } 95% { transform: rotate(0deg); }
+}
+.nf-remote-wheel { animation: nfWheelPulse 1.6s ease-in-out infinite; }
+@keyframes nfWheelPulse { 0%, 100% { stroke-opacity: .5; } 50% { stroke-opacity: 1; } }
+.nf-remote-chev { transform-box: fill-box; }
+.nf-remote-chev--up { animation: nfChevUp 1.6s ease-in-out infinite; }
+.nf-remote-chev--down { animation: nfChevDown 1.6s ease-in-out infinite; }
+@keyframes nfChevUp { 0%, 100% { opacity: .25; transform: translateY(2px); } 50% { opacity: 1; transform: translateY(-2px); } }
+@keyframes nfChevDown { 0%, 100% { opacity: .25; transform: translateY(-2px); } 50% { opacity: 1; transform: translateY(2px); } }
+
+/* ── Auto-hide the cinema player controls after inactivity ─────────────────
+   Re-shown on any key / pointer move (see showPlayerControls). Focus stays put,
+   so OK/Back still work even while the controls are faded out. */
+.nf-player-topbar, #tmdbPlayerToolbar { transition: opacity .35s ease; }
+.player-controls-idle .nf-player-topbar,
+.player-controls-idle #tmdbPlayerToolbar { opacity: 0; pointer-events: none; }
+.player-controls-idle .nf-video-surface-hint { opacity: 0 !important; }
+
 @media (max-width: 600px) {
   .nf-live-player-shell { width: 100vw; height: 100%; padding: 12px; justify-content: flex-start; }
   .nf-live-player-title { font-size: 1.05rem; }

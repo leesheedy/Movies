@@ -241,6 +241,56 @@ function playBecSignInSound() {
     } catch { /* ignore */ }
 }
 
+// TV: on sign-in, slide in a friendly tip explaining how to drive the Magic
+// Remote pointer so the new pointer edge-scroll is discoverable. Auto-dismisses.
+let remoteTipTimer = null;
+function showRemoteScrollTip() {
+    try {
+        document.getElementById('nfRemoteTip')?.remove();
+        if (remoteTipTimer) { clearTimeout(remoteTipTimer); remoteTipTimer = null; }
+        const tip = document.createElement('div');
+        tip.id = 'nfRemoteTip';
+        tip.className = 'nf-remote-tip';
+        tip.setAttribute('role', 'status');
+        tip.innerHTML = `
+            <button class="nf-remote-tip-close" type="button" aria-label="Dismiss">×</button>
+            <div class="nf-remote-tip-art" aria-hidden="true">
+              <svg class="nf-remote-svg" viewBox="0 0 120 300" width="96" height="240" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs><linearGradient id="nfRbody" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#2c2c2c"/><stop offset="1" stop-color="#0e0e0e"/></linearGradient></defs>
+                <g class="nf-remote-shake">
+                  <rect x="32" y="8" width="56" height="284" rx="27" fill="url(#nfRbody)" stroke="#3c3c3c" stroke-width="1.5"/>
+                  <circle cx="60" cy="30" r="4" fill="#e50914"/>
+                  <circle cx="60" cy="58" r="3" fill="#3d3d3d"/>
+                  <rect x="44" y="76" width="32" height="6" rx="3" fill="#333"/>
+                  <circle class="nf-remote-wheel" cx="60" cy="168" r="26" fill="#191919" stroke="#e50914" stroke-width="2.5"/>
+                  <circle cx="60" cy="168" r="11" fill="#2b2b2b" stroke="#555" stroke-width="1"/>
+                  <path class="nf-remote-chev nf-remote-chev--up" d="M52 150 L60 142 L68 150" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path class="nf-remote-chev nf-remote-chev--down" d="M52 186 L60 194 L68 186" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="46" cy="232" r="5" fill="#333"/><circle cx="74" cy="232" r="5" fill="#333"/>
+                </g>
+              </svg>
+            </div>
+            <div class="nf-remote-tip-text">
+              <h4>Scrolling with your remote</h4>
+              <p>Bring up the pointer: <b>roll the OK wheel up or down</b>, or <b>shake the remote</b> at the TV.</p>
+              <ul>
+                <li><span>↕</span> Pointer near the <b>top / bottom</b> → the page scrolls</li>
+                <li><span>↔</span> Pointer at the <b>side of a row</b> → the row scrolls</li>
+              </ul>
+            </div>`;
+        const close = () => {
+            tip.classList.add('is-leaving');
+            setTimeout(() => tip.remove(), 450);
+            if (remoteTipTimer) { clearTimeout(remoteTipTimer); remoteTipTimer = null; }
+        };
+        tip.querySelector('.nf-remote-tip-close')?.addEventListener('click', close);
+        document.body.appendChild(tip);
+        requestAnimationFrame(() => tip.classList.add('is-in'));
+        remoteTipTimer = setTimeout(close, 9000);
+    } catch (e) { /* ignore */ }
+}
+
 function renderProfileGate(profile, gate) {
     const profileList = document.getElementById('profileList');
     if (!profileList) return;
@@ -273,6 +323,8 @@ function renderProfileGate(profile, gate) {
             setSettingsTriggerVisibility(true);
             showView('home');
             updateNavLinks('home');
+            // TV only: show the "how to scroll with your remote" tip on sign-in.
+            if (window.isTvMode && window.isTvMode()) setTimeout(showRemoteScrollTip, 600);
         });
 
         card.appendChild(selectButton);
@@ -1353,7 +1405,10 @@ function renderTmdbIframe(embedUrl) {
         if (fallbackTimeout) clearTimeout(fallbackTimeout);
         // No load event within 8s → auto-advance (server not responding at all).
         // 111movies/vidlove can be a little slow to hand off, so give them room.
-        fallbackTimeout = setTimeout(handleFailure, 8000);
+        // On a TV the user wants to switch servers themselves (an auto-jump yanks a
+        // server they're still waiting on / interacting with), so DON'T auto-advance
+        // there — they pick another via the chips or the "Try Next Source" button.
+        if (!isTvModeActive()) fallbackTimeout = setTimeout(handleFailure, 8000);
     };
     // Let the source chips jump straight to a chosen provider.
     tmdbLoadSourceFn = (i) => loadSource(Math.max(0, Math.min(sources.length - 1, i)));
@@ -2637,6 +2692,30 @@ function focusPlayerControlsSoon() {
     setTimeout(tryFocus, 350);
 }
 
+// Auto-hide the cinema player's app controls (top bar + server toolbar) after a
+// few seconds of no input, like a normal video player. Any key / pointer move
+// brings them back. Focus stays put so OK/Back still work while hidden.
+let playerIdleTimer = null;
+function showPlayerControls() {
+    document.documentElement.classList.remove('player-controls-idle');
+    if (playerIdleTimer) { clearTimeout(playerIdleTimer); playerIdleTimer = null; }
+    if (state.currentView === 'player') {
+        playerIdleTimer = setTimeout(() => {
+            if (state.currentView === 'player') {
+                document.documentElement.classList.add('player-controls-idle');
+            }
+        }, 4000);
+    }
+}
+function stopPlayerControlsAutoHide() {
+    if (playerIdleTimer) { clearTimeout(playerIdleTimer); playerIdleTimer = null; }
+    document.documentElement.classList.remove('player-controls-idle');
+}
+// Reveal controls on any activity while in the player (bound once).
+['keydown', 'mousemove', 'pointerdown', 'wheel'].forEach((ev) =>
+    document.addEventListener(ev, () => { if (state.currentView === 'player') showPlayerControls(); },
+        { passive: true, capture: true }));
+
 // TV-only "press OK to play" gate. Loading the embed from the resulting click
 // gives the page user-activation, so the stream plays WITH SOUND instead of
 // being force-muted by the browser's cross-origin autoplay policy.
@@ -2951,6 +3030,10 @@ function showView(viewName) {
     } else {
         document.documentElement.classList.remove('tv-cinema');
     }
+
+    // Start/stop the "fade the controls after a few seconds" behaviour.
+    if (viewName === 'player') showPlayerControls();
+    else stopPlayerControlsAutoHide();
 
     const playerView = document.getElementById('playerView');
     if (playerView) {

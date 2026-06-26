@@ -326,6 +326,55 @@
         });
     }
 
+    /* ─── Magic Remote pointer edge-scroll ─────────────────────────────────
+     * LG Magic Remote users drive an on-screen cursor (shake the remote or roll
+     * the OK wheel to summon it). When that cursor nears the TOP/BOTTOM of the
+     * screen we scroll the page; when it nears the LEFT/RIGHT of the horizontal
+     * movie row under it, that row scrolls. This is what the wheel often can't do
+     * inside a TV app webview, so it's the reliable pointer-scroll path. TV only. */
+    const HSCROLL_SEL = '.netflix-row, .explore-collection-scroll, .nf-filter-pills, .nf-source-chips, [data-hscroll]';
+    let ptrX = -1, ptrY = -1, edgeRaf = null;
+
+    function findHScroller(x, y) {
+        let el = document.elementFromPoint(x, y);
+        while (el && el !== document.body && el !== document.documentElement) {
+            if (el.matches && el.matches(HSCROLL_SEL) && el.scrollWidth > el.clientWidth + 4) return el;
+            el = el.parentElement;
+        }
+        return null;
+    }
+
+    function edgeStep() {
+        // Don't fight the cinema player / live modal — nothing to scroll there.
+        const inPlayer = window.state && window.state.currentView === 'player';
+        if (!tvOn || ptrX < 0 || inPlayer) { edgeRaf = null; return; }
+        let active = false;
+        const vZone = 90, vMax = 26;   // vertical trigger band (px) + max speed/frame
+
+        if (ptrY >= 0 && ptrY < vZone) {
+            window.scrollBy(0, -Math.ceil(vMax * ((vZone - ptrY) / vZone)));   // faster near the edge
+            active = true;
+        } else if (ptrY > innerHeight - vZone) {
+            window.scrollBy(0, Math.ceil(vMax * ((ptrY - (innerHeight - vZone)) / vZone)));
+            active = true;
+        }
+
+        const row = findHScroller(ptrX, ptrY);
+        if (row) {
+            const r = row.getBoundingClientRect();
+            const hZone = Math.min(140, r.width * 0.16);
+            if (ptrX < r.left + hZone) { row.scrollLeft -= 22; active = true; }
+            else if (ptrX > r.right - hZone) { row.scrollLeft += 22; active = true; }
+        }
+
+        edgeRaf = active ? requestAnimationFrame(edgeStep) : null;
+    }
+
+    document.addEventListener('mousemove', (e) => {
+        ptrX = e.clientX; ptrY = e.clientY;
+        if (tvOn && edgeRaf === null) edgeRaf = requestAnimationFrame(edgeStep);
+    }, { passive: true });
+
     /* ─── boot ────────────────────────────────────────────────────────── */
     function boot() { applyTvMode(detectTv(), false); }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
