@@ -343,13 +343,25 @@ ul { list-style: none; }
 }
 
 /* ── Right: rotating featured-title spotlight ── */
-.nf-gate-spotlight { position: absolute; inset: 0; z-index: 0; }
+.nf-gate-spotlight { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
 .nf-gate-spotlight-layer {
   position: absolute; inset: 0;
-  background-size: cover; background-position: center right;
-  opacity: 0; transition: opacity 1s ease;
+  background-size: cover; background-position: center;
+  opacity: 0; transition: opacity 1s ease, transform 1s ease;
+  /* zoomed a touch so the slow rightward pan never reveals an edge */
+  transform: scale(1.14) translateX(-4%);
 }
-.nf-gate-spotlight-layer.is-active { opacity: 1; }
+.nf-gate-spotlight-layer.is-active {
+  opacity: 1;
+  animation: gateSpotlightPan 18s linear forwards;
+}
+@keyframes gateSpotlightPan {
+  from { transform: scale(1.14) translateX(-4%); }
+  to   { transform: scale(1.14) translateX(4%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nf-gate-spotlight-layer, .nf-gate-spotlight-layer.is-active { animation: none; transform: scale(1.06); }
+}
 .nf-gate-spotlight-fade {
   position: absolute; inset: 0; pointer-events: none;
   background:
@@ -379,7 +391,9 @@ ul { list-style: none; }
   align-items: flex-start; justify-content: center;
   gap: 20px; padding: 0 0 0 60px; text-align: left;
 }
-.nf-gate-brand .nf-wordmark { font-size: 1.7rem; letter-spacing: .02em; }
+.nf-gate-brand { margin-bottom: 6px; }
+.nf-gate-brand .nf-wordmark { font-size: 2.8rem; letter-spacing: .02em; }
+html.tv-mode .nf-gate-brand .nf-wordmark { font-size: 4rem; }
 #profileGate .nf-profile-gate-title {
   font-size: clamp(1.4rem, 2.4vw, 2rem); font-weight: 600; color: #fff; margin: 0 0 6px;
 }
