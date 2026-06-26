@@ -321,12 +321,16 @@ let gateSpotlightRetries = 0;
 async function buildGateSpotlightPool() {
     if (!window.TMDBContentModule) return [];
     try {
-        const [mv, tv] = await Promise.all([
-            window.TMDBContentModule.getTrendingMovies().catch(() => []),
-            window.TMDBContentModule.getTrendingTvShows().catch(() => [])
-        ]);
-        const all = [...(mv || []), ...(tv || [])].filter(i => i && i.backdrop_path);
-        for (let i = all.length - 1; i > 0; i--) {       // Fisher–Yates shuffle
+        // Feature NEW MOVIES IN CINEMA. Fall back to trending if that's empty.
+        let mv = await (window.TMDBContentModule.getNowPlayingMovies
+            ? window.TMDBContentModule.getNowPlayingMovies().catch(() => [])
+            : []);
+        if (!mv || !mv.length) mv = await window.TMDBContentModule.getTrendingMovies().catch(() => []);
+        // "Better": only titles with key art, and rank the well-known releases first.
+        let all = (mv || []).filter(i => i && i.backdrop_path);
+        all.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+        all = all.slice(0, 14);                          // top releases only
+        for (let i = all.length - 1; i > 0; i--) {       // light shuffle so order varies
             const j = Math.floor(Math.random() * (i + 1));
             [all[i], all[j]] = [all[j], all[i]];
         }

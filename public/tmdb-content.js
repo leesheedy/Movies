@@ -102,7 +102,8 @@ const TMDBContentModule = {
             .filter(item => { if (seen.has(item.id)) return false; seen.add(item.id); return true; })
             .slice(0, 40)
             .map(item => ({ ...this.normalizeMovie(item), id: item.id, media_type: 'movie',
-                overview: item.overview, vote_average: item.vote_average }));
+                overview: item.overview, vote_average: item.vote_average,
+                genre_ids: item.genre_ids, popularity: item.popularity }));
     },
 
     async fetchTv(path, params = {}) {
@@ -140,6 +141,11 @@ const TMDBContentModule = {
     // Fetch popular movies
     async getPopularMovies() {
         return this.fetchMovies('/movie/popular');
+    },
+
+    // Fetch movies currently in cinemas (Australian theatrical releases).
+    async getNowPlayingMovies() {
+        return this.fetchMovies('/movie/now_playing', { region: 'AU' });
     },
 
     // Fetch trending TV shows (week)
