@@ -350,8 +350,15 @@ function renderGateSpotlight(item) {
     const pre = new Image();
     pre.onload = () => {
         incoming.style.backgroundImage = `url("${url}")`;
+        // Freeze the outgoing image where its pan reached (no snap-back) and fade it out.
+        if (outgoing) { outgoing.style.animationPlayState = 'paused'; outgoing.classList.remove('is-active'); }
+        // Restart the incoming pan from the left so the image keeps drifting right
+        // the whole time it's on screen (pan 13s > 10s display, so it never stops).
+        incoming.style.animation = 'none';
+        void incoming.offsetWidth;                  // reflow so the animation restarts
+        incoming.style.animation = 'gateSpotlightPan 13s linear forwards';
+        incoming.style.animationPlayState = 'running';
         incoming.classList.add('is-active');
-        outgoing.classList.remove('is-active');
     };
     pre.src = url;
     // Fade the title/tags out, swap the text, fade back in.
