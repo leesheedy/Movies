@@ -59,7 +59,8 @@ const ADBLOCK_PROMPT_SESSION_KEY = 'mitta_adblock_prompt_session_v1';
 const OMDB_API_KEY = 'ea7f4539';
 const profiles = [
     { id: 'guest', name: 'Guest', avatar: 'G' },
-    { id: 'digby', name: 'Digby', avatar: 'D' },
+    // Digby re-skins the whole app to a Plex look ("plox") while active.
+    { id: 'digby', name: 'Digby', avatar: 'D', brandLogo: '/assets/plox-logo.png', theme: 'plex' },
     { id: 'lee', name: 'Lee', avatar: 'L' },
     { id: 'ryan', name: 'Ryan', avatar: 'R', image: '/assets/profile-ryan.jpg' },
     { id: 'issy', name: 'Issy', avatar: 'I' },
@@ -103,6 +104,7 @@ function resolveProfile(profile) {
         avatar: settings.avatar || profile.avatar,
         image: settings.image || profile.image || '',
         brandLogo: profile.brandLogo || '',
+        theme: profile.theme || '',
         accentColor: settings.accentColor || ''
     };
 }
@@ -195,6 +197,16 @@ function applyProfile(profile) {
     applyAvatar(dropdownAvatar, resolved);
     applyBrandLogo(resolved);
     updateProfileAccent(resolved);
+    applyProfileTheme(resolved);
+}
+
+// Per-profile full skin. Digby → Plex ("plox") look: toggles a theme class on
+// <html> that re-skins the whole UI (the brand logo is swapped separately in
+// applyBrandLogo). Cleared for every other profile so the look doesn't stick.
+function applyProfileTheme(resolved) {
+    const root = document.documentElement;
+    root.classList.remove('theme-plex');
+    if (resolved.theme === 'plex') root.classList.add('theme-plex');
 }
 
 // Swap the header wordmark for a profile-specific brand logo (e.g. Bec → Love
