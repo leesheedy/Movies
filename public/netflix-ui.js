@@ -116,6 +116,7 @@
       </div>
       <div class="nf-billboard-vignette"></div>
       <div class="nf-billboard-content">
+        <div class="nf-billboard-kicker">${type === 'tv' ? 'Show' : 'Movie'}</div>
         <h2 class="nf-billboard-title">${escHtml(title)}</h2>
         <div class="nf-billboard-meta">
           ${score ? `<span class="nf-billboard-match">${escHtml(score)}</span>` : ''}
