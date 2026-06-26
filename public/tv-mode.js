@@ -333,39 +333,62 @@
      * movie row under it, that row scrolls. This is what the wheel often can't do
      * inside a TV app webview, so it's the reliable pointer-scroll path. TV only. */
     const HSCROLL_SEL = '.netflix-row, .explore-collection-scroll, .nf-filter-pills, .nf-source-chips, [data-hscroll]';
-    let ptrX = -1, ptrY = -1, edgeRaf = null;
+    let ptrX = -1, ptrY = -1, edgeRaf = null, vAccum = 0, hAccum = 0;
 
-    function findHScroller(x, y) {
-        let el = document.elementFromPoint(x, y);
-        while (el && el !== document.body && el !== document.documentElement) {
-            if (el.matches && el.matches(HSCROLL_SEL) && el.scrollWidth > el.clientWidth + 4) return el;
-            el = el.parentElement;
+    // The horizontal movie row whose vertical band the pointer is over — found by
+    // Y, NOT by what's directly under the cursor, so it still works when the cursor
+    // is in the row's side padding / at the very left/right edge of the screen.
+    function rowUnderPointerY(y) {
+        const rows = document.querySelectorAll(HSCROLL_SEL);
+        for (let i = 0; i < rows.length; i++) {
+            const el = rows[i];
+            if (el.scrollWidth <= el.clientWidth + 4) continue;       // nothing to scroll
+            const r = el.getBoundingClientRect();
+            if (r.height < 2 || r.bottom < 0 || r.top > innerHeight) continue;
+            if (y >= r.top - 12 && y <= r.bottom + 12) return el;
         }
         return null;
+    }
+
+    // Ease-in (quadratic): gentle as the cursor enters the zone, fast at the edge.
+    function edgeSpeed(into, zone, max) {
+        const t = Math.min(1, Math.max(0, into / zone));
+        return max * t * t;
     }
 
     function edgeStep() {
         // Don't fight the cinema player / live modal — nothing to scroll there.
         const inPlayer = window.state && window.state.currentView === 'player';
-        if (!tvOn || ptrX < 0 || inPlayer) { edgeRaf = null; return; }
+        if (!tvOn || ptrX < 0 || inPlayer) { edgeRaf = null; vAccum = hAccum = 0; return; }
         let active = false;
-        const vZone = 90, vMax = 26;   // vertical trigger band (px) + max speed/frame
 
-        if (ptrY >= 0 && ptrY < vZone) {
-            window.scrollBy(0, -Math.ceil(vMax * ((vZone - ptrY) / vZone)));   // faster near the edge
+        // Vertical page scroll — wide band, fast, sub-pixel accumulated so it's smooth.
+        const vZone = 140, vMax = 56;
+        let vSpeed = 0;
+        if (ptrY < vZone) vSpeed = -edgeSpeed(vZone - ptrY, vZone, vMax);
+        else if (ptrY > innerHeight - vZone) vSpeed = edgeSpeed(ptrY - (innerHeight - vZone), vZone, vMax);
+        if (vSpeed) {
+            vAccum += vSpeed;
+            const whole = vAccum | 0;                 // truncate toward zero
+            if (whole) { window.scrollBy(0, whole); vAccum -= whole; }
             active = true;
-        } else if (ptrY > innerHeight - vZone) {
-            window.scrollBy(0, Math.ceil(vMax * ((ptrY - (innerHeight - vZone)) / vZone)));
-            active = true;
-        }
+        } else vAccum = 0;
 
-        const row = findHScroller(ptrX, ptrY);
+        // Horizontal row scroll — triggered by the cursor being on the LEFT/RIGHT
+        // side of the screen while it's vertically over a scrollable row.
+        const row = rowUnderPointerY(ptrY);
         if (row) {
-            const r = row.getBoundingClientRect();
-            const hZone = Math.min(140, r.width * 0.16);
-            if (ptrX < r.left + hZone) { row.scrollLeft -= 22; active = true; }
-            else if (ptrX > r.right - hZone) { row.scrollLeft += 22; active = true; }
-        }
+            const hZone = Math.max(150, innerWidth * 0.16), hMax = 50;
+            let hSpeed = 0;
+            if (ptrX < hZone) hSpeed = -edgeSpeed(hZone - ptrX, hZone, hMax);
+            else if (ptrX > innerWidth - hZone) hSpeed = edgeSpeed(ptrX - (innerWidth - hZone), hZone, hMax);
+            if (hSpeed) {
+                hAccum += hSpeed;
+                const whole = hAccum | 0;
+                if (whole) { row.scrollLeft += whole; hAccum -= whole; }
+                active = true;
+            } else hAccum = 0;
+        } else hAccum = 0;
 
         edgeRaf = active ? requestAnimationFrame(edgeStep) : null;
     }

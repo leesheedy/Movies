@@ -63,7 +63,7 @@ const profiles = [
     { id: 'digby', name: 'Digby', avatar: 'D', brandLogo: '/assets/plox-logo.png', theme: 'plex' },
     { id: 'lee', name: 'Lee', avatar: 'L' },
     { id: 'ryan', name: 'Ryan', avatar: 'R', image: '/assets/profile-ryan.jpg' },
-    { id: 'issy', name: 'Issy', avatar: 'I' },
+    { id: 'issy', name: 'Issy', avatar: 'I', image: '/assets/profile-issy.jpg' },
     { id: 'renee', name: 'Renee', avatar: 'R' },
     // Bec gets a photo avatar and re-brands the app to Love Island while active.
     { id: 'bec', name: 'Bec', avatar: 'B', image: '/assets/profile-bec.jpg', brandLogo: '/assets/loveisland-logo.png' },
