@@ -88,6 +88,18 @@
 
     try {
       if (!window.TMDBContentModule) { billboardDone = false; return; }
+
+      // Dom & Isla get a pinned recommended title: The Rookie (tv/79744).
+      // Every other profile keeps the normal random trending hero.
+      let activeId = '';
+      try { activeId = localStorage.getItem('mitta_active_profile_v1') || ''; } catch (e) { /* ignore */ }
+      if (activeId === 'dom-and-isla') {
+        try {
+          const pinned = await window.TMDBContentModule.getTitleById('tv', 79744);
+          if (pinned) { renderBillboard(section, pinned); return; }
+        } catch (e) { /* fall through to trending */ }
+      }
+
       const movies = await window.TMDBContentModule.getTrendingMovies();
       if (!movies?.length) return;
       // Only feature a released, playable title (never a "coming soon" film).

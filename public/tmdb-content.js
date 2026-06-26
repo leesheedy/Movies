@@ -147,6 +147,17 @@ const TMDBContentModule = {
         return this.fetchTv('/trending/tv/week');
     },
 
+    // Fetch a single title (type = 'movie' | 'tv') by TMDB id. Used to pin a
+    // specific featured/recommended title in the billboard hero.
+    async getTitleById(type, id) {
+        const apiKey = this.getApiKey();
+        if (!apiKey) throw new Error('TMDB API key missing');
+        const res = await fetch(`${this.BASE_URL}/${type}/${id}?api_key=${apiKey}`);
+        if (!res.ok) throw new Error(`TMDB ${type}/${id} failed: ${res.status}`);
+        const item = await res.json();
+        return { ...item, id: item.id, media_type: type };
+    },
+
     // Fetch popular TV shows
     async getPopularTvShows() {
         return this.fetchTv('/tv/popular');

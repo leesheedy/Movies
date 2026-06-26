@@ -67,7 +67,7 @@ const profiles = [
     { id: 'renee', name: 'Renee', avatar: 'R' },
     // Bec gets a photo avatar and re-brands the app to Love Island while active.
     { id: 'bec', name: 'Bec', avatar: 'B', image: '/assets/profile-bec.jpg', brandLogo: '/assets/loveisland-logo.png' },
-    { id: 'dom-and-isla', name: 'Dom and Isla', avatar: 'DI' }
+    { id: 'dom-and-isla', name: 'Dom and Isla', avatar: 'DI', image: '/assets/profile-dom-isla.jpg' }
 ];
 const profileSettings = loadProfileSettings();
 let activeProfileId = null;
