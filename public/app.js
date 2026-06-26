@@ -394,6 +394,31 @@ function stopGateSpotlight() {
     if (gateSpotlightTimer) { clearInterval(gateSpotlightTimer); gateSpotlightTimer = null; }
 }
 
+/* ── Home: "browse by genre" tiles row (overlaps the bottom of the hero) ──── */
+const HOME_GENRE_TILES = [
+    { id: 28, name: 'Action' }, { id: 80, name: 'Crime' }, { id: 878, name: 'Sci-Fi' },
+    { id: 35, name: 'Comedies' }, { id: 53, name: 'Thrillers' }, { id: 27, name: 'Horror' },
+    { id: 10749, name: 'Romance' }, { id: 16, name: 'Animation' }, { id: 99, name: 'Documentaries' },
+    { id: 10751, name: 'Family' }
+];
+function renderHomeGenreTiles() {
+    const wrap = document.getElementById('homeGenreTiles');
+    if (!wrap || wrap.dataset.built === '1') return;
+    wrap.dataset.built = '1';
+    HOME_GENRE_TILES.forEach((g) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'nf-genre-tile';
+        b.textContent = g.name;
+        b.addEventListener('click', () => {
+            if (window.GenreBrowserModule && window.GenreBrowserModule.openGenrePage) {
+                window.GenreBrowserModule.openGenrePage(g.id, g.name);
+            }
+        });
+        wrap.appendChild(b);
+    });
+}
+
 function renderProfileGate(profile, gate) {
     const profileList = document.getElementById('profileList');
     if (!profileList) return;
@@ -5345,6 +5370,7 @@ async function init() {
     initProfileGate();
     initBackNavigationHandlers();
     initCastButton();
+    renderHomeGenreTiles();
 
     const tmdbDirectBtn = document.getElementById('tmdbDirectBtn');
     if (tmdbDirectBtn) {

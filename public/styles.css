@@ -3711,3 +3711,47 @@ html.theme-plex {
     linear-gradient(to top, #1b1d21 0%, rgba(27,29,33,.55) 24%, transparent 56%),
     linear-gradient(to right, #1b1d21 0%, rgba(27,29,33,.82) 28%, transparent 64%);
 }
+
+/* ═══════════════ Home: Netflix-style browse-by-genre tiles ═══════════════
+   A horizontal row of category tiles that overlaps the bottom of the full-bleed
+   hero (like the 10-foot Netflix home). Tiles are <button>s so the D-pad reaches
+   them; the row is data-hscroll so the Magic Remote edge-scroll pans it. */
+.nf-genre-tiles {
+  position: relative; z-index: 3;
+  display: flex; gap: 14px; padding: 0 56px 18px;
+  margin-top: -120px;            /* overlap the bottom of the full-bleed hero */
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.nf-genre-tiles::-webkit-scrollbar { display: none; }
+.nf-genre-tile {
+  flex: 0 0 auto; min-width: 200px; height: 84px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(150deg, rgba(48,52,64,.85), rgba(14,16,22,.94));
+  border: 1px solid rgba(255,255,255,.10); border-radius: 12px;
+  font-size: 1.2rem; font-weight: 700; color: #fff; letter-spacing: .01em;
+  cursor: pointer; transition: transform .15s, border-color .15s, background .15s;
+}
+.nf-genre-tile:hover, .nf-genre-tile:focus, .nf-genre-tile:focus-visible {
+  background: linear-gradient(150deg, rgba(72,76,90,.96), rgba(26,28,36,.96));
+  border-color: rgba(255,255,255,.42); transform: scale(1.04); outline: none;
+}
+html.tv-mode .nf-genre-tiles { margin-top: -140px; padding: 0 5vw 26px; gap: 18px; }
+html.tv-mode .nf-genre-tile { min-width: 15vw; height: 104px; font-size: 1.5rem; }
+@media (max-width: 820px) {
+  .nf-genre-tiles { margin-top: -54px; padding: 0 16px 12px; gap: 10px; }
+  .nf-genre-tile { min-width: 128px; height: 60px; font-size: 1rem; border-radius: 10px; }
+}
+
+/* ═══════════════ TV home top bar: centered pill nav (Netflix 10-foot) ═══════════════ */
+html.tv-mode .nf-header {
+  background: linear-gradient(to bottom, rgba(10,12,20,.97) 0%, rgba(10,12,20,.5) 68%, transparent 100%);
+}
+html.tv-mode .nf-nav { justify-content: center; gap: 6px; padding-bottom: 8px; }
+html.tv-mode .nf-nav-item {
+  font-size: 1.18rem; font-weight: 600; color: rgba(255,255,255,.82);
+  padding: 9px 26px; border-radius: 999px; background: none;
+}
+html.tv-mode .nf-nav-item:hover { color: #fff; background: rgba(255,255,255,.16); }
+html.tv-mode .nf-nav-item.active { background: #fff; color: #141414; font-weight: 700; }
+html.tv-mode .nf-nav-item.active::after { display: none; }     /* pill, not underline */
