@@ -11,7 +11,7 @@
   "bgColor": "#141414",
   "splashBackground": "splash.png",
   "disableBackHistoryAPI": true,
-  "handlesRelaunch": true,
+  "handlesRelaunch": false,
   "supportTouchMode": "full",
   "resolution": "1920x1080"
 }

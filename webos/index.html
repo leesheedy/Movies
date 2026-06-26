@@ -24,19 +24,45 @@
     (function () {
       // The Notflix experience is served from the cloud; this LG app launches it
       // in 10-foot TV mode (spatial D-pad nav + Magic Remote support).
-      var TARGET = 'https://mittamovies.netlify.app/?tv=1&webos=1';
+      var ORIGIN = 'https://mittamovies.netlify.app';
+      var TARGET = ORIGIN + '/?tv=1&webos=1';
+      var PROBE  = ORIGIN + '/favicon-32.png';   // small asset to test reachability
+      var errEl = document.getElementById('err');
+      var launched = false;
 
-      function go() { try { window.location.replace(TARGET); } catch (e) { window.location.href = TARGET; } }
-
-      // Show a brief branded splash, then launch.
-      var t = setTimeout(go, 700);
-
-      // If we're offline, surface a friendly message instead of a blank screen.
-      if (navigator && navigator.onLine === false) {
-        clearTimeout(t);
-        document.getElementById('err').style.display = 'block';
-        window.addEventListener('online', go, { once: true });
+      function go() {
+        if (launched) return; launched = true;
+        try { window.location.replace(TARGET); } catch (e) { window.location.href = TARGET; }
       }
+
+      function showError() {
+        if (errEl) errEl.style.display = 'block';
+        // Recover on its own: retry when the network returns and again shortly,
+        // so a transient outage doesn't strand the TV on a dead screen.
+        window.addEventListener('online', probeThenGo, { once: true });
+        setTimeout(probeThenGo, 8000);
+      }
+
+      // Confirm the site is actually reachable BEFORE redirecting. navigator.onLine
+      // is unreliable on webOS (often true on DNS failure / captive portal / a
+      // Netlify outage), and once we location.replace() this launcher's error UI is
+      // gone — so a failed load would leave a blank screen with no recovery. Probe
+      // with an <img> (supported on every webOS engine; fetch() is not on the oldest).
+      function probeThenGo() {
+        if (launched) return;
+        if (navigator && navigator.onLine === false) { showError(); return; }
+        var img = new Image();
+        var done = false;
+        var timer = setTimeout(function () {
+          if (done) return; done = true; img.onload = img.onerror = null; showError();
+        }, 6000);
+        img.onload = function () { if (done) return; done = true; clearTimeout(timer); go(); };
+        img.onerror = function () { if (done) return; done = true; clearTimeout(timer); showError(); };
+        img.src = PROBE + '?_=' + (new Date().getTime()); // cache-bust
+      }
+
+      // Show a brief branded splash, then probe + launch.
+      setTimeout(probeThenGo, 700);
     })();
   </script>
 </body>

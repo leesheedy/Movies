@@ -434,18 +434,40 @@
         live.player = { source, servers: [], index: 0 };
         $('livePlayerTitle').textContent = title || 'Live';
         $('livePlayerSubtitle').textContent = subtitle || '';
-        $('livePlayerFrameWrap').innerHTML = '';
+        releaseLiveFrame();
         $('livePlayerServers').innerHTML = '';
         setServerMessage('');
         modal.hidden = false;
         document.body.classList.add('nf-live-modal-open');
+        // On a TV (D-pad, no pointer) nothing inside the modal is focused yet, so
+        // the first OK/Back press would land on the card behind the overlay. Park
+        // focus on the Close button until a server chip / play-gate takes over.
+        requestAnimationFrame(() => {
+            try {
+                ($('livePlayerServers')?.querySelector('button') || $('livePlayerClose'))?.focus();
+            } catch (e) { /* ignore */ }
+        });
+    }
+
+    // Fully release the live embed: blank its src so old webOS Chromium tears the
+    // HLS/MSE decoder + sockets down promptly (innerHTML='' alone can leave them
+    // lingering toward OOM), then drop the node and cancel any pending nudge timer.
+    function releaseLiveFrame() {
+        const wrap = $('livePlayerFrameWrap');
+        if (wrap) {
+            const f = wrap.querySelector('iframe');
+            if (f) { try { f.src = 'about:blank'; } catch (e) { /* ignore */ } f.remove(); }
+            wrap.innerHTML = '';
+        }
+        clearTimeout(frameTimer);
+        frameTimer = null;
     }
 
     function closeLivePlayer() {
         const modal = $('livePlayerModal');
         if (!modal) return;
         modal.hidden = true;
-        $('livePlayerFrameWrap').innerHTML = '';
+        releaseLiveFrame();
         const castPanel = $('livePlayerCastPanel');
         if (castPanel) castPanel.hidden = true;
         document.body.classList.remove('nf-live-modal-open');
@@ -492,19 +514,41 @@
     }
 
     function loadFrame(wrap, s) {
+        // The stream URL comes from aggregated third-party feeds we don't control.
+        // Only ever frame http(s) — a javascript:/data: src would be a script-exec /
+        // instability vector on the permissive old-Chromium webOS engine.
+        if (!s || !/^https?:\/\//i.test(s.url || '')) { setServerMessage('Stream unavailable.'); return; }
         setServerMessage('Loading stream…');
+        // Release the outgoing embed before mounting the next (one media element at
+        // a time is an LG hard limit).
+        const old = wrap.querySelector('iframe');
+        if (old) { try { old.src = 'about:blank'; } catch (e) { /* ignore */ } old.remove(); }
         wrap.innerHTML = '';
         const iframe = document.createElement('iframe');
         iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
         iframe.setAttribute('allowfullscreen', 'true');
         iframe.setAttribute('referrerpolicy', 'origin');
+        // Keep the cross-origin embed OUT of the D-pad focus path. When it grabs
+        // focus it swallows the remote, so the user can't switch servers or go Back
+        // (the same focus war the cinema player fixes at app.js:1249-1259). Bounded
+        // so an aggressive embed can't cause a refocus loop.
+        iframe.tabIndex = -1;
+        let refocusTries = 0;
+        iframe.addEventListener('focus', () => {
+            if (!(window.isTvMode && window.isTvMode()) || $('livePlayerModal')?.hidden) return;
+            if (refocusTries++ > 8) return;
+            const ctrl = document.querySelector('#livePlayerServers .nf-source-chip')
+                || $('livePlayerClose');
+            if (ctrl) setTimeout(() => { try { ctrl.focus(); } catch (e) { /* ignore */ } }, 0);
+        });
         iframe.src = s.url;
         iframe.addEventListener('load', () => { clearTimeout(frameTimer); setServerMessage(''); });
         clearTimeout(frameTimer);
-        // If it never loads, nudge the user toward another server.
+        // If it never loads, nudge the user. With one server (a channel) there's no
+        // "try another above", so tell them it may be offline rather than going silent.
         frameTimer = setTimeout(() => {
             if (live.player.servers.length > 1) setServerMessage('Slow to load? Try another server above.');
-            else setServerMessage('');
+            else setServerMessage('Stream may be offline — try another channel.');
         }, 9000);
         wrap.appendChild(iframe);
     }
@@ -553,13 +597,19 @@
     window.loadLiveTvPage = loadLiveTvPage;
     window.closeLivePlayer = closeLivePlayer;
 
-    // Close the live player on Escape / remote Back.
+    // Close the live player on Escape / remote Back. The LG Magic Remote Back is
+    // keyCode 461 (e.key is usually '' or 'GoBack' — NOT 'Backspace'/'BrowserBack'),
+    // so it must be matched explicitly or the physical Back button can't exit the
+    // live stream (leaving the cross-origin iframe decoding in the background — a
+    // memory/reboot risk on webOS). Mirrors app.js:2786-2787.
     document.addEventListener('keydown', (e) => {
-        if ((e.key === 'Escape' || e.key === 'Backspace' || e.key === 'BrowserBack') &&
+        if ((e.key === 'Escape' || e.key === 'Backspace' || e.key === 'BrowserBack'
+                || e.key === 'GoBack' || e.keyCode === 461) &&
             !$('livePlayerModal')?.hidden) {
             const t = e.target;
             if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
             e.preventDefault();
+            e.stopPropagation();
             closeLivePlayer();
         }
     }, true);

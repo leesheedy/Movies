@@ -31,7 +31,10 @@
     });
 
     const gate = $('profileGate');
-    const hasStoredProfile = Boolean(localStorage.getItem('mitta_active_profile_v1'));
+    // localStorage can throw on a TV webview where storage is disabled — don't let
+    // it crash this boot path (it runs before the app is interactive).
+    let hasStoredProfile = false;
+    try { hasStoredProfile = Boolean(localStorage.getItem('mitta_active_profile_v1')); } catch (e) { /* ignore */ }
     // On a TV, always start at "Who's watching?" — even with a saved profile.
     const isTv = new URLSearchParams(location.search).get('tv') === '1'
       || (window.isTvMode && window.isTvMode())
@@ -60,7 +63,7 @@
 
     // Sign-out → show profile gate again
     $('signOutBtn')?.addEventListener('click', () => {
-      localStorage.removeItem('mitta_active_profile_v1');
+      try { localStorage.removeItem('mitta_active_profile_v1'); } catch (e) { /* ignore */ }
       billboardDone = false;
       if (gate) gate.removeAttribute('hidden');
     });

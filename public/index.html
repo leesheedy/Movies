@@ -67,6 +67,30 @@
   })();
 </script>
 
+<!-- ════════════════════════ OLD-TV BROWSER GUARD ════════════════════════
+     The app scripts ship untranspiled and use optional chaining (?.), which needs
+     Chromium 80+ (webOS 22 / 2022 and newer). On an older LG TV the engine can't
+     PARSE app.js at all, so the user would otherwise be stuck on the loading bar
+     forever. This pure-ES5 probe feature-detects ?. and, if unsupported, shows an
+     honest message instead. Deterministic — it only fires when ?. truly won't
+     parse, so it can never false-positive on a supported TV. -->
+<div id="oldBrowserMsg" style="display:none;position:fixed;inset:0;z-index:99999;background:#141414;color:#e5e5e5;font-family:Arial,Helvetica,sans-serif;text-align:center;padding:0 8vw;box-sizing:border-box;flex-direction:column;align-items:center;justify-content:center;gap:20px">
+  <div style="color:#E50914;font-size:46px;font-weight:800;letter-spacing:2px">NOTFLIX</div>
+  <div style="font-size:26px;line-height:1.5">This TV's web browser is too old to run Notflix.<br>Please use a newer LG TV (webOS 22 / 2022 or later) or another device.</div>
+</div>
+<script>
+  (function () {
+    var supported = true;
+    try { eval('(function(){var o={a:1};return o?.a;})()'); } catch (e) { supported = false; }
+    if (!supported) {
+      var loader = document.getElementById('appLoader');
+      var msg = document.getElementById('oldBrowserMsg');
+      if (loader) loader.style.display = 'none';
+      if (msg) msg.style.display = 'flex';
+    }
+  })();
+</script>
+
 <!-- ═══════════════════════════════ LANDING PAGE ═══════════════════════════════ -->
 <div id="landingPage" class="nf-page nf-page--landing" hidden>
     <div class="nf-landing-backdrop" aria-hidden="true"></div>

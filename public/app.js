@@ -166,14 +166,21 @@ function applySeasonalTheme() {
 }
 
 function loadActiveProfile() {
-    const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+    // localStorage can throw on a TV webview where storage is disabled/partitioned
+    // (SecurityError) — never let that crash the boot path.
+    let raw = null;
+    try { raw = localStorage.getItem(PROFILE_STORAGE_KEY); } catch (e) { /* ignore */ }
     if (!raw) return profiles[0];
     const match = profiles.find(profile => profile.id === raw);
     return match || profiles[0];
 }
 
 function saveActiveProfile(profileId) {
-    localStorage.setItem(PROFILE_STORAGE_KEY, profileId);
+    // Must never throw: this is the first statement of the "Who's watching?" tap
+    // handler, which the TV flow shows on every open. An unguarded throw here
+    // (storage disabled/full → SecurityError/QuotaExceededError) would abort the
+    // handler before the gate is dismissed, leaving the app looking bricked.
+    try { localStorage.setItem(PROFILE_STORAGE_KEY, profileId); } catch (e) { /* ignore */ }
 }
 
 function applyProfile(profile) {
@@ -362,7 +369,8 @@ function initProfileGate() {
     activeProfileId = activeProfile.id;
     applyProfile(activeProfile);
     renderProfileGate(activeProfile, gate);
-    const hasStoredProfile = Boolean(localStorage.getItem(PROFILE_STORAGE_KEY));
+    let hasStoredProfile = false;
+    try { hasStoredProfile = Boolean(localStorage.getItem(PROFILE_STORAGE_KEY)); } catch (e) { /* ignore */ }
     setSettingsTriggerVisibility(hasStoredProfile);
     if (!hasStoredProfile) {
         gate.removeAttribute('hidden');
@@ -657,14 +665,18 @@ function getUblockInstallUrl() {
 }
 
 function shouldShowAdblockPrompt() {
-    if (localStorage.getItem(ADBLOCK_PROMPT_DISMISS_KEY)) return false;
-    if (sessionStorage.getItem(ADBLOCK_PROMPT_SESSION_KEY)) return false;
+    try {
+        if (localStorage.getItem(ADBLOCK_PROMPT_DISMISS_KEY)) return false;
+        if (sessionStorage.getItem(ADBLOCK_PROMPT_SESSION_KEY)) return false;
+    } catch (e) { /* storage disabled — just show it */ }
     return true;
 }
 
 function dismissAdblockPrompt() {
-    localStorage.setItem(ADBLOCK_PROMPT_DISMISS_KEY, '1');
-    sessionStorage.setItem(ADBLOCK_PROMPT_SESSION_KEY, '1');
+    try {
+        localStorage.setItem(ADBLOCK_PROMPT_DISMISS_KEY, '1');
+        sessionStorage.setItem(ADBLOCK_PROMPT_SESSION_KEY, '1');
+    } catch (e) { /* ignore */ }
     const prompt = document.getElementById('adblockPrompt');
     if (prompt) {
         prompt.hidden = true;
@@ -1211,6 +1223,18 @@ function normalizeEmbedSource(item, i) {
     return { url: item || '', label: `Source ${i + 1}`, id: `src${i + 1}` };
 }
 
+// Detach a player embed cleanly. On old webOS Chromium, clearing a container with
+// innerHTML='' does NOT reliably tear down the embedded page's <video>/MSE/EME
+// decoder or its open HLS sockets — they can linger until GC and push the
+// memory-constrained TV toward an OOM reboot. Blank the src first (mirrors the
+// movieIntro <video> release) so the pipeline is released immediately.
+function releaseEmbedIframe(container) {
+    if (!container) return;
+    const f = container.querySelector('iframe');
+    if (f) { try { f.src = 'about:blank'; } catch (e) { /* ignore */ } f.remove(); }
+    container.innerHTML = '';
+}
+
 function renderTmdbIframe(embedUrl) {
     const tmdbMessage = document.getElementById('tmdbPlayerMessage');
     const tmdbIframeContainer = document.getElementById('tmdbIframeContainer');
@@ -1228,7 +1252,7 @@ function renderTmdbIframe(embedUrl) {
     const providerBaseOffset = state.cleanPlayerEnabled ? cleanSources.length : 0;
 
     if (tmdbIframeContainer) {
-        tmdbIframeContainer.innerHTML = '';
+        releaseEmbedIframe(tmdbIframeContainer);
     }
 
     if (sources.length === 0) {
@@ -1334,7 +1358,9 @@ function renderTmdbIframe(embedUrl) {
         showLoadedPrompt();
         // TV: the embed often grabs keyboard focus on load, trapping the remote
         // inside it. Pull focus back to the app's controls so Up/Left/Right still
-        // switch servers and Back still works. (Press Down to step into the video.)
+        // switch servers and Back still works. The embed is intentionally NOT in
+        // the D-pad path (tabIndex=-1) to keep the focus war contained — it's
+        // driven by the Magic Remote pointer plus the app's chips/Back.
         if (isTvModeActive()) focusPlayerControlsSoon();
     });
 
@@ -2394,7 +2420,7 @@ function resetTmdbPlayer() {
         tmdbMessage.textContent = '';
     }
     if (tmdbIframeContainer) {
-        tmdbIframeContainer.innerHTML = '';
+        releaseEmbedIframe(tmdbIframeContainer);
     }
     if (tmdbToolbar) {
         tmdbToolbar.hidden = true;
@@ -2757,6 +2783,20 @@ function handleBackAction() {
             updateNavLinks('home');
         }
         return;
+    }
+
+    // Content views: the LG remote Back is otherwise a dead no-op here, because the
+    // app owns Back (appinfo disableBackHistoryAPI:true) but only handled the player
+    // and fullscreen cases above. Route Back to home so the physical Back button
+    // works everywhere. 'home' is intentionally excluded — tv-mode.js owns
+    // Back-to-exit at the root. (The live-player MODAL has its own capture-phase
+    // Back handler that closes it before this runs.)
+    const CONTENT_VIEWS = ['details', 'search', 'explore', 'movies', 'tvshows', 'livetv', 'history'];
+    if (CONTENT_VIEWS.includes(state.currentView)) {
+        if (state.currentView === 'livetv' && window.closeLivePlayer) window.closeLivePlayer();
+        showView('home');
+        loadHomePage();
+        updateNavLinks('home');
     }
 }
 
