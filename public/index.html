@@ -244,8 +244,20 @@
 
 <!-- ═══════════════════════════════ PROFILE GATE ═══════════════════════════════ -->
 <div id="profileGate" class="nf-profile-gate" role="dialog" aria-modal="true" aria-labelledby="profileGateTitle" hidden>
+    <!-- Right: rotating featured-title spotlight (changes every 10s) -->
+    <div class="nf-gate-spotlight" aria-hidden="true">
+        <div class="nf-gate-spotlight-layer is-active" id="gateLayerA"></div>
+        <div class="nf-gate-spotlight-layer" id="gateLayerB"></div>
+        <div class="nf-gate-spotlight-fade"></div>
+        <div class="nf-gate-spotlight-meta" id="gateSpotlightMeta">
+            <div class="nf-gate-spotlight-title" id="gateSpotlightTitle"></div>
+            <div class="nf-gate-spotlight-tags" id="gateSpotlightTags"></div>
+        </div>
+    </div>
+    <!-- Left: profile chooser -->
     <div class="nf-profile-gate-inner">
-        <h1 id="profileGateTitle" class="nf-profile-gate-title">Who's watching?</h1>
+        <div class="nf-gate-brand"><span class="nf-wordmark">NOTFLIX</span></div>
+        <h1 id="profileGateTitle" class="nf-profile-gate-title">Choose a Profile</h1>
         <div id="profileList" class="nf-profile-list"></div>
         <button id="manageProfilesBtn" class="nf-btn nf-btn--outline-gray nf-btn--lg" type="button">Manage Profiles</button>
     </div>

@@ -303,6 +303,90 @@ function showRemoteScrollTip() {
     } catch (e) { /* ignore */ }
 }
 
+/* ── "Choose a Profile" gate: rotating featured-title spotlight ───────────── */
+const GATE_TMDB_GENRES = {
+    28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime',
+    99: 'Documentary', 18: 'Drama', 10751: 'Family', 14: 'Fantasy', 36: 'History',
+    27: 'Horror', 10402: 'Music', 9648: 'Mystery', 10749: 'Romance', 878: 'Sci-Fi',
+    10770: 'TV Movie', 53: 'Thriller', 10752: 'War', 37: 'Western',
+    10759: 'Action & Adventure', 10762: 'Kids', 10763: 'News', 10764: 'Reality',
+    10765: 'Sci-Fi & Fantasy', 10766: 'Soap', 10767: 'Talk', 10768: 'War & Politics'
+};
+let gateSpotlightTimer = null;
+let gateSpotlightPool = [];
+let gateSpotlightIdx = 0;
+let gateSpotlightLayerB = false;
+let gateSpotlightRetries = 0;
+
+async function buildGateSpotlightPool() {
+    if (!window.TMDBContentModule) return [];
+    try {
+        const [mv, tv] = await Promise.all([
+            window.TMDBContentModule.getTrendingMovies().catch(() => []),
+            window.TMDBContentModule.getTrendingTvShows().catch(() => [])
+        ]);
+        const all = [...(mv || []), ...(tv || [])].filter(i => i && i.backdrop_path);
+        for (let i = all.length - 1; i > 0; i--) {       // Fisher–Yates shuffle
+            const j = Math.floor(Math.random() * (i + 1));
+            [all[i], all[j]] = [all[j], all[i]];
+        }
+        return all.slice(0, 12);
+    } catch { return []; }
+}
+
+function renderGateSpotlight(item) {
+    if (!item) return;
+    const layerA = document.getElementById('gateLayerA');
+    const layerB = document.getElementById('gateLayerB');
+    const meta = document.getElementById('gateSpotlightMeta');
+    const titleEl = document.getElementById('gateSpotlightTitle');
+    const tagsEl = document.getElementById('gateSpotlightTags');
+    if (!layerA || !layerB) return;
+    const url = `https://image.tmdb.org/t/p/original${item.backdrop_path}`;
+    const incoming = gateSpotlightLayerB ? layerA : layerB;
+    const outgoing = gateSpotlightLayerB ? layerB : layerA;
+    gateSpotlightLayerB = !gateSpotlightLayerB;
+    // Preload, then crossfade the two layers for a clean transition.
+    const pre = new Image();
+    pre.onload = () => {
+        incoming.style.backgroundImage = `url("${url}")`;
+        incoming.classList.add('is-active');
+        outgoing.classList.remove('is-active');
+    };
+    pre.src = url;
+    // Fade the title/tags out, swap the text, fade back in.
+    if (meta) {
+        meta.classList.remove('is-shown');
+        setTimeout(() => {
+            if (titleEl) titleEl.textContent = item.title || item.name || '';
+            if (tagsEl) {
+                const names = (item.genre_ids || []).map(id => GATE_TMDB_GENRES[id]).filter(Boolean).slice(0, 3);
+                tagsEl.textContent = names.join('   •   ');
+            }
+            meta.classList.add('is-shown');
+        }, 350);
+    }
+}
+
+async function startGateSpotlight() {
+    if (gateSpotlightTimer) return;
+    if (!gateSpotlightPool.length) gateSpotlightPool = await buildGateSpotlightPool();
+    if (!gateSpotlightPool.length) {
+        if (gateSpotlightRetries++ < 5) setTimeout(startGateSpotlight, 1500);   // TMDB not ready yet
+        return;
+    }
+    gateSpotlightIdx = 0;
+    renderGateSpotlight(gateSpotlightPool[0]);
+    gateSpotlightTimer = setInterval(() => {
+        gateSpotlightIdx = (gateSpotlightIdx + 1) % gateSpotlightPool.length;
+        renderGateSpotlight(gateSpotlightPool[gateSpotlightIdx]);
+    }, 10000);
+}
+
+function stopGateSpotlight() {
+    if (gateSpotlightTimer) { clearInterval(gateSpotlightTimer); gateSpotlightTimer = null; }
+}
+
 function renderProfileGate(profile, gate) {
     const profileList = document.getElementById('profileList');
     if (!profileList) return;
@@ -439,6 +523,14 @@ function initProfileGate() {
     if (!hasStoredProfile) {
         gate.removeAttribute('hidden');
     }
+    // Rotating featured-title spotlight behind the chooser — runs only while the
+    // gate is visible (it's shown on TV every open, and via "Switch Profiles").
+    const gateSpotObserver = new MutationObserver(() => {
+        if (gate.hasAttribute('hidden')) stopGateSpotlight();
+        else startGateSpotlight();
+    });
+    gateSpotObserver.observe(gate, { attributes: true, attributeFilter: ['hidden'] });
+    if (!gate.hasAttribute('hidden')) startGateSpotlight();
     const switchProfileBtn = document.getElementById('switchProfileBtn');
     const settingsTrigger = document.getElementById('profileSettingsTrigger');
     if (switchProfileBtn) {
