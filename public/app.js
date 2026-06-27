@@ -233,6 +233,10 @@ function playBecSignInSound() {
         const audio = new Audio('/assets/bec-signin.mp3');
         becSignInAudio = audio;
         audio.volume = 1;
+        // Start 2 seconds into the clip (skip the intro).
+        const seekIn = () => { try { if (audio.currentTime < 2) audio.currentTime = 2; } catch (e) { /* ignore */ } };
+        audio.addEventListener('loadedmetadata', seekIn, { once: true });
+        seekIn();
         audio.play().catch(() => { /* autoplay blocked — ignore */ });
         const FADE_START = 9000;   // ~9s at full volume...
         const FADE_MS = 1500;      // ...then fade out, silent by ~10.5s
@@ -1301,17 +1305,17 @@ function openPlaybackTab(provider, link) {
 window.openPlaybackTab = openPlaybackTab;
 
 // ── Streaming providers (TMDB-based embeds) ────────────────────────────────
-// Order = priority. 111movies is the primary source. All five providers below
-// were live-probed to be reachable, iframe-embeddable, and free of ad/popup
-// scripts in their player shell. ZStream is an open-source P-Stream fork with
-// no ads by design. Other clean, embeddable alternatives if you ever want to
-// swap one: vidlink.pro/{movie|tv}, bcine.ru/{movie|tv}, vyla.pages.dev,
+// Order = priority. Videasy is the main first source, then VidLove. All were
+// live-probed to be reachable, iframe-embeddable, and free of ad/popup scripts
+// in their player shell. Other clean, embeddable alternatives if you ever want
+// to swap one: vidlink.pro/{movie|tv}, bcine.ru/{movie|tv}, vyla.pages.dev,
 // bingr.live/embed/{movie|tv} (all verified clean + framable, FMHY-listed).
 const STREAM_PROVIDERS = [
     {
-        id: '111movies', label: '111Movies', enabled: true,
-        movie: ({ tmdbId }) => tmdbId ? `https://111movies.net/movie/${tmdbId}` : '',
-        tv: ({ tmdbId, season, episode }) => tmdbId ? `https://111movies.net/tv/${tmdbId}/${season}/${episode}` : '',
+        // player.videasy.net 301-redirects to .to — point straight at .to to skip the hop.
+        id: 'videasy', label: 'Videasy', enabled: true,
+        movie: ({ tmdbId }) => tmdbId ? `https://player.videasy.to/movie/${tmdbId}` : '',
+        tv: ({ tmdbId, season, episode }) => tmdbId ? `https://player.videasy.to/tv/${tmdbId}/${season}/${episode}` : '',
     },
     {
         id: 'vidlove', label: 'VidLove', enabled: true,
@@ -1319,22 +1323,15 @@ const STREAM_PROVIDERS = [
         tv: ({ tmdbId, season, episode }) => tmdbId ? `https://player.vidlove.cc/embed/tv/${tmdbId}/${season}/${episode}?autoplay=true&autonext=true&chromecast=true` : '',
     },
     {
-        // ZStream — open-source P-Stream fork, no ads by design (FMHY-listed).
-        id: 'zstream', label: 'ZStream', enabled: true,
-        movie: ({ tmdbId }) => tmdbId ? `https://zstream.mov/embed/movie/${tmdbId}` : '',
-        tv: ({ tmdbId, season, episode }) => tmdbId ? `https://zstream.mov/embed/tv/${tmdbId}/${season}/${episode}` : '',
+        id: '111movies', label: '111Movies', enabled: true,
+        movie: ({ tmdbId }) => tmdbId ? `https://111movies.net/movie/${tmdbId}` : '',
+        tv: ({ tmdbId, season, episode }) => tmdbId ? `https://111movies.net/tv/${tmdbId}/${season}/${episode}` : '',
     },
     {
         // VidFast — clean, ad-light player (replaced VidSrc, which was geo-flaky).
         id: 'vidfast', label: 'VidFast', enabled: true,
         movie: ({ tmdbId }) => tmdbId ? `https://vidfast.pro/movie/${tmdbId}?autoPlay=true` : '',
         tv: ({ tmdbId, season, episode }) => tmdbId ? `https://vidfast.pro/tv/${tmdbId}/${season}/${episode}?autoPlay=true&autoNext=true` : '',
-    },
-    {
-        // player.videasy.net 301-redirects to .to — point straight at .to to skip the hop.
-        id: 'videasy', label: 'Videasy', enabled: true,
-        movie: ({ tmdbId }) => tmdbId ? `https://player.videasy.to/movie/${tmdbId}` : '',
-        tv: ({ tmdbId, season, episode }) => tmdbId ? `https://player.videasy.to/tv/${tmdbId}/${season}/${episode}` : '',
     },
 ];
 window.STREAM_PROVIDERS = STREAM_PROVIDERS;
@@ -1343,16 +1340,12 @@ function activeStreamProviders() {
     return STREAM_PROVIDERS.filter(p => p.enabled);
 }
 
-// On a TV (D-pad, no easy click into the cross-origin embed), prefer the players
-// that AUTOPLAY so the movie starts on its own instead of waiting on an in-embed
-// Play button: VidFast first (clean + ad-light + autoPlay=true), then VidLove
-// (autoplay=true) as the autoplay fallback. The manual-play servers (111movies,
-// Videasy, ZStream) follow in their original order.
+// Keep Videasy first then VidLove on TV too (matches the desktop priority).
 function orderSourcesForTv(sources) {
     if (!isTvModeActive()) return sources;
-    const autoplayFirst = ['vidfast', 'vidlove']; // order here = order at the front
-    const head = autoplayFirst.map(id => sources.find(s => s.id === id)).filter(Boolean);
-    const rest = sources.filter(s => !autoplayFirst.includes(s.id));
+    const first = ['videasy', 'vidlove']; // order here = order at the front
+    const head = first.map(id => sources.find(s => s.id === id)).filter(Boolean);
+    const rest = sources.filter(s => !first.includes(s.id));
     return [...head, ...rest];
 }
 
@@ -1461,7 +1454,10 @@ function renderTmdbIframe(embedUrl) {
     const iframe = document.createElement('iframe');
     iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
-    iframe.setAttribute('loading', 'lazy');
+    // The player embed IS the main content — load it immediately, never lazily.
+    iframe.setAttribute('loading', 'eager');
+    iframe.setAttribute('importance', 'high');
+    try { iframe.fetchPriority = 'high'; } catch (e) { /* not supported everywhere */ }
     // Keep the cross-origin embed OUT of the remote's focus path. When it holds
     // focus it swallows the D-pad, so the user can't switch servers or go Back.
     // The app's controls drive everything; the gate gives the first server sound,
