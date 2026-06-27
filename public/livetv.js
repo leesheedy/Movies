@@ -614,10 +614,6 @@
         iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
         iframe.setAttribute('allowfullscreen', 'true');
         iframe.setAttribute('referrerpolicy', 'origin');
-        // LIVE ONLY (movies are left un-sandboxed): block the embed from opening a
-        // new window / redirecting the whole page — the "click play and it opens a
-        // new website" pop-under. Player JS + same-origin storage still work.
-        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation allow-forms');
         // Keep the cross-origin embed OUT of the D-pad focus path. When it grabs
         // focus it swallows the remote, so the user can't switch servers or go Back
         // (the same focus war the cinema player fixes at app.js:1249-1259). Bounded
