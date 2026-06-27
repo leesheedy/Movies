@@ -12,6 +12,21 @@
 
     const API = (window.API_BASE || window.location.origin);
     const STREAMED = 'https://streamed.pk';
+    // WatchFooty API — direct match data + per-match streams. We play the streams
+    // in a real HLS player (Clappr), so there is NO embed iframe = no pop-under
+    // ads / "verify you're human" gate, and it bypasses the DNS-blocked embed.st.
+    const WF_BASE = 'https://api.watchfooty.st';
+    const WF = WF_BASE + '/api/v1';
+    const wfImg = (p) => (p ? (/^https?:/i.test(p) ? p : WF_BASE + p) : '');
+    const wfIsLive = (m) => {
+        if (!m) return false;
+        const s = String(m.status || '').toLowerCase();
+        if (/^(pre|post|post-final|postponed|cancell?ed|final|ft)$/.test(s)) return false;
+        // WatchFooty marks in-progress games "in"; period labels ("3rd quarter",
+        // "1st half", "break time", …) are live too.
+        return s === 'in' || (typeof m.currentMinuteNumber === 'number' && m.currentMinuteNumber >= 0)
+            || /quarter|half|period|inning|set\b|break|overtime|extra|interrupt|live/.test(s);
+    };
 
     const live = {
         tab: 'sports',
@@ -202,12 +217,13 @@
         const grid = $('liveSportsGrid');
         if (grid) grid.innerHTML = skeletons(10);
         try {
-            const [all, cats] = await Promise.all([
-                getJSON(`${STREAMED}/api/matches/all`).catch(() => []),
-                getJSON(`${STREAMED}/api/sports`).catch(() => []),
+            const [all, sports] = await Promise.all([
+                getJSON(`${WF}/matches/all`).catch(() => []),
+                getJSON(`${WF}/sports`).catch(() => []),
             ]);
             live.sports.matches = Array.isArray(all) ? all : [];
-            live.sports.categories = Array.isArray(cats) ? cats : [];
+            live.sports.categories = (Array.isArray(sports) ? sports : [])
+                .map(s => ({ id: s.name, label: s.displayName || cap(s.name) }));
             live.sports.loaded = true;
             renderSportsFilters();
             renderSports();
@@ -220,12 +236,11 @@
     function renderSportsFilters() {
         const row = $('liveSportsFilters');
         if (!row) return;
-        const cats = live.sports.categories;
-        const liveCount = live.sports.matches.filter(isLiveNow).length;
+        const liveCount = live.sports.matches.filter(wfIsLive).length;
         const chips = [
             { id: 'live', label: `🔴 Live Now${liveCount ? ` (${liveCount})` : ''}` },
             { id: 'all', label: 'All Events' },
-            ...cats.map(c => ({ id: c.id, label: c.name })),
+            ...live.sports.categories.map(c => ({ id: c.id, label: c.label })),
         ];
         row.innerHTML = '';
         chips.forEach(c => {
@@ -240,11 +255,13 @@
         const grid = $('liveSportsGrid');
         if (!grid) return;
         let list = live.sports.matches.slice();
-        if (live.sports.filter === 'live') list = list.filter(isLiveNow);
-        else if (live.sports.filter !== 'all') list = list.filter(m => m.category === live.sports.filter);
+        if (live.sports.filter === 'live') list = list.filter(wfIsLive);
+        else if (live.sports.filter !== 'all') list = list.filter(m => m.sport === live.sports.filter);
 
-        // Live first, then by start time.
-        list.sort((a, b) => (isLiveNow(b) - isLiveNow(a)) || (a.date || 0) - (b.date || 0));
+        // Live first, then nearest start time.
+        const now = Date.now();
+        list.sort((a, b) => (wfIsLive(b) - wfIsLive(a))
+            || Math.abs((a.timestamp || 0) - now) - Math.abs((b.timestamp || 0) - now));
 
         if (!list.length) {
             grid.innerHTML = '';
@@ -259,57 +276,67 @@
     function sportsCard(m) {
         const card = el('button', 'nf-live-card nf-live-card--sport');
         card.type = 'button';
-        const liveNow = isLiveNow(m);
-        const posterUrl = m.poster ? (STREAMED + m.poster) : '';
-        const homeBadge = m.teams?.home?.badge ? `${STREAMED}/api/images/badge/${m.teams.home.badge}.webp` : '';
-        const awayBadge = m.teams?.away?.badge ? `${STREAMED}/api/images/badge/${m.teams.away.badge}.webp` : '';
+        const liveNow = wfIsLive(m);
+        const poster = wfImg(m.poster);
+        const homeLogo = wfImg(m.teams && m.teams.home && m.teams.home.logoUrl);
+        const awayLogo = wfImg(m.teams && m.teams.away && m.teams.away.logoUrl);
 
         let media;
-        if (posterUrl) {
-            media = `<div class="nf-live-card-media"><img loading="lazy" src="${esc(posterUrl)}" alt="" onerror="this.style.display='none'"></div>`;
-        } else if (homeBadge || awayBadge) {
+        if (homeLogo || awayLogo) {
             media = `<div class="nf-live-card-media nf-live-card-media--teams">
-                ${homeBadge ? `<img loading="lazy" src="${esc(homeBadge)}" alt="">` : '<span></span>'}
+                ${homeLogo ? `<img loading="lazy" src="${esc(homeLogo)}" alt="" onerror="this.style.visibility='hidden'">` : '<span></span>'}
                 <span class="nf-live-vs">VS</span>
-                ${awayBadge ? `<img loading="lazy" src="${esc(awayBadge)}" alt="">` : '<span></span>'}
+                ${awayLogo ? `<img loading="lazy" src="${esc(awayLogo)}" alt="" onerror="this.style.visibility='hidden'">` : '<span></span>'}
             </div>`;
+        } else if (poster) {
+            media = `<div class="nf-live-card-media"><img loading="lazy" src="${esc(poster)}" alt="" onerror="this.style.display='none'"></div>`;
         } else {
-            media = `<div class="nf-live-card-media nf-live-card-media--plain"><span>${esc((m.category || 'LIVE').toUpperCase())}</span></div>`;
+            media = `<div class="nf-live-card-media nf-live-card-media--plain"><span>${esc((m.sport || 'LIVE').toUpperCase())}</span></div>`;
         }
-
+        const meta = liveNow
+            ? `<span class="nf-live-pill">● LIVE${m.currentMinute && m.currentMinute.trim() ? ' ' + esc(m.currentMinute.trim()) : ''}</span>`
+            : esc(timeLabel(m.timestamp));
         card.innerHTML = `
             ${media}
             <div class="nf-live-card-body">
-                <span class="nf-live-card-cat">${esc(m.category || 'sport')}</span>
+                <span class="nf-live-card-cat">${esc(m.league || m.sport || 'sport')}</span>
                 <span class="nf-live-card-title">${esc(m.title || 'Live event')}</span>
-                <span class="nf-live-card-meta">${liveNow ? '<span class="nf-live-pill">● LIVE</span>' : esc(timeLabel(m.date))}</span>
+                <span class="nf-live-card-meta">${meta}</span>
             </div>`;
         card.addEventListener('click', () => openSportsMatch(m));
         return card;
     }
 
+    // Pull a playable URL out of a WatchFooty stream object (its exact shape can't
+    // be inspected off-air, so check every likely field), then tag it HLS (played
+    // directly in Clappr — no iframe, no popup) vs an embed page (iframe fallback).
+    function wfStreamToServer(st, i) {
+        if (!st) return null;
+        const url = typeof st === 'string' ? st
+            : (st.url || st.streamUrl || st.m3u8 || st.hls || st.file || st.src || st.embedUrl || st.link || st.iframe || st.source || '');
+        if (!url || !/^https?:\/\//i.test(url)) return null;
+        const isHls = /\.m3u8(\?|#|$)/i.test(url) || /m3u8/i.test(url) || st.type === 'hls' || st.format === 'hls';
+        return {
+            url, kind: isHls ? 'hls' : 'iframe',
+            label: (typeof st === 'object' && (st.name || st.server || st.title || st.quality)) || `Server ${i + 1}`,
+            sub: (typeof st === 'object' && (st.language || (st.hd ? 'HD' : ''))) || '',
+        };
+    }
+
     async function openSportsMatch(m) {
-        openLivePlayer({ title: m.title || 'Live event', subtitle: (m.category || '').toUpperCase(), source: 'sports' });
-        setServerMessage('Finding servers…');
-        const sources = Array.isArray(m.sources) ? m.sources : [];
-        const servers = [];
-        // Each "source" can expose several numbered streams.
-        const lists = await Promise.all(sources.map(s =>
-            getJSON(`${STREAMED}/api/stream/${s.source}/${s.id}`).catch(() => [])
-        ));
-        lists.forEach((streams, i) => {
-            const src = sources[i];
-            (Array.isArray(streams) ? streams : []).forEach(st => {
-                if (st.embedUrl) servers.push({
-                    url: st.embedUrl,
-                    label: `${cap(src.source)} ${st.streamNo}${st.hd ? ' HD' : ''}`,
-                    sub: st.language || '',
-                });
-            });
-        });
-        if (!servers.length) { setServerMessage('No live servers available for this event yet.'); return; }
-        // Gate the first load behind a tap — see playServer() for why this is
-        // what gives sports streams their audio.
+        openLivePlayer({ title: m.title || 'Live event', subtitle: (m.league || m.sport || '').toUpperCase(), source: 'sports' });
+        setServerMessage('Finding streams…');
+        let detail = null;
+        try { detail = await getJSON(`${WF}/match/${m.matchId}`); } catch (e) { /* handled below */ }
+        const streams = (detail && Array.isArray(detail.streams)) ? detail.streams : [];
+        const servers = streams.map(wfStreamToServer).filter(Boolean);
+        if (!servers.length) {
+            setServerMessage(wfIsLive(m)
+                ? 'No stream available for this match yet — refresh shortly.'
+                : 'Streams appear once the match goes live.');
+            return;
+        }
+        // Gate the first load behind a tap so HLS audio starts with sound.
         setServers(servers, { gate: true });
     }
 
@@ -453,6 +480,7 @@
     // HLS/MSE decoder + sockets down promptly (innerHTML='' alone can leave them
     // lingering toward OOM), then drop the node and cancel any pending nudge timer.
     function releaseLiveFrame() {
+        destroyClappr();
         const wrap = $('livePlayerFrameWrap');
         if (wrap) {
             const f = wrap.querySelector('iframe');
@@ -510,7 +538,65 @@
         // tap's own gesture, so the stream keeps its audio. Channels and server
         // switches already run inside a live click, so they load immediately.
         if (opts && opts.gate) showPlayGate(wrap, s);
+        else playByKind(wrap, s);
+    }
+
+    // HLS streams play in Clappr (no iframe → no pop-under / robot gate); embed
+    // pages fall back to the iframe.
+    function playByKind(wrap, s) {
+        if (s && s.kind === 'hls') loadHls(wrap, s);
         else loadFrame(wrap, s);
+    }
+
+    /* ─── Clappr direct (HLS) player ──────────────────────────────────────── */
+    let clapprPlayer = null;
+    let clapprLoading = null;
+    function destroyClappr() {
+        if (clapprPlayer) { try { clapprPlayer.destroy(); } catch (e) { /* ignore */ } clapprPlayer = null; }
+    }
+    function ensureClappr() {
+        if (window.Clappr) return Promise.resolve(window.Clappr);
+        if (clapprLoading) return clapprLoading;
+        clapprLoading = new Promise((resolve, reject) => {
+            const sc = document.createElement('script');
+            sc.src = 'https://cdn.jsdelivr.net/npm/clappr@0.4.7/dist/clappr.min.js';
+            sc.async = true;
+            sc.onload = () => resolve(window.Clappr);
+            sc.onerror = () => { clapprLoading = null; reject(new Error('Clappr load failed')); };
+            document.head.appendChild(sc);
+        });
+        return clapprLoading;
+    }
+    async function loadHls(wrap, s) {
+        setServerMessage('Loading stream…');
+        destroyClappr();
+        const old = wrap.querySelector('iframe');
+        if (old) { try { old.src = 'about:blank'; } catch (e) { /* ignore */ } old.remove(); }
+        wrap.innerHTML = '<div id="clapprMount" style="width:100%;height:100%"></div>';
+        clearTimeout(frameTimer);
+        let played = false;
+        frameTimer = setTimeout(() => {
+            if (!played) setServerMessage(live.player.servers.length > 1
+                ? 'Slow to start? Try another server above.' : 'Stream may be offline.');
+        }, 12000);
+        try {
+            const Clappr = await ensureClappr();
+            if ($('livePlayerModal')?.hidden) { destroyClappr(); return; }   // closed mid-load
+            clapprPlayer = new Clappr.Player({
+                source: s.url,
+                parentId: '#clapprMount',
+                width: '100%', height: '100%',
+                autoPlay: true, mute: false, hideMediaControlDelay: 1500,
+            });
+            const onPlay = () => { played = true; clearTimeout(frameTimer); setServerMessage(''); };
+            clapprPlayer.on(Clappr.Events.PLAYER_PLAY, onPlay);
+            clapprPlayer.on(Clappr.Events.PLAYER_ERROR, () => {
+                setServerMessage(live.player.servers.length > 1
+                    ? 'This stream failed — try another server above.' : 'Stream unavailable.');
+            });
+        } catch (e) {
+            setServerMessage('Player failed to load — check your connection.');
+        }
     }
 
     function loadFrame(wrap, s) {
@@ -528,6 +614,10 @@
         iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
         iframe.setAttribute('allowfullscreen', 'true');
         iframe.setAttribute('referrerpolicy', 'origin');
+        // LIVE ONLY (movies are left un-sandboxed): block the embed from opening a
+        // new window / redirecting the whole page — the "click play and it opens a
+        // new website" pop-under. Player JS + same-origin storage still work.
+        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation allow-forms');
         // Keep the cross-origin embed OUT of the D-pad focus path. When it grabs
         // focus it swallows the remote, so the user can't switch servers or go Back
         // (the same focus war the cinema player fixes at app.js:1249-1259). Bounded
@@ -564,7 +654,7 @@
         gate.innerHTML =
             '<span class="nf-live-playgate-circle">▶</span>' +
             '<span class="nf-live-playgate-label">Tap to play with sound</span>';
-        gate.addEventListener('click', () => loadFrame(wrap, s));
+        gate.addEventListener('click', () => playByKind(wrap, s));
         wrap.appendChild(gate);
         // On a TV there's no pointer — focus the gate so OK plays it (otherwise
         // OK lands on whatever's behind the modal and the stream never starts).
