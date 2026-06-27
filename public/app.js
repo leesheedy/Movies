@@ -1455,12 +1455,6 @@ function renderTmdbIframe(embedUrl) {
     const iframe = document.createElement('iframe');
     iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
-    // SECURITY: sandbox the cross-origin embed so it can play video but CAN'T open
-    // pop-under ads, spawn alert/confirm spam, or hijack/redirect the whole page
-    // (how most "verify you're human / scan this QR" ad-gates work). We allow only
-    // what playback needs: scripts, same-origin (player storage/DRM), forms, and
-    // presentation (casting). No allow-popups / allow-top-navigation / allow-modals.
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation');
     // The player embed IS the main content — load it immediately, never lazily.
     iframe.setAttribute('loading', 'eager');
     iframe.setAttribute('importance', 'high');

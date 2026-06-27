@@ -528,9 +528,6 @@
         iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
         iframe.setAttribute('allowfullscreen', 'true');
         iframe.setAttribute('referrerpolicy', 'origin');
-        // SECURITY: sandbox so a live-stream embed can't open pop-under ads or
-        // hijack/redirect the page; allow only what playback needs (see app.js).
-        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation');
         // Keep the cross-origin embed OUT of the D-pad focus path. When it grabs
         // focus it swallows the remote, so the user can't switch servers or go Back
         // (the same focus war the cinema player fixes at app.js:1249-1259). Bounded
