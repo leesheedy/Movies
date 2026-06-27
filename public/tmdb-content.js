@@ -62,7 +62,8 @@ const TMDBContentModule = {
             poster_path: item.poster_path,
             backdrop_path: item.backdrop_path,
             release_date: item.release_date,
-            vote_average: item.vote_average
+            vote_average: item.vote_average,
+            original_language: item.original_language
         };
     },
 
@@ -73,7 +74,8 @@ const TMDBContentModule = {
             poster_path: item.poster_path,
             backdrop_path: item.backdrop_path,
             first_air_date: item.first_air_date,
-            vote_average: item.vote_average
+            vote_average: item.vote_average,
+            original_language: item.original_language
         };
     },
 
@@ -334,6 +336,11 @@ const TMDBContentModule = {
     renderTMDBSection(title, items, type = 'movie', endpoint = '', region = '') {
         // Hide unreleased titles — they have no streamable source yet.
         items = (items || []).filter(it => !this._isUnreleased(it));
+        // English only: drop titles whose original language is known and not English.
+        // (Items without a language field are kept, so nothing English is lost.)
+        // This empties the foreign-language rails (Korean/Anime/Bollywood/etc.), so
+        // renderTMDBSection returns null for them and they disappear.
+        items = items.filter(it => !it.original_language || it.original_language === 'en');
         if (!items.length) return null;
 
         const section = document.createElement('div');
@@ -780,8 +787,8 @@ const TMDBContentModule = {
             const data = await response.json();
             const items = (data.results || []).slice(0, 20).map(item => (
                 type === 'tv' ? this.normalizeTv(item) : this.normalizeMovie(item)
-            ));
-            
+            )).filter(it => !it.original_language || it.original_language === 'en');   // English only
+
             // Render items
             grid.innerHTML = '';
             items.forEach(item => {

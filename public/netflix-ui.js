@@ -102,9 +102,11 @@
 
       const movies = await window.TMDBContentModule.getTrendingMovies();
       if (!movies?.length) return;
-      // Only feature a released, playable title (never a "coming soon" film).
-      const released = movies.filter(m => !window.TMDBContentModule._isUnreleased?.(m));
-      const pool = released.length ? released : movies;
+      // Only feature a released, playable, English-language title.
+      let pool = movies
+        .filter(m => !window.TMDBContentModule._isUnreleased?.(m))
+        .filter(m => !m.original_language || m.original_language === 'en');
+      if (!pool.length) pool = movies;
       const item = pool[Math.floor(Math.random() * Math.min(5, pool.length))];
       renderBillboard(section, item);
     } catch (e) {
