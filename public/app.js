@@ -1313,6 +1313,12 @@ window.openPlaybackTab = openPlaybackTab;
 // bingr.live/embed/{movie|tv} (all verified clean + framable, FMHY-listed).
 const STREAM_PROVIDERS = [
     {
+        // CineSRC — main source. Movie: /embed/movie/{id}; TV: /embed/tv/{id}?s=&e=.
+        id: 'cinesrc', label: 'CineSRC', enabled: true,
+        movie: ({ tmdbId }) => tmdbId ? `https://cinesrc.st/embed/movie/${tmdbId}` : '',
+        tv: ({ tmdbId, season, episode }) => tmdbId ? `https://cinesrc.st/embed/tv/${tmdbId}?s=${season}&e=${episode}` : '',
+    },
+    {
         // player.videasy.net 301-redirects to .to — point straight at .to to skip the hop.
         id: 'videasy', label: 'Videasy', enabled: true,
         movie: ({ tmdbId }) => tmdbId ? `https://player.videasy.to/movie/${tmdbId}` : '',
@@ -1341,10 +1347,10 @@ function activeStreamProviders() {
     return STREAM_PROVIDERS.filter(p => p.enabled);
 }
 
-// Keep Videasy first then VidLove on TV too (matches the desktop priority).
+// Keep CineSRC first, then Videasy/VidLove on TV too (matches desktop priority).
 function orderSourcesForTv(sources) {
     if (!isTvModeActive()) return sources;
-    const first = ['videasy', 'vidlove']; // order here = order at the front
+    const first = ['cinesrc', 'videasy', 'vidlove']; // order here = order at the front
     const head = first.map(id => sources.find(s => s.id === id)).filter(Boolean);
     const rest = sources.filter(s => !first.includes(s.id));
     return [...head, ...rest];
