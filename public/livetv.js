@@ -17,6 +17,9 @@
     // ads / "verify you're human" gate, and it bypasses the DNS-blocked embed.st.
     const WF_BASE = 'https://api.watchfooty.st';
     const WF = WF_BASE + '/api/v1';
+    // SportSRC — same catalog on a DIFFERENT embed host (embed.streamapi.cc), used
+    // as fallback servers so a blocked WatchFooty host isn't a dead end.
+    const SPORTSRC = 'https://api.sportsrc.org';
     const wfImg = (p) => (p ? (/^https?:/i.test(p) ? p : WF_BASE + p) : '');
     const wfIsLive = (m) => {
         if (!m) return false;
@@ -323,13 +326,59 @@
         };
     }
 
+    // Significant words of a title (drop "vs"/short connectors) for fuzzy matching.
+    function titleWords(t) {
+        return String(t || '').toLowerCase()
+            .replace(/\b(vs?|at|the|and)\b/g, ' ')
+            .replace(/[^a-z0-9 ]+/g, ' ')
+            .split(/\s+/).filter(w => w.length > 2);
+    }
+
+    // Find the SAME match on SportSRC (by sport + title) and return its streams on
+    // the embed.streamapi.cc host as fallback servers. Best-effort; [] on any miss.
+    async function fetchSportsrcFallback(m) {
+        const sport = m.sport;
+        const want = titleWords(m.title);
+        if (!sport || want.length < 2) return [];
+        let list = [];
+        try {
+            const r = await getJSON(`${SPORTSRC}/?data=matches&category=${encodeURIComponent(sport)}`);
+            list = (r && (r.data || r)) || [];
+        } catch (e) { return []; }
+        if (!Array.isArray(list) || !list.length) return [];
+        let best = null, bestScore = 0;
+        list.forEach(sm => {
+            const words = new Set(titleWords(sm.title));
+            const score = want.filter(w => words.has(w)).length;
+            if (score > bestScore) { bestScore = score; best = sm; }
+        });
+        if (!best || bestScore < 2) return [];        // need >=2 shared words (team names)
+        let detail = null;
+        try { detail = await getJSON(`${SPORTSRC}/?data=detail&category=${encodeURIComponent(sport)}&id=${encodeURIComponent(best.id)}`); } catch (e) { return []; }
+        const d = detail && (detail.data || detail);
+        const sources = (d && Array.isArray(d.sources)) ? d.sources : [];
+        return sources.map((st, i) => {
+            const url = st.embedUrl || st.url || '';
+            if (!url || !/^https?:\/\//i.test(url)) return null;
+            const isHls = /\.m3u8(\?|#|$)/i.test(url) || /m3u8/i.test(url);
+            return {
+                url, kind: isHls ? 'hls' : 'iframe',
+                label: `Alt ${cap(st.source || ('Server ' + (i + 1)))}${st.hd ? ' HD' : ''}`,
+                sub: st.language || '',
+            };
+        }).filter(Boolean);
+    }
+
     async function openSportsMatch(m) {
         openLivePlayer({ title: m.title || 'Live event', subtitle: (m.league || m.sport || '').toUpperCase(), source: 'sports' });
         setServerMessage('Finding streams…');
-        let detail = null;
-        try { detail = await getJSON(`${WF}/match/${m.matchId}`); } catch (e) { /* handled below */ }
+        // Pull WatchFooty streams and the SportSRC fallback (different host) together.
+        const [detail, srcServers] = await Promise.all([
+            getJSON(`${WF}/match/${m.matchId}`).catch(() => null),
+            fetchSportsrcFallback(m).catch(() => []),
+        ]);
         const streams = (detail && Array.isArray(detail.streams)) ? detail.streams : [];
-        const servers = streams.map(wfStreamToServer).filter(Boolean);
+        const servers = streams.map(wfStreamToServer).filter(Boolean).concat(srcServers || []);
         if (!servers.length) {
             setServerMessage(wfIsLive(m)
                 ? 'No stream available for this match yet — refresh shortly.'
