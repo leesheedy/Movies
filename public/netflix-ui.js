@@ -236,26 +236,26 @@
      MOBILE BOTTOM NAV  — delegates to desktop nav buttons
      ============================================================ */
   function initMobileNav() {
-    const map = {
-      mobileHomeBtn:   'homeBtn',
-      mobileSearchBtn: null,
-      mobileMoviesBtn: 'moviesBtn',
-      mobileTvBtn:     'tvShowsBtn',
-      mobileMoreBtn:   'exploreBtn',
-    };
-    Object.entries(map).forEach(([mobileId, desktopId]) => {
-      const btn = $(mobileId);
+    // Bottom tab bar (phones) → reuse the existing desktop nav button handlers.
+    const map = [
+      ['bnHome',   'homeBtn'],
+      ['bnNew',    'exploreBtn'],
+      ['bnLive',   'liveTvBtn'],
+      ['bnList',   'historyBtn'],
+      ['bnSearch', null],          // null = open search
+    ];
+    map.forEach(([id, desktopId]) => {
+      const btn = $(id);
       if (!btn) return;
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.nf-mobile-btn')
-          .forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        document.querySelectorAll('.nf-bottom-item').forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        window.scrollTo(0, 0);
         if (desktopId) {
           $(desktopId)?.click();
         } else {
-          $('nfSearchExpand')?.classList.add('expanded');
+          $('searchToggle')?.click();
           $('searchInputHeader')?.focus();
-          $('searchToggle')?.setAttribute('aria-expanded', 'true');
         }
       });
     });

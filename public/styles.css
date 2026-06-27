@@ -3755,3 +3755,76 @@ html.tv-mode .nf-nav-item {
 html.tv-mode .nf-nav-item:hover { color: #fff; background: rgba(255,255,255,.16); }
 html.tv-mode .nf-nav-item.active { background: #fff; color: #141414; font-weight: 700; }
 html.tv-mode .nf-nav-item.active::after { display: none; }     /* pill, not underline */
+
+/* ════════════════════════ MOBILE OVERHAUL (phones) ════════════════════════
+   Compact single-row top bar (nav moves to a bottom tab bar), real header
+   height incl. the notch, 44px touch targets, no genre-tile/hero collision. */
+
+/* Bottom tab bar — hidden by default, shown on phones */
+.nf-bottom-nav {
+  display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 200;
+  height: calc(58px + env(safe-area-inset-bottom));
+  padding: 0 4px env(safe-area-inset-bottom);
+  background: rgba(8,8,8,.95); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+.nf-bottom-item {
+  flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; min-height: 44px; padding: 6px 0; background: none; border: 0;
+  color: rgba(255,255,255,.6); font-size: .66rem; font-weight: 600; letter-spacing: .02em;
+}
+.nf-bottom-item svg { width: 23px; height: 23px; }
+.nf-bottom-item.is-active { color: #fff; }
+.nf-bottom-item--live svg { color: #ff5b5b; }
+
+@media (max-width: 768px) {
+  /* Single compact top row; --nf-header-h equals the REAL rendered height (+ notch) */
+  :root { --nf-header-h: calc(54px + env(safe-area-inset-top)); }
+  #nfHeader {
+    flex-direction: row; align-items: center;
+    padding: env(safe-area-inset-top) max(14px, env(safe-area-inset-right)) 0 max(14px, env(safe-area-inset-left));
+    background: linear-gradient(to bottom, rgba(0,0,0,.96), rgba(0,0,0,.7) 70%, transparent);
+  }
+  .nf-header-top { height: 54px; width: 100%; gap: 12px; }
+  .nf-nav { display: none; }                 /* nav now lives in the bottom bar */
+  .nf-wordmark { font-size: 1.35rem; }
+  html .nf-brand-img { height: 38px; }
+
+  /* Touch targets >= 44px (these classes previously had NO css) */
+  .nf-icon-btn { display: inline-flex; align-items: center; justify-content: center;
+    min-width: 44px; min-height: 44px; padding: 8px; border-radius: 50%; color: #fff; }
+  #profileChip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 2px; }
+  .nf-back-btn { min-height: 44px; padding: 8px 12px; }
+
+  /* Show the bottom bar + reserve space so content/rails clear it */
+  .nf-bottom-nav { display: flex; }
+  #mainApp { padding-bottom: calc(58px + env(safe-area-inset-bottom)); }
+  html.is-player-view .nf-bottom-nav { display: none; }   /* full-screen player */
+
+  /* Sticky bars must clear the real header height */
+  .nf-tv-hero-bar { top: var(--nf-header-h); }
+  /* Header search must not overflow a narrow row */
+  #nfSearchExpand.expanded #searchInputHeader { width: min(52vw, 200px); }
+  /* Dropdown aligns to the right gutter */
+  #nfProfileDropdown { right: 14px; }
+
+  /* Genre tiles sit cleanly BELOW the hero (no negative overlap on a short hero) */
+  .nf-genre-tiles { margin-top: 14px; padding: 0 16px 12px; gap: 10px; }
+}
+
+@media (max-width: 600px) {
+  /* Stronger hero title + bigger Play CTA */
+  .nf-billboard-title { font-size: clamp(1.3rem, 6vw, 1.8rem); font-weight: 900; line-height: 1.06; }
+  .nf-bb-play-btn { min-height: 44px; padding: 10px 22px; font-size: 1rem; }
+  /* Player + live get safe-area top padding so Back/controls clear the notch */
+  .nf-player-topbar { padding-top: calc(10px + env(safe-area-inset-top)); padding-left: max(16px, env(safe-area-inset-left)); }
+  .nf-live-player-shell { padding-top: calc(10px + env(safe-area-inset-top)); }
+  /* dvh app shells (avoid iOS 100vh clipping/jump) */
+  #playerView { min-height: 100dvh; }
+  #profileGate .nf-profile-gate-inner { min-height: 100dvh; }
+  /* Profile gate avatars fit one screen */
+  #profileGate .profile-card-avatar { width: 52px; height: 52px; flex-basis: 52px; font-size: 1.3rem; }
+  #profileGate .profile-card-name { font-size: 1.1rem; }
+  /* Ad popup fits the screen */
+  .nf-adpopup-banner { left: 12px; right: 12px; max-width: none; top: calc(12px + env(safe-area-inset-top)); }
+}

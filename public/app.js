@@ -1313,16 +1313,16 @@ window.openPlaybackTab = openPlaybackTab;
 // bingr.live/embed/{movie|tv} (all verified clean + framable, FMHY-listed).
 const STREAM_PROVIDERS = [
     {
-        // CineSRC — main source. Movie: /embed/movie/{id}; TV: /embed/tv/{id}?s=&e=.
-        id: 'cinesrc', label: 'CineSRC', enabled: true,
-        movie: ({ tmdbId }) => tmdbId ? `https://cinesrc.st/embed/movie/${tmdbId}` : '',
-        tv: ({ tmdbId, season, episode }) => tmdbId ? `https://cinesrc.st/embed/tv/${tmdbId}?s=${season}&e=${episode}` : '',
-    },
-    {
-        // player.videasy.net 301-redirects to .to — point straight at .to to skip the hop.
+        // Videasy — main source (player.videasy.net 301-redirects to .to).
         id: 'videasy', label: 'Videasy', enabled: true,
         movie: ({ tmdbId }) => tmdbId ? `https://player.videasy.to/movie/${tmdbId}` : '',
         tv: ({ tmdbId, season, episode }) => tmdbId ? `https://player.videasy.to/tv/${tmdbId}/${season}/${episode}` : '',
+    },
+    {
+        // CineSRC. Movie: /embed/movie/{id}; TV: /embed/tv/{id}?s=&e=.
+        id: 'cinesrc', label: 'CineSRC', enabled: true,
+        movie: ({ tmdbId }) => tmdbId ? `https://cinesrc.st/embed/movie/${tmdbId}` : '',
+        tv: ({ tmdbId, season, episode }) => tmdbId ? `https://cinesrc.st/embed/tv/${tmdbId}?s=${season}&e=${episode}` : '',
     },
     {
         id: 'vidlove', label: 'VidLove', enabled: true,
@@ -1350,7 +1350,7 @@ function activeStreamProviders() {
 // Keep CineSRC first, then Videasy/VidLove on TV too (matches desktop priority).
 function orderSourcesForTv(sources) {
     if (!isTvModeActive()) return sources;
-    const first = ['cinesrc', 'videasy', 'vidlove']; // order here = order at the front
+    const first = ['videasy', 'cinesrc', 'vidlove']; // order here = order at the front
     const head = first.map(id => sources.find(s => s.id === id)).filter(Boolean);
     const rest = sources.filter(s => !first.includes(s.id));
     return [...head, ...rest];
@@ -3173,6 +3173,9 @@ function showView(viewName) {
     } else {
         document.documentElement.classList.remove('tv-cinema');
     }
+
+    // Hide the mobile bottom tab bar while the full-screen player is open.
+    document.documentElement.classList.toggle('is-player-view', viewName === 'player');
 
     // Start/stop the "fade the controls after a few seconds" behaviour.
     if (viewName === 'player') showPlayerControls();
