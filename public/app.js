@@ -2932,8 +2932,7 @@ function initCastButton() {
 
     castBtn.removeAttribute('hidden');
 
-    const hasPresentationApi = 'PresentationRequest' in window;
-    const hasShare           = !!navigator.share;
+    const hasShare = !!navigator.share;
 
     // T-Cast / Web Video Cast detects video by sniffing network requests for m3u8/mp4.
     // Priority: (1) direct stream URL from provider (works best with T-Cast),
@@ -2971,27 +2970,73 @@ function initCastButton() {
         if (!castPanel.contains(e.target) && e.target !== castBtn) closePanel();
     });
 
-    // ── Chromecast / AirPlay ────────────────────────────────────────────
+    // ── Native video casting (Remote Playback + AirPlay) ─────────────────
+    // The native <video> is only the active player for direct streams
+    // (MP4 / native-HLS). Embed providers play inside a cross-origin iframe,
+    // which can't be cast directly — those fall back to QR / copy link.
+    const video      = document.getElementById('videoPlayer');
+    const remote     = video && ('remote' in video) ? video.remote : null;
+    const airplayBtn = document.getElementById('castOptionAirplay');
+
+    // A native stream is castable only when the <video> has its own source
+    // and is the surface on screen (not hidden behind an embed iframe).
+    function nativeStreamActive() {
+        return !!(video && video.currentSrc && video.style.display !== 'none');
+    }
+
+    // Wire device-state + availability listeners once; the element persists.
+    if (video && !video._castWired) {
+        video._castWired = true;
+
+        if (remote) {
+            remote.addEventListener('connecting', () => castBtn.classList.add('casting'));
+            remote.addEventListener('connect',    () => { castBtn.classList.add('casting'); showToast('Casting to device', 'success', 2500); });
+            remote.addEventListener('disconnect', () => castBtn.classList.remove('casting'));
+        }
+
+        // AirPlay availability — only reveal the button when a target exists.
+        if (airplayBtn && typeof video.webkitShowPlaybackTargetPicker === 'function') {
+            video.addEventListener('webkitplaybacktargetavailabilitychanged', e => {
+                if (e.availability === 'available') airplayBtn.removeAttribute('hidden');
+                else airplayBtn.setAttribute('hidden', '');
+            });
+            video.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', () => {
+                castBtn.classList.toggle('casting', !!video.webkitCurrentPlaybackTargetIsWireless);
+            });
+        }
+    }
+
+    // ── Chromecast (Remote Playback API) ─────────────────────────────────
     document.getElementById('castOptionChromecast')?.addEventListener('click', async () => {
         closePanel();
-        const embedUrl = getVideoUrl();
-        if (!embedUrl) { showToast('No video loaded yet', 'info', 2000); return; }
 
-        if (hasPresentationApi) {
+        if (nativeStreamActive() && remote && typeof remote.prompt === 'function') {
             try {
-                const req = new PresentationRequest([embedUrl]);
-                castBtn.classList.add('casting');
-                const conn = await req.start();
-                conn.addEventListener('terminate', () => castBtn.classList.remove('casting'));
-                showToast('Casting to device', 'success', 3000);
+                await remote.prompt();   // opens Chrome's Cast device picker
                 return;
             } catch (e) {
                 castBtn.classList.remove('casting');
-                if (e.name === 'AbortError') return;
-                console.warn('[Cast] PresentationRequest:', e);
+                if (e.name === 'NotFoundError' || e.name === 'AbortError') return; // user cancelled
+                // InvalidStateError etc. (e.g. MSE/hls.js sources can't be cast) → fall through
+                console.warn('[Cast] Remote Playback:', e);
             }
         }
-        showToast('Use your browser\'s Cast menu (Chrome: ⋮ → Cast…)', 'info', 5000);
+
+        if (!nativeStreamActive()) {
+            showToast('This source plays in an embed — scan the QR or copy the link to cast', 'info', 5000);
+        } else {
+            showToast('This stream can\'t be cast directly — use your browser\'s Cast menu (Chrome: ⋮ → Cast…)', 'info', 5000);
+        }
+    });
+
+    // ── AirPlay (WebKit) ─────────────────────────────────────────────────
+    airplayBtn?.addEventListener('click', () => {
+        closePanel();
+        if (nativeStreamActive() && typeof video.webkitShowPlaybackTargetPicker === 'function') {
+            try { video.webkitShowPlaybackTargetPicker(); return; }
+            catch (e) { console.warn('[Cast] AirPlay picker:', e); }
+        }
+        showToast('Open the stream in your browser, then tap the AirPlay icon in the player', 'info', 5000);
     });
 
     // ── Share ───────────────────────────────────────────────────────────
