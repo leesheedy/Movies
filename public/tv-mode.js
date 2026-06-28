@@ -33,6 +33,10 @@
         const tvUA = /\b(SmartTV|Smart-TV|SMART-TV|Tizen|Web0S|WebOS|webOS|NetCast|HbbTV|CrKey|DLNADOC|AppleTV|Apple TV|GoogleTV|Google TV|Android ?TV|AFT[A-Z]|AFT[BS]|BRAVIA|VIDAA|Roku|PlayStation|Xbox|HUAWEI Vision|Hisense|Philips ?TV|POV_TV|InettvBrowser|NETTV|DTV)\b/i;
         if (tvUA.test(ua)) return true;
 
+        // Shared platform detector (platform.js) is the authority when present —
+        // covers Google TV / Fire TV / consoles consistently with the rest of the app.
+        if (window.NotflixPlatform && window.NotflixPlatform.tv) return true;
+
         // Big screen + no fine pointer (mouse) + not a phone/tablet → very likely a TV browser.
         try {
             const coarse = window.matchMedia('(pointer: coarse)').matches || !window.matchMedia('(any-pointer: fine)').matches;

@@ -186,6 +186,10 @@
                 const qr = $('liveCastQr');
                 if (qr && url) qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=ffffff&bgcolor=1a1a1a&data=${encodeURIComponent(url)}`;
                 wireAirplayAvailability(clapprVideo());
+                requestAnimationFrame(() => {
+                    const first = panel.querySelector('.nf-cast-option:not([hidden])');
+                    if (first) { try { first.focus(); } catch (err) {} }
+                });
             }
         });
         document.addEventListener('click', (e) => {
@@ -781,10 +785,20 @@
     // memory/reboot risk on webOS). Mirrors app.js:2786-2787.
     document.addEventListener('keydown', (e) => {
         if ((e.key === 'Escape' || e.key === 'Backspace' || e.key === 'BrowserBack'
-                || e.key === 'GoBack' || e.keyCode === 461) &&
+                || e.key === 'GoBack' || e.keyCode === 461 || e.keyCode === 10009) &&
             !$('livePlayerModal')?.hidden) {
             const t = e.target;
             if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+            // Layered Back: if the cast panel is open, close just that first.
+            const castPanel = $('livePlayerCastPanel');
+            if (castPanel && !castPanel.hidden) {
+                e.preventDefault();
+                e.stopPropagation();
+                castPanel.hidden = true;
+                const cb = $('livePlayerCast');
+                if (cb) { cb.setAttribute('aria-expanded', 'false'); try { cb.focus(); } catch (err) {} }
+                return;
+            }
             e.preventDefault();
             e.stopPropagation();
             closeLivePlayer();

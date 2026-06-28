@@ -2967,6 +2967,11 @@ function initCastButton() {
         }
         castPanel.removeAttribute('hidden');
         castBtn.setAttribute('aria-expanded', 'true');
+        // Land focus on the first usable option so a remote/keyboard can drive it.
+        requestAnimationFrame(() => {
+            const first = castPanel.querySelector('.nf-cast-option:not([hidden])');
+            if (first) { try { first.focus(); } catch (e) {} }
+        });
     }
     function closePanel() {
         castPanel.setAttribute('hidden', '');
@@ -3128,6 +3133,18 @@ function attemptPlayerFullscreen() {
 }
 
 function handleBackAction() {
+    // A cast panel is the topmost layer — Back closes it first and returns
+    // focus to its button, rather than leaving the player or app.
+    const openCastPanel = document.querySelector('#castPanel:not([hidden]), #livePlayerCastPanel:not([hidden])');
+    if (openCastPanel) {
+        openCastPanel.setAttribute('hidden', '');
+        const btn = openCastPanel.id === 'castPanel'
+            ? document.getElementById('castBtn')
+            : document.getElementById('livePlayerCast');
+        if (btn) { btn.setAttribute('aria-expanded', 'false'); try { btn.focus(); } catch (e) {} }
+        return;
+    }
+
     if (isFullscreenActive()) {
         document.exitFullscreen().catch((error) => {
             console.warn('Failed to exit fullscreen:', error);
@@ -3198,7 +3215,7 @@ function initBackNavigationHandlers() {
             return;
         }
         if (key === 'Escape' || key === 'BrowserBack' || key === 'Backspace'
-            || key === 'GoBack' || event.keyCode === 461) {
+            || key === 'GoBack' || event.keyCode === 461 || event.keyCode === 10009) {
             handleBackAction();
         }
     });
