@@ -2970,7 +2970,7 @@ function initCastButton() {
         // Land focus on the first usable option so a remote/keyboard can drive it.
         requestAnimationFrame(() => {
             const first = castPanel.querySelector('.nf-cast-option:not([hidden])');
-            if (first) { try { first.focus(); } catch (e) {} }
+            if (first) { try { first.focus({ preventScroll: true }); } catch (e) {} }
         });
     }
     function closePanel() {

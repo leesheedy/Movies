@@ -188,7 +188,7 @@
                 wireAirplayAvailability(clapprVideo());
                 requestAnimationFrame(() => {
                     const first = panel.querySelector('.nf-cast-option:not([hidden])');
-                    if (first) { try { first.focus(); } catch (err) {} }
+                    if (first) { try { first.focus({ preventScroll: true }); } catch (err) {} }
                 });
             }
         });

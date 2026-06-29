@@ -39,16 +39,24 @@
 
     function init() {
         if (initialised || !window.cast || !cast.framework || !window.chrome || !chrome.cast) return;
-        initialised = true;
-        ctx = cast.framework.CastContext.getInstance();
-        ctx.setOptions({
-            receiverApplicationId: chrome.cast.media.DefaultMediaReceiverAppId,
-            autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
-        });
-        ctx.addEventListener(cast.framework.CastContextEventType.CAST_STATE_CHANGED, function () {
+        try {
+            // chrome.cast.media may lag the framework callback in some engines, so
+            // fall back to the published default-media-receiver id / enum strings
+            // rather than passing an empty id (which throws "Missing application id").
+            var appId = (chrome.cast.media && chrome.cast.media.DefaultMediaReceiverAppId) || 'CC1AD845';
+            var autoJoin = (chrome.cast.AutoJoinPolicy && chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED) || 'origin_scoped';
+            var context = cast.framework.CastContext.getInstance();
+            context.setOptions({ receiverApplicationId: appId, autoJoinPolicy: autoJoin });
+            context.addEventListener(cast.framework.CastContextEventType.CAST_STATE_CHANGED, function () {
+                emit(stateString());
+            });
+            ctx = context;
+            initialised = true;
             emit(stateString());
-        });
-        emit(stateString());
+        } catch (e) {
+            // Never let Cast init surface as an uncaught page error.
+            if (window.console && console.debug) console.debug('[Cast] init skipped:', e && e.message);
+        }
     }
 
     // The SDK calls this once cast_sender.js finishes loading.
