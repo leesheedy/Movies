@@ -2948,6 +2948,17 @@ function initCastButton() {
         return getVideoUrl() || window.location.href;
     }
 
+    // Title + poster for the receiver's now-playing screen.
+    function getCastMeta() {
+        const title = document.getElementById('tmdbPlayerTitle')?.textContent
+            || state.currentMeta?.meta?.title || document.title;
+        const m = state.currentMeta?.meta || {};
+        let poster = m.image || '';
+        if (!poster && m.backdrop_path) poster = `https://image.tmdb.org/t/p/w1280${m.backdrop_path}`;
+        if (!poster && m.poster_path)   poster = `https://image.tmdb.org/t/p/w780${m.poster_path}`;
+        return { title, poster };
+    }
+
     function openPanel() {
         const castUrl = getCastUrl();
         const qrImg = document.getElementById('castQrImg');
@@ -2956,6 +2967,11 @@ function initCastButton() {
         }
         castPanel.removeAttribute('hidden');
         castBtn.setAttribute('aria-expanded', 'true');
+        // Land focus on the first usable option so a remote/keyboard can drive it.
+        requestAnimationFrame(() => {
+            const first = castPanel.querySelector('.nf-cast-option:not([hidden])');
+            if (first) { try { first.focus({ preventScroll: true }); } catch (e) {} }
+        });
     }
     function closePanel() {
         castPanel.setAttribute('hidden', '');
@@ -3006,26 +3022,65 @@ function initCastButton() {
         }
     }
 
-    // ── Chromecast (Remote Playback API) ─────────────────────────────────
-    document.getElementById('castOptionChromecast')?.addEventListener('click', async () => {
+    // Reflect real Cast session state on the button (and offer "stop").
+    const chromecastBtn = document.getElementById('castOptionChromecast');
+    function setChromecastLabel(text) {
+        if (!chromecastBtn) return;
+        // Last node is the trailing text label after the SVG icon.
+        const label = chromecastBtn.lastChild;
+        if (label && label.nodeType === Node.TEXT_NODE) label.nodeValue = ' ' + text;
+    }
+    if (window.NotflixCast) {
+        NotflixCast.onState(s => {
+            const on = s === 'connected';
+            castBtn.classList.toggle('casting', on);
+            setChromecastLabel(on ? 'Stop casting' : 'Chromecast');
+        });
+    }
+
+    // ── Chromecast ───────────────────────────────────────────────────────
+    // Prefer the Google Cast SDK: it loads the stream URL straight onto the
+    // receiver, so HLS/MP4 cast even when we play them locally via MSE.
+    chromecastBtn?.addEventListener('click', async () => {
         closePanel();
 
+        // Already casting → this button doubles as "stop".
+        if (window.NotflixCast && NotflixCast.connected()) {
+            NotflixCast.stop();
+            showToast('Stopped casting', 'info', 2000);
+            return;
+        }
+
+        const streamUrl = state.castStreamUrl;
+        if (window.NotflixCast && NotflixCast.ready() && streamUrl) {
+            const { title, poster } = getCastMeta();
+            try {
+                await NotflixCast.castUrl({ url: streamUrl, title, poster });
+                showToast('Casting to your TV', 'success', 2500);
+                return;
+            } catch (err) {
+                if (err && err.code === 'cancel') return; // user dismissed picker
+                console.warn('[Cast] Cast SDK:', err);
+                // fall through to Remote Playback / fallbacks
+            }
+        }
+
+        // Remote Playback API — works for direct MP4 / native-HLS elements.
         if (nativeStreamActive() && remote && typeof remote.prompt === 'function') {
             try {
-                await remote.prompt();   // opens Chrome's Cast device picker
+                await remote.prompt();
                 return;
             } catch (e) {
                 castBtn.classList.remove('casting');
-                if (e.name === 'NotFoundError' || e.name === 'AbortError') return; // user cancelled
-                // InvalidStateError etc. (e.g. MSE/hls.js sources can't be cast) → fall through
+                if (e.name === 'NotFoundError' || e.name === 'AbortError') return;
                 console.warn('[Cast] Remote Playback:', e);
             }
         }
 
-        if (!nativeStreamActive()) {
+        if (!streamUrl && !nativeStreamActive()) {
             showToast('This source plays in an embed — scan the QR or copy the link to cast', 'info', 5000);
         } else {
-            showToast('This stream can\'t be cast directly — use your browser\'s Cast menu (Chrome: ⋮ → Cast…)', 'info', 5000);
+            showToast('No Cast device found — check it\'s on the same Wi‑Fi, or use Chrome ⋮ → Cast…', 'info', 5000);
         }
     });
 
@@ -3078,6 +3133,18 @@ function attemptPlayerFullscreen() {
 }
 
 function handleBackAction() {
+    // A cast panel is the topmost layer — Back closes it first and returns
+    // focus to its button, rather than leaving the player or app.
+    const openCastPanel = document.querySelector('#castPanel:not([hidden]), #livePlayerCastPanel:not([hidden])');
+    if (openCastPanel) {
+        openCastPanel.setAttribute('hidden', '');
+        const btn = openCastPanel.id === 'castPanel'
+            ? document.getElementById('castBtn')
+            : document.getElementById('livePlayerCast');
+        if (btn) { btn.setAttribute('aria-expanded', 'false'); try { btn.focus(); } catch (e) {} }
+        return;
+    }
+
     if (isFullscreenActive()) {
         document.exitFullscreen().catch((error) => {
             console.warn('Failed to exit fullscreen:', error);
@@ -3148,7 +3215,7 @@ function initBackNavigationHandlers() {
             return;
         }
         if (key === 'Escape' || key === 'BrowserBack' || key === 'Backspace'
-            || key === 'GoBack' || event.keyCode === 461) {
+            || key === 'GoBack' || event.keyCode === 461 || event.keyCode === 10009) {
             handleBackAction();
         }
     });

@@ -158,6 +158,24 @@
         // doesn't mistake this user-initiated cast for an ad pop-up.
         const openExt = (url) => { if (window.openExternalUrl) return window.openExternalUrl(url); return window.open(url, '_blank', 'noopener'); };
 
+        // A direct HLS stream (Clappr) can be cast/AirPlayed; embeds can't.
+        const isDirect = () => live.player.castKind === 'hls' && !!live.player.currentUrl;
+        const clapprVideo = () => document.querySelector('#clapprMount video');
+
+        // Reflect Cast session state + reveal AirPlay only when a target exists.
+        const airBtn = $('liveCastAirplay');
+        if (window.NotflixCast) {
+            NotflixCast.onState(s => btn.classList.toggle('casting', s === 'connected'));
+        }
+        // Wire AirPlay availability against whichever <video> Clappr mounts.
+        function wireAirplayAvailability(v) {
+            if (!v || v._airWired || typeof v.webkitShowPlaybackTargetPicker !== 'function') return;
+            v._airWired = true;
+            v.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', () => {
+                btn.classList.toggle('casting', !!v.webkitCurrentPlaybackTargetIsWireless);
+            });
+        }
+
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const open = panel.hidden;
@@ -167,6 +185,11 @@
                 const url = live.player.currentUrl || '';
                 const qr = $('liveCastQr');
                 if (qr && url) qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=ffffff&bgcolor=1a1a1a&data=${encodeURIComponent(url)}`;
+                wireAirplayAvailability(clapprVideo());
+                requestAnimationFrame(() => {
+                    const first = panel.querySelector('.nf-cast-option:not([hidden])');
+                    if (first) { try { first.focus({ preventScroll: true }); } catch (err) {} }
+                });
             }
         });
         document.addEventListener('click', (e) => {
@@ -185,22 +208,44 @@
             }
             close();
         });
+
         $('liveCastChromecast')?.addEventListener('click', async () => {
+            close();
             const url = live.player.currentUrl;
             if (!url) return;
-            if ('PresentationRequest' in window) {
-                try { await new PresentationRequest([url]).start(); toast('Casting to your device…'); }
-                catch { openExt(url); }
-            } else { toast('Casting not available here — opening in a new tab'); openExt(url); }
-            close();
+
+            // Already casting → stop.
+            if (window.NotflixCast && NotflixCast.connected()) { NotflixCast.stop(); toast('Stopped casting'); return; }
+
+            // Direct HLS → load straight onto the Chromecast as a LIVE stream.
+            if (window.NotflixCast && NotflixCast.ready() && isDirect()) {
+                const title = $('livePlayerTitle')?.textContent || 'Live';
+                const subtitle = $('livePlayerSubtitle')?.textContent || '';
+                try {
+                    await NotflixCast.castUrl({ url, title, subtitle, live: true });
+                    toast('Casting to your TV');
+                    return;
+                } catch (err) {
+                    if (err && err.code === 'cancel') return;
+                    console.warn('[LiveCast] Cast SDK:', err);
+                }
+            }
+            // Embed stream (cross-origin iframe) — open standalone so the user can
+            // use the player's own cast control.
+            if (isDirect()) toast('No Cast device found — check it\'s on the same Wi‑Fi');
+            else { toast('Opening the stream so you can cast from the player'); openExt(url); }
         });
+
         $('liveCastAirplay')?.addEventListener('click', () => {
-            // The stream is inside a cross-origin iframe, so we can't drive its
-            // <video> directly. Opening it standalone exposes Safari's native
-            // AirPlay control on the player.
+            close();
+            const v = clapprVideo();
+            if (isDirect() && v && typeof v.webkitShowPlaybackTargetPicker === 'function') {
+                try { v.webkitShowPlaybackTargetPicker(); return; }
+                catch (e) { console.warn('[LiveCast] AirPlay:', e); }
+            }
+            // Embeds / no native control → open standalone for Safari's AirPlay.
             toast('Tap the AirPlay icon inside the player that opens');
             if (live.player.currentUrl) openExt(live.player.currentUrl);
-            close();
         });
     }
 
@@ -575,6 +620,7 @@
         if (!s) return;
         live.player.index = i;
         live.player.currentUrl = s.url;
+        live.player.castKind = s.kind;   // 'hls' = direct stream we can cast; else iframe embed
         renderServerChips();
         const wrap = $('livePlayerFrameWrap');
         if (!wrap) return;
@@ -739,10 +785,20 @@
     // memory/reboot risk on webOS). Mirrors app.js:2786-2787.
     document.addEventListener('keydown', (e) => {
         if ((e.key === 'Escape' || e.key === 'Backspace' || e.key === 'BrowserBack'
-                || e.key === 'GoBack' || e.keyCode === 461) &&
+                || e.key === 'GoBack' || e.keyCode === 461 || e.keyCode === 10009) &&
             !$('livePlayerModal')?.hidden) {
             const t = e.target;
             if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+            // Layered Back: if the cast panel is open, close just that first.
+            const castPanel = $('livePlayerCastPanel');
+            if (castPanel && !castPanel.hidden) {
+                e.preventDefault();
+                e.stopPropagation();
+                castPanel.hidden = true;
+                const cb = $('livePlayerCast');
+                if (cb) { cb.setAttribute('aria-expanded', 'false'); try { cb.focus(); } catch (err) {} }
+                return;
+            }
             e.preventDefault();
             e.stopPropagation();
             closeLivePlayer();
