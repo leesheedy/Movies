@@ -429,6 +429,7 @@
             <button id="liveTvBtn"   class="nav-link nf-nav-item nf-nav-item--live" type="button"><span class="nf-live-dot" aria-hidden="true"></span>Live TV &amp; Sports</button>
             <button id="exploreBtn"  class="nav-link nf-nav-item" type="button">New &amp; Popular</button>
             <button id="historyBtn"  class="nav-link nf-nav-item" type="button">My List</button>
+            <button id="watchOnBtn"  class="nav-link nf-nav-item" type="button">Watch On</button>
         </nav>
     </header>
 
@@ -705,6 +706,18 @@
             </div>
             <div id="historyContent" class="nf-view-body"></div>
         </div>
+
+        <!-- ── WATCH ON VIEW ── -->
+        <div id="watchOnView" class="view" style="display:none;">
+            <div class="nf-view-header">
+                <button id="watchOnBackBtn" class="nf-back-btn" type="button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                    Back
+                </button>
+                <h1 class="nf-view-title">Watch On</h1>
+            </div>
+            <div id="watchOnContent" class="nf-view-body"></div>
+        </div>
     </main>
 
     <!-- Mobile bottom tab bar (phones only; wired to the existing nav handlers) -->
@@ -819,6 +832,7 @@
 <script src="/cast.js"></script>
 <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1" async></script>
 <script src="/history.js"></script>
+<script src="/watch-on.js"></script>
 <script src="/tmdb-content.js"></script>
 <script src="/netflix-ui.js"></script>
 <script src="/app.js"></script>

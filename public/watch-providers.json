@@ -1,0 +1,49 @@
+{
+  "_readme": "Legitimate watch destinations shown on the 'Watch On' page. To add one: copy an entry, give it a unique id, fill in name/url/note, and set kind to 'fta' (free), 'sub' (subscription) or 'self' (your own server). No code changes or rebuild needed — this file is read directly by the site.",
+
+  "categories": [
+    {
+      "id": "afl",
+      "label": "AFL",
+      "providers": [
+        { "id": "seven", "name": "7plus", "kind": "fta", "url": "https://7plus.com.au/sport/afl", "note": "Selected matches live and free" },
+        { "id": "kayo-afl", "name": "Kayo Sports", "kind": "sub", "url": "https://kayosports.com.au/sport/afl", "note": "Every match, live and on demand" },
+        { "id": "foxfooty", "name": "Fox Footy", "kind": "sub", "url": "https://www.foxsports.com.au/afl", "note": "Every match via Foxtel" }
+      ]
+    },
+    {
+      "id": "nrl",
+      "label": "NRL",
+      "providers": [
+        { "id": "nine", "name": "9Now", "kind": "fta", "url": "https://www.9now.com.au/", "note": "Selected matches live and free" },
+        { "id": "kayo-nrl", "name": "Kayo Sports", "kind": "sub", "url": "https://kayosports.com.au/sport/nrl", "note": "Every match, live and on demand" },
+        { "id": "foxtel", "name": "Foxtel", "kind": "sub", "url": "https://www.foxtel.com.au/foxtel-go.html", "note": "Every match" }
+      ]
+    },
+    {
+      "id": "movies_tv",
+      "label": "Movies & TV",
+      "providers": [
+        { "id": "netflix", "name": "Netflix", "kind": "sub", "url": "https://www.netflix.com/au/", "note": "" },
+        { "id": "stan", "name": "Stan", "kind": "sub", "url": "https://www.stan.com.au/", "note": "Australian, includes local originals" },
+        { "id": "binge", "name": "Binge", "kind": "sub", "url": "https://www.binge.com.au/", "note": "Foxtel-owned catalogue" },
+        { "id": "prime", "name": "Prime Video", "kind": "sub", "url": "https://www.primevideo.com/", "note": "" },
+        { "id": "disney", "name": "Disney+", "kind": "sub", "url": "https://www.disneyplus.com/en-au", "note": "" },
+        { "id": "paramount", "name": "Paramount+", "kind": "sub", "url": "https://www.paramountplus.com/au/", "note": "" },
+        { "id": "appletv", "name": "Apple TV+", "kind": "sub", "url": "https://tv.apple.com/au", "note": "" },
+        { "id": "sbs", "name": "SBS On Demand", "kind": "fta", "url": "https://www.sbs.com.au/ondemand/", "note": "Free, ad-supported and ad-free" },
+        { "id": "iview", "name": "ABC iview", "kind": "fta", "url": "https://iview.abc.net.au/", "note": "Free" },
+        { "id": "tubi", "name": "Tubi", "kind": "fta", "url": "https://tubitv.com/", "note": "Free, ad-supported, large library" },
+        { "id": "plexfree", "name": "Plex", "kind": "fta", "url": "https://watch.plex.tv/", "note": "Free ad-supported movies and shows built into Plex" }
+      ]
+    },
+    {
+      "id": "self_hosted",
+      "label": "My Library",
+      "providers": [
+        { "id": "jellyfin", "name": "Jellyfin", "kind": "self", "url": "", "note": "Set your server URL here if you run one" },
+        { "id": "plex_server", "name": "Plex (personal server)", "kind": "self", "url": "", "note": "Set your Plex server or relay URL here" }
+      ]
+    }
+  ]
+}

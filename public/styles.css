@@ -3828,3 +3828,107 @@ html.tv-mode .nf-nav-item.active::after { display: none; }     /* pill, not unde
   /* Ad popup fits the screen */
   .nf-adpopup-banner { left: 12px; right: 12px; max-width: none; top: calc(12px + env(safe-area-inset-top)); }
 }
+
+/* ============================================================
+   WATCH ON — legitimate provider directory
+   ============================================================ */
+.wp-intro {
+  color: var(--nf-gray-lt);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  max-width: 60ch;
+  margin: 0 0 32px;
+}
+.wp-intro code {
+  background: var(--nf-card);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 0.88em;
+}
+
+.wp-section { margin-bottom: 36px; }
+.wp-section-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 14px;
+  color: var(--nf-white);
+}
+
+.wp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.wp-card {
+  display: block;
+  background: var(--nf-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--nf-radius);
+  padding: 16px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.wp-card:hover {
+  border-color: var(--nf-red);
+  background: #1f1f1f;
+}
+.wp-card--empty {
+  cursor: default;
+  opacity: 0.6;
+}
+.wp-card--empty:hover {
+  border-color: var(--border-color);
+  background: var(--nf-card);
+}
+
+.wp-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.wp-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--nf-white);
+}
+
+.wp-kind {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+  border: 1px solid var(--border-color);
+  color: var(--nf-gray-lt);
+}
+.wp-kind--fta {
+  color: #6fd39b;
+  border-color: rgba(111, 211, 155, 0.4);
+}
+.wp-kind--sub {
+  color: var(--nf-gray-lt);
+}
+.wp-kind--self {
+  color: #f0a92b;
+  border-color: rgba(240, 169, 43, 0.4);
+}
+
+.wp-note {
+  font-size: 0.85rem;
+  color: var(--nf-gray-lt);
+  line-height: 1.4;
+}
+
+.wp-loading, .wp-empty, .wp-error {
+  color: var(--nf-gray-lt);
+  padding: 40px 0;
+}
+.wp-error { color: var(--nf-red-h); }
