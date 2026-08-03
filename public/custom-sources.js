@@ -188,6 +188,12 @@
         #customSourcesModal .cs-save{background:#e50914;color:#fff}
         #customSourcesModal .cs-del{background:rgba(229,9,20,.14);color:#ff7a7a;border:1px solid rgba(229,9,20,.4)}
         #customSourcesModal .cs-empty{font-size:.82rem;opacity:.45;padding:6px 2px}
+        #customSourcesModal .cs-paste-row{display:flex;gap:8px;align-items:stretch}
+        #customSourcesModal .cs-paste-row .cs-input{flex:1 1 auto;min-width:0}
+        #customSourcesModal .cs-paste{flex:0 0 auto;background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:10px;padding:0 18px;font-weight:600;font-size:.9rem;cursor:pointer}
+        #customSourcesModal .cs-paste:active{background:#e50914}
+        #customSourcesModal .cs-detected{display:none;align-items:center;gap:8px;font-size:.82rem;background:rgba(229,9,20,.14);border:1px solid rgba(229,9,20,.35);color:#ffb3b3;border-radius:9px;padding:9px 12px;margin:0 0 12px}
+        #customSourcesModal .cs-detected.show{display:flex}
         @media(min-width:560px){
           #customSourcesModal{align-items:center;padding:20px}
           #customSourcesModal .cs-modal{height:auto;max-height:88vh;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.7)}
@@ -203,14 +209,33 @@
         return n;
     }
 
-    // small labelled input for edit cards
-    function field(labelText, value, placeholder) {
+    function attachPaste(input) {
+        if (!(navigator.clipboard && navigator.clipboard.readText)) return;
+        const row = el('div', 'cs-paste-row');
+        input.parentNode.insertBefore(row, input);
+        const btn = el('button', 'cs-paste', 'Paste');
+        btn.type = 'button';
+        btn.onclick = async () => {
+            try {
+                const t = await navigator.clipboard.readText();
+                if (t && t.trim()) { input.value = t.trim(); input.dispatchEvent(new Event('input')); }
+                else toast('Clipboard is empty.', 'info');
+            } catch (_) {
+                toast('Couldn\'t read clipboard — paste manually.', 'error');
+            }
+        };
+        row.append(input, btn);
+    }
+
+    // small labelled input for edit cards. Pass withPaste=true to add a Paste button.
+    function field(labelText, value, placeholder, withPaste) {
         const wrap = document.createElement('div');
         if (labelText) wrap.appendChild(el('div', 'cs-label', labelText));
         const input = el('input', 'cs-input');
         input.value = value || '';
         if (placeholder) input.placeholder = placeholder;
         wrap.appendChild(input);
+        if (withPaste) attachPaste(input);
         return { wrap, input };
     }
 
@@ -224,8 +249,8 @@
         store.providers.forEach(p => {
             const card = el('div', 'cs-card');
             const name = field('Name', p.label, 'Name');
-            const movie = field('Movie template', p.movie, 'https://…/{tmdbId}');
-            const tv = field('TV template', p.tv, 'https://…/{tmdbId}/{season}/{episode}');
+            const movie = field('Movie template', p.movie, 'https://…/{tmdbId}', true);
+            const tv = field('TV template', p.tv, 'https://…/{tmdbId}/{season}/{episode}', true);
 
             const actions = el('div', 'cs-card-actions');
             const toggleWrap = el('label', 'cs-toggle-wrap');
@@ -267,7 +292,7 @@
                 const card = el('div', 'cs-card');
                 const idF = field('IMDB / TMDB id', k, 'tt1234567 or TMDB id');
                 const labelF = field('Label', o.label, 'Label (optional)');
-                const urlF = field('Embed URL', o.url, 'Paste embed URL');
+                const urlF = field('Embed URL', o.url, 'Paste embed URL', true);
 
                 const actions = el('div', 'cs-card-actions');
                 const spacer = el('div', 'cs-toggle-wrap'); // pushes buttons right
@@ -326,6 +351,7 @@
               <div>
                 <div class="cs-section-title">Pin a source to one title</div>
                 <p class="cs-hint">Enter the title's IMDB id (<code>tt1234567</code>) or TMDB id, then paste the exact embed. Shows as a source for that title only.</p>
+                <div class="cs-detected" id="csOvDetected"></div>
                 <div class="cs-fields">
                   <input class="cs-input" id="csOvId" placeholder="tt1234567 or TMDB id" inputmode="text" />
                   <input class="cs-input" id="csOvLabel" placeholder="Label (optional)" />
@@ -384,6 +410,11 @@
         };
 
         renderLists(body);
+
+        // Paste buttons on the add-form URL fields.
+        attachPaste(modal.querySelector('#csProvMovie'));
+        attachPaste(modal.querySelector('#csProvTv'));
+        attachPaste(modal.querySelector('#csOvUrl'));
     }
 
     function open() {
@@ -392,6 +423,22 @@
         const profile = document.getElementById('profileSettingsModal');
         if (profile && !profile.hidden) profile.hidden = true;
         renderLists(modal);
+        // If a title is open in the player, auto-fill the pin id with it.
+        const cur = window.NotflixCurrentTitle;
+        const idInput = modal.querySelector('#csOvId');
+        const detected = modal.querySelector('#csOvDetected');
+        if (cur && (cur.imdbId || cur.tmdbId)) {
+            if (idInput && !idInput.value) idInput.value = cur.imdbId || String(cur.tmdbId);
+            if (detected) {
+                detected.textContent = cur.title
+                    ? `Detected: ${cur.title} (${cur.imdbId || 'TMDB ' + cur.tmdbId})`
+                    : `Detected id: ${cur.imdbId || cur.tmdbId}`;
+                detected.classList.add('show');
+            }
+        } else if (detected) {
+            detected.classList.remove('show');
+            detected.textContent = '';
+        }
         modal.hidden = false;
         document.body.style.overflow = 'hidden';
     }
