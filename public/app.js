@@ -1422,12 +1422,62 @@ function buildOmdbRatingBadges(omdb) {
     return parts.length ? `<div class="nf-ratings-row">${parts.join('')}</div>` : '';
 }
 
-// Accepts an array of plain URL strings OR { url, label, id } source objects.
+// Accepts an array of plain URL strings OR { url, audioUrl, label, id } source objects.
+// audioUrl is optional — a separate audio-only stream to sync alongside a video-only one.
 function normalizeEmbedSource(item, i) {
     if (item && typeof item === 'object') {
-        return { url: item.url || '', label: item.label || `Source ${i + 1}`, id: item.id || `src${i + 1}` };
+        return {
+            url: item.url || '',
+            audioUrl: item.audioUrl || '',
+            label: item.label || `Source ${i + 1}`,
+            id: item.id || `src${i + 1}`,
+        };
     }
-    return { url: item || '', label: `Source ${i + 1}`, id: `src${i + 1}` };
+    return { url: item || '', audioUrl: '', label: `Source ${i + 1}`, id: `src${i + 1}` };
+}
+
+// A pinned source can split video and audio into two independent streams (some
+// CDNs deliver them that way). Keeps the companion <audio> element locked to the
+// <video> element's clock: same play/pause/seek, and periodic drift correction
+// since two independently-buffered HLS streams creep apart over time.
+let tmdbAudioSyncState = null;
+function teardownTmdbAudioSync() {
+    if (tmdbAudioSyncState) {
+        const { interval, videoEl, onPlay, onPause, onSeeked, onRate } = tmdbAudioSyncState;
+        clearInterval(interval);
+        if (videoEl) {
+            videoEl.removeEventListener('play', onPlay);
+            videoEl.removeEventListener('pause', onPause);
+            videoEl.removeEventListener('seeked', onSeeked);
+            videoEl.removeEventListener('ratechange', onRate);
+        }
+        tmdbAudioSyncState = null;
+    }
+    if (window.currentAudioHls) { try { window.currentAudioHls.destroy(); } catch (e) { /* ignore */ } window.currentAudioHls = null; }
+    const audioEl = document.getElementById('tmdbAudioPlayer');
+    if (audioEl) {
+        try { audioEl.pause(); } catch (e) { /* ignore */ }
+        audioEl.removeAttribute('src');
+        try { audioEl.load(); } catch (e) { /* ignore */ }
+    }
+}
+function setupTmdbAudioSync(videoEl, audioEl) {
+    const DRIFT_TOLERANCE = 0.25; // seconds before we snap audio back to video's clock
+    const onPlay = () => { audioEl.play().catch(() => {}); };
+    const onPause = () => { audioEl.pause(); };
+    const onSeeked = () => { try { audioEl.currentTime = videoEl.currentTime; } catch (e) { /* ignore */ } };
+    const onRate = () => { audioEl.playbackRate = videoEl.playbackRate; };
+    videoEl.addEventListener('play', onPlay);
+    videoEl.addEventListener('pause', onPause);
+    videoEl.addEventListener('seeked', onSeeked);
+    videoEl.addEventListener('ratechange', onRate);
+    const interval = setInterval(() => {
+        if (videoEl.paused || audioEl.paused) return;
+        if (Math.abs(videoEl.currentTime - audioEl.currentTime) > DRIFT_TOLERANCE) {
+            try { audioEl.currentTime = videoEl.currentTime; } catch (e) { /* ignore */ }
+        }
+    }, 1000);
+    tmdbAudioSyncState = { interval, videoEl, audioEl, onPlay, onPause, onSeeked, onRate };
 }
 
 // Detach a player embed cleanly. On old webOS Chromium, clearing a container with
@@ -1450,6 +1500,7 @@ function renderTmdbIframe(embedUrl) {
     // embeddable page. Those must play in the native <video>, not an iframe.
     const isDirectStream = (u) => /\.(m3u8|mp4|webm|mkv|m3u)(\?|#|$)/i.test(u || '');
     const stopTmdbDirect = () => {
+        teardownTmdbAudioSync();
         if (window.currentHls) { try { window.currentHls.destroy(); } catch (e) { /* ignore */ } window.currentHls = null; }
         if (tmdbVideoEl) {
             try { tmdbVideoEl.pause(); } catch (e) { /* ignore */ }
@@ -1462,14 +1513,20 @@ function renderTmdbIframe(embedUrl) {
     const rawList = Array.isArray(embedUrl) ? embedUrl : [embedUrl];
     const meta = rawList.map(normalizeEmbedSource).filter(s => s.url);
     const baseSources = meta.map(s => s.url);
+    const baseAudioSources = meta.map(s => s.audioUrl || '');
     tmdbBaseSources = baseSources;
     tmdbSourceMeta = meta;
     state.castStreamUrl = null;
     state.embedFocusLocked = false;
     updateTmdbPlayerToolbar();
 
+    // Clean-player copies never carry a paired audio track (the proxy wraps an
+    // embeddable page, not a raw stream) — keep audioSources aligned with sources.
     const cleanSources = state.cleanPlayerEnabled ? baseSources.map(buildCleanEmbedUrl).filter(Boolean) : [];
     const sources = state.cleanPlayerEnabled ? [...cleanSources, ...baseSources] : baseSources;
+    const audioSources = state.cleanPlayerEnabled
+        ? [...cleanSources.map(() => ''), ...baseAudioSources]
+        : baseAudioSources;
     // Offset of the "real" provider sources inside `sources` (clean copies sit in front).
     const providerBaseOffset = state.cleanPlayerEnabled ? cleanSources.length : 0;
 
@@ -1559,9 +1616,13 @@ function renderTmdbIframe(embedUrl) {
         }
     };
 
-    const playTmdbDirect = (url) => {
+    // audioUrl is optional: when a source splits video and audio into two separate
+    // streams, both are loaded in parallel and held back from playing until BOTH
+    // are ready, so they start on the same frame instead of racing each other.
+    const playTmdbDirect = (url, audioUrl) => {
         // Swap the iframe out and play in the native <video> via hls.js.
         if (tmdbIframeContainer) { releaseEmbedIframe(tmdbIframeContainer); tmdbIframeContainer.style.display = 'none'; }
+        teardownTmdbAudioSync();
         if (window.currentHls) { try { window.currentHls.destroy(); } catch (e) { /* ignore */ } window.currentHls = null; }
         if (!tmdbVideoEl) { handleFailure(); return; }
         try { tmdbVideoEl.pause(); } catch (e) { /* ignore */ }
@@ -1570,18 +1631,49 @@ function renderTmdbIframe(embedUrl) {
         tmdbVideoEl.style.display = 'block';
         state.castStreamUrl = url;
 
-        const tryPlay = () => {
+        const audioEl = audioUrl ? document.getElementById('tmdbAudioPlayer') : null;
+        if (audioEl) {
+            try { audioEl.pause(); } catch (e) { /* ignore */ }
+            audioEl.removeAttribute('src');
+            try { audioEl.load(); } catch (e) { /* ignore */ }
+        }
+
+        let videoReady = false;
+        let audioReady = !audioEl;
+        let started = false;
+        const startTogether = () => {
+            if (started || !videoReady || !audioReady) return;
+            started = true;
+            if (audioEl) { try { audioEl.currentTime = tmdbVideoEl.currentTime || 0; } catch (e) { /* ignore */ } }
             const p = tmdbVideoEl.play();
             if (p && p.catch) p.catch(() => { tmdbVideoEl.muted = true; tmdbVideoEl.play().catch(() => {}); });
             if (tmdbMessage) tmdbMessage.textContent = '';
+            if (audioEl) {
+                const ap = audioEl.play();
+                if (ap && ap.catch) ap.catch(() => {
+                    if (tmdbMessage) {
+                        tmdbMessage.innerHTML =
+                            'Audio blocked by the browser — ' +
+                            '<button id="tmdbAudioResumeBtn" style="margin-left:6px;padding:3px 12px;cursor:pointer;border-radius:4px;">Tap to enable sound</button>';
+                        document.getElementById('tmdbAudioResumeBtn')?.addEventListener('click', () => {
+                            try { audioEl.currentTime = tmdbVideoEl.currentTime; } catch (e) { /* ignore */ }
+                            audioEl.play().catch(() => {});
+                            if (tmdbMessage) tmdbMessage.textContent = '';
+                        }, { once: true });
+                    }
+                });
+                setupTmdbAudioSync(tmdbVideoEl, audioEl);
+            }
         };
+        const onVideoReady = () => { videoReady = true; startTogether(); };
+        const onAudioReady = () => { audioReady = true; startTogether(); };
 
         const isHls = /\.m3u8(\?|#|$)/i.test(url) || /m3u8/i.test(url);
         if (isHls && window.Hls && Hls.isSupported()) {
             const hls = new Hls({ enableWorker: true, maxBufferLength: 30, maxMaxBufferLength: 600 });
             hls.loadSource(url);
             hls.attachMedia(tmdbVideoEl);
-            hls.on(Hls.Events.MANIFEST_PARSED, tryPlay);
+            hls.on(Hls.Events.MANIFEST_PARSED, onVideoReady);
             hls.on(Hls.Events.ERROR, (evt, data) => {
                 if (!data || !data.fatal) return;
                 if (data.type === Hls.ErrorTypes.MEDIA_ERROR) { try { hls.recoverMediaError(); } catch (e) { handleFailure(); } }
@@ -1590,14 +1682,36 @@ function renderTmdbIframe(embedUrl) {
             window.currentHls = hls;
         } else if (isHls && tmdbVideoEl.canPlayType('application/vnd.apple.mpegurl')) {
             tmdbVideoEl.src = url; // native HLS (Safari/iOS)
-            tmdbVideoEl.addEventListener('loadedmetadata', tryPlay, { once: true });
+            tmdbVideoEl.addEventListener('loadedmetadata', onVideoReady, { once: true });
             tmdbVideoEl.addEventListener('error', handleFailure, { once: true });
         } else if (!isHls) {
             tmdbVideoEl.src = url; // direct MP4/WebM/MKV
-            tmdbVideoEl.addEventListener('loadedmetadata', tryPlay, { once: true });
+            tmdbVideoEl.addEventListener('loadedmetadata', onVideoReady, { once: true });
             tmdbVideoEl.addEventListener('error', handleFailure, { once: true });
         } else {
             handleFailure();
+            return;
+        }
+
+        if (audioEl) {
+            const isAudioHls = /\.m3u8(\?|#|$)/i.test(audioUrl) || /m3u8/i.test(audioUrl);
+            if (isAudioHls && window.Hls && Hls.isSupported()) {
+                const ahls = new Hls({ enableWorker: true, maxBufferLength: 30, maxMaxBufferLength: 600 });
+                ahls.loadSource(audioUrl);
+                ahls.attachMedia(audioEl);
+                ahls.on(Hls.Events.MANIFEST_PARSED, onAudioReady);
+                ahls.on(Hls.Events.ERROR, (evt, data) => {
+                    if (!data || !data.fatal) return;
+                    if (data.type === Hls.ErrorTypes.MEDIA_ERROR) { try { ahls.recoverMediaError(); } catch (e) { /* ignore */ } }
+                });
+                window.currentAudioHls = ahls;
+            } else if (isAudioHls && audioEl.canPlayType('application/vnd.apple.mpegurl')) {
+                audioEl.src = audioUrl; // native HLS (Safari/iOS)
+                audioEl.addEventListener('loadedmetadata', onAudioReady, { once: true });
+            } else if (!isAudioHls) {
+                audioEl.src = audioUrl; // direct MP4/WebM/MKV
+                audioEl.addEventListener('loadedmetadata', onAudioReady, { once: true });
+            }
         }
     };
 
@@ -1615,7 +1729,7 @@ function renderTmdbIframe(embedUrl) {
 
         if (isDirectStream(nextUrl)) {
             if (tmdbMessage) tmdbMessage.textContent = `Loading source ${index + 1} of ${sources.length}…`;
-            playTmdbDirect(nextUrl);
+            playTmdbDirect(nextUrl, audioSources[index]);
             return;
         }
 
@@ -2719,6 +2833,7 @@ function resetTmdbPlayer() {
     if (tmdbTvControls) {
         tmdbTvControls.hidden = true;
     }
+    teardownTmdbAudioSync();
     tmdbBaseSources = [];
     state.castStreamUrl = null;
     state.embedFocusLocked = false;
@@ -6184,7 +6299,8 @@ function stopVideo() {
             window.currentHls = null;
             console.log('🧹 HLS instance destroyed');
         }
-        
+        teardownTmdbAudioSync();
+
         state.isVideoPlaying = false;
     }
     resetTmdbPlayer();

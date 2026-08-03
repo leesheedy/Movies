@@ -784,7 +784,8 @@ html.tv-mode .nf-gate-spotlight-meta { right: 5%; bottom: 10%; }
   min-height: 380px;
   background: #000;
   overflow: hidden;
-  margin-top: calc(-1 * var(--nf-header-h));
+  /* sits below the fixed header — pulling it up hid the clip's top under the nav */
+  margin-top: 0;
 }
 .nf-billboard-media {
   position: absolute; inset: 0;

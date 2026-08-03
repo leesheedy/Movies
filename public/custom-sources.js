@@ -85,7 +85,9 @@
             }));
     }
 
-    // Per-title pinned sources → [{ url, label, id }], shown first for that title.
+    // Per-title pinned sources → [{ url, audioUrl, label, id }], shown first for that title.
+    // audioUrl is optional: some CDNs split a title into a video-only stream and a
+    // separate audio-only stream, which the player syncs into one <video>+<audio> pair.
     function getOverrides(ctx) {
         const keys = [normKey(ctx.imdbId), normKey(ctx.tmdbId)].filter(Boolean);
         const seen = new Set();
@@ -95,7 +97,8 @@
                 const url = fillTemplate(o.url, ctx);
                 if (!url || seen.has(url)) return;
                 seen.add(url);
-                out.push({ url, label: o.label || 'My source', id: 'pinned-' + k + '-' + i });
+                const audioUrl = o.audioUrl ? fillTemplate(o.audioUrl, ctx) : '';
+                out.push({ url, audioUrl, label: o.label || 'My source', id: 'pinned-' + k + '-' + i });
             });
         });
         return out;
@@ -114,11 +117,11 @@
         const p = store.providers.find(x => x.id === id);
         if (p) { p.enabled = enabled; save(store); }
     }
-    function addOverride(rawKey, { label, url }) {
+    function addOverride(rawKey, { label, url, audioUrl }) {
         const k = normKey(rawKey);
         if (!k) return false;
         if (!store.overrides[k]) store.overrides[k] = [];
-        store.overrides[k].push({ label, url });
+        store.overrides[k].push({ label, url, audioUrl: audioUrl || '' });
         save(store);
         return true;
     }
@@ -137,17 +140,18 @@
         save(store);
     }
     // Edit a pinned source in place, moving it if its title id changed.
-    function updateOverride(oldKey, index, { key, label, url }) {
+    function updateOverride(oldKey, index, { key, label, url, audioUrl }) {
         if (!store.overrides[oldKey] || !store.overrides[oldKey][index]) return false;
         const newKey = normKey(key);
         if (!newKey || !url) return false;
+        const entry = { label, url, audioUrl: audioUrl || '' };
         if (newKey === oldKey) {
-            store.overrides[oldKey][index] = { label, url };
+            store.overrides[oldKey][index] = entry;
         } else {
             store.overrides[oldKey].splice(index, 1);
             if (store.overrides[oldKey].length === 0) delete store.overrides[oldKey];
             if (!store.overrides[newKey]) store.overrides[newKey] = [];
-            store.overrides[newKey].push({ label, url });
+            store.overrides[newKey].push(entry);
         }
         save(store);
         return true;
@@ -292,7 +296,8 @@
                 const card = el('div', 'cs-card');
                 const idF = field('IMDB / TMDB id', k, 'tt1234567 or TMDB id');
                 const labelF = field('Label', o.label, 'Label (optional)');
-                const urlF = field('Embed URL', o.url, 'Paste embed URL', true);
+                const urlF = field('Embed / video URL', o.url, 'Paste embed or .m3u8/.mp4 URL', true);
+                const audioF = field('Audio URL (optional)', o.audioUrl, 'Paste a separate audio-only .m3u8/.mp4 URL', true);
 
                 const actions = el('div', 'cs-card-actions');
                 const spacer = el('div', 'cs-toggle-wrap'); // pushes buttons right
@@ -301,10 +306,12 @@
                     const key = idF.input.value.trim();
                     const label = labelF.input.value.trim();
                     const url = urlF.input.value.trim();
+                    const audioUrl = audioF.input.value.trim();
                     if (!key) return toast('Enter an IMDB or TMDB id.', 'error');
                     if (!url) return toast('Paste an embed URL.', 'error');
                     if (!isHttpUrl(url.replace(/\{[^}]+\}/g, '1'))) return toast('That embed URL is not valid.', 'error');
-                    updateOverride(k, i, { key, label, url });
+                    if (audioUrl && !isHttpUrl(audioUrl.replace(/\{[^}]+\}/g, '1'))) return toast('That audio URL is not valid.', 'error');
+                    updateOverride(k, i, { key, label, url, audioUrl });
                     renderLists(body); // key may have changed, re-render
                     toast('Saved.', 'success');
                 };
@@ -312,7 +319,7 @@
                 del.onclick = () => { removeOverride(k, i); renderLists(body); };
 
                 actions.append(spacer, save, del);
-                card.append(idF.wrap, labelF.wrap, urlF.wrap, actions);
+                card.append(idF.wrap, labelF.wrap, urlF.wrap, audioF.wrap, actions);
                 ovList.appendChild(card);
             });
         });
@@ -350,12 +357,13 @@
               </div>
               <div>
                 <div class="cs-section-title">Pin a source to one title</div>
-                <p class="cs-hint">Enter the title's IMDB id (<code>tt1234567</code>) or TMDB id, then paste the exact embed. Shows as a source for that title only.</p>
+                <p class="cs-hint">Enter the title's IMDB id (<code>tt1234567</code>) or TMDB id, then paste the exact embed. Shows as a source for that title only. If the CDN splits video and audio into two separate streams, paste the audio-only URL too — the player keeps them in sync.</p>
                 <div class="cs-detected" id="csOvDetected"></div>
                 <div class="cs-fields">
                   <input class="cs-input" id="csOvId" placeholder="tt1234567 or TMDB id" inputmode="text" />
                   <input class="cs-input" id="csOvLabel" placeholder="Label (optional)" />
-                  <input class="cs-input" id="csOvUrl" placeholder="Paste embed URL" />
+                  <input class="cs-input" id="csOvUrl" placeholder="Paste embed or video .m3u8/.mp4 URL" />
+                  <input class="cs-input" id="csOvAudioUrl" placeholder="Audio URL (optional) — separate audio-only .m3u8/.mp4" />
                   <button class="cs-btn" id="csAddOv">Pin source</button>
                 </div>
                 <div class="cs-list" id="csOvList"></div>
@@ -398,13 +406,16 @@
             const id = modal.querySelector('#csOvId').value.trim();
             const label = modal.querySelector('#csOvLabel').value.trim();
             const url = modal.querySelector('#csOvUrl').value.trim();
+            const audioUrl = modal.querySelector('#csOvAudioUrl').value.trim();
             if (!id) return toast('Enter an IMDB or TMDB id.', 'error');
             if (!url) return toast('Paste an embed URL.', 'error');
             if (!isHttpUrl(url.replace(/\{[^}]+\}/g, '1'))) return toast('That embed URL is not valid.', 'error');
-            addOverride(id, { label, url });
+            if (audioUrl && !isHttpUrl(audioUrl.replace(/\{[^}]+\}/g, '1'))) return toast('That audio URL is not valid.', 'error');
+            addOverride(id, { label, url, audioUrl });
             modal.querySelector('#csOvId').value = '';
             modal.querySelector('#csOvLabel').value = '';
             modal.querySelector('#csOvUrl').value = '';
+            modal.querySelector('#csOvAudioUrl').value = '';
             renderLists(body);
             toast('Source pinned.', 'success');
         };
@@ -415,6 +426,7 @@
         attachPaste(modal.querySelector('#csProvMovie'));
         attachPaste(modal.querySelector('#csProvTv'));
         attachPaste(modal.querySelector('#csOvUrl'));
+        attachPaste(modal.querySelector('#csOvAudioUrl'));
     }
 
     function open() {
