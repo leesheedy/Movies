@@ -128,6 +128,30 @@
         if (store.overrides[key].length === 0) delete store.overrides[key];
         save(store);
     }
+    function updateProvider(id, patch) {
+        const p = store.providers.find(x => x.id === id);
+        if (!p) return;
+        if (patch.label != null) p.label = patch.label;
+        if (patch.movie != null) p.movie = patch.movie;
+        if (patch.tv != null) p.tv = patch.tv;
+        save(store);
+    }
+    // Edit a pinned source in place, moving it if its title id changed.
+    function updateOverride(oldKey, index, { key, label, url }) {
+        if (!store.overrides[oldKey] || !store.overrides[oldKey][index]) return false;
+        const newKey = normKey(key);
+        if (!newKey || !url) return false;
+        if (newKey === oldKey) {
+            store.overrides[oldKey][index] = { label, url };
+        } else {
+            store.overrides[oldKey].splice(index, 1);
+            if (store.overrides[oldKey].length === 0) delete store.overrides[oldKey];
+            if (!store.overrides[newKey]) store.overrides[newKey] = [];
+            store.overrides[newKey].push({ label, url });
+        }
+        save(store);
+        return true;
+    }
 
     // ── settings UI ───────────────────────────────────────────────────────────
     let modal = null;
@@ -137,24 +161,43 @@
         const s = document.createElement('style');
         s.id = 'customSourcesStyles';
         s.textContent = `
-        #customSourcesModal .cs-body{display:flex;flex-direction:column;gap:22px;max-height:70vh;overflow:auto;padding:4px 2px}
+        #customSourcesModal{position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.92);display:flex;align-items:stretch;justify-content:center}
+        #customSourcesModal[hidden]{display:none}
+        #customSourcesModal *{box-sizing:border-box}
+        #customSourcesModal .cs-modal{background:#141414;width:100%;max-width:640px;height:100%;display:flex;flex-direction:column}
+        #customSourcesModal .cs-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.1);flex:0 0 auto}
+        #customSourcesModal .cs-head h3{margin:0;font-size:1.15rem;font-weight:700}
+        #customSourcesModal .cs-close{background:rgba(255,255,255,.1);border:none;color:#fff;width:38px;height:38px;border-radius:50%;font-size:1.5rem;line-height:1;cursor:pointer;flex:0 0 auto}
+        #customSourcesModal .cs-body{flex:1 1 auto;display:flex;flex-direction:column;gap:30px;overflow-y:auto;padding:18px 18px calc(48px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
         #customSourcesModal .cs-section-title{font-size:.82rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.7;margin:0 0 8px}
-        #customSourcesModal .cs-hint{font-size:.8rem;line-height:1.4;opacity:.65;margin:0 0 12px}
-        #customSourcesModal .cs-hint code{background:rgba(255,255,255,.1);padding:1px 5px;border-radius:4px;font-size:.78rem}
-        #customSourcesModal .cs-row{display:flex;gap:8px;flex-wrap:wrap}
-        #customSourcesModal .cs-input{flex:1 1 160px;min-width:0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;border-radius:8px;padding:9px 11px;font-size:.86rem}
+        #customSourcesModal .cs-hint{font-size:.82rem;line-height:1.45;opacity:.65;margin:0 0 14px;overflow-wrap:anywhere}
+        #customSourcesModal .cs-hint code{background:rgba(255,255,255,.12);padding:1px 5px;border-radius:4px;font-size:.78rem;overflow-wrap:anywhere}
+        #customSourcesModal .cs-fields{display:flex;flex-direction:column;gap:10px}
+        #customSourcesModal .cs-input{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#fff;border-radius:10px;padding:13px 14px;font-size:16px}
+        #customSourcesModal .cs-input::placeholder{color:rgba(255,255,255,.4)}
         #customSourcesModal .cs-input:focus{outline:none;border-color:#e50914}
-        #customSourcesModal .cs-btn{background:#e50914;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-weight:600;cursor:pointer;font-size:.86rem}
-        #customSourcesModal .cs-btn.ghost{background:rgba(255,255,255,.1)}
-        #customSourcesModal .cs-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-        #customSourcesModal .cs-item{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:9px 12px}
-        #customSourcesModal .cs-item .cs-meta{flex:1;min-width:0}
-        #customSourcesModal .cs-item .cs-name{font-weight:600;font-size:.9rem}
-        #customSourcesModal .cs-item .cs-url{font-size:.74rem;opacity:.55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        #customSourcesModal .cs-x{background:none;border:none;color:#fff;opacity:.6;cursor:pointer;font-size:1.1rem;padding:2px 6px}
-        #customSourcesModal .cs-x:hover{opacity:1;color:#e50914}
+        #customSourcesModal .cs-btn{width:100%;background:#e50914;color:#fff;border:none;border-radius:10px;padding:14px 16px;font-weight:600;cursor:pointer;font-size:.95rem}
+        #customSourcesModal .cs-list{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+        #customSourcesModal .cs-card{display:flex;flex-direction:column;gap:9px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:13px}
+        #customSourcesModal .cs-card .cs-input{background:rgba(255,255,255,.06);padding:11px 12px}
+        #customSourcesModal .cs-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.03em;opacity:.5;margin:2px 0 -3px}
+        #customSourcesModal .cs-card-actions{display:flex;align-items:center;gap:8px;margin-top:4px}
+        #customSourcesModal .cs-toggle-wrap{display:flex;align-items:center;gap:8px;margin-right:auto;font-size:.85rem;opacity:.85}
+        #customSourcesModal input.cs-toggle{width:22px;height:22px;accent-color:#e50914;flex:0 0 auto}
+        #customSourcesModal .cs-mini{flex:0 0 auto;width:auto;border:none;border-radius:9px;padding:10px 16px;font-weight:600;font-size:.85rem;cursor:pointer}
+        #customSourcesModal .cs-save{background:#e50914;color:#fff}
+        #customSourcesModal .cs-del{background:rgba(229,9,20,.14);color:#ff7a7a;border:1px solid rgba(229,9,20,.4)}
         #customSourcesModal .cs-empty{font-size:.82rem;opacity:.45;padding:6px 2px}
-        #customSourcesModal input.cs-toggle{width:16px;height:16px;accent-color:#e50914}
+        #customSourcesModal .cs-paste-row{display:flex;gap:8px;align-items:stretch}
+        #customSourcesModal .cs-paste-row .cs-input{flex:1 1 auto;min-width:0}
+        #customSourcesModal .cs-paste{flex:0 0 auto;background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:10px;padding:0 18px;font-weight:600;font-size:.9rem;cursor:pointer}
+        #customSourcesModal .cs-paste:active{background:#e50914}
+        #customSourcesModal .cs-detected{display:none;align-items:center;gap:8px;font-size:.82rem;background:rgba(229,9,20,.14);border:1px solid rgba(229,9,20,.35);color:#ffb3b3;border-radius:9px;padding:9px 12px;margin:0 0 12px}
+        #customSourcesModal .cs-detected.show{display:flex}
+        @media(min-width:560px){
+          #customSourcesModal{align-items:center;padding:20px}
+          #customSourcesModal .cs-modal{height:auto;max-height:88vh;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.7)}
+        }
         `;
         document.head.appendChild(s);
     }
@@ -166,31 +209,78 @@
         return n;
     }
 
+    function attachPaste(input) {
+        if (!(navigator.clipboard && navigator.clipboard.readText)) return;
+        const row = el('div', 'cs-paste-row');
+        input.parentNode.insertBefore(row, input);
+        const btn = el('button', 'cs-paste', 'Paste');
+        btn.type = 'button';
+        btn.onclick = async () => {
+            try {
+                const t = await navigator.clipboard.readText();
+                if (t && t.trim()) { input.value = t.trim(); input.dispatchEvent(new Event('input')); }
+                else toast('Clipboard is empty.', 'info');
+            } catch (_) {
+                toast('Couldn\'t read clipboard — paste manually.', 'error');
+            }
+        };
+        row.append(input, btn);
+    }
+
+    // small labelled input for edit cards. Pass withPaste=true to add a Paste button.
+    function field(labelText, value, placeholder, withPaste) {
+        const wrap = document.createElement('div');
+        if (labelText) wrap.appendChild(el('div', 'cs-label', labelText));
+        const input = el('input', 'cs-input');
+        input.value = value || '';
+        if (placeholder) input.placeholder = placeholder;
+        wrap.appendChild(input);
+        if (withPaste) attachPaste(input);
+        return { wrap, input };
+    }
+
     function renderLists(body) {
-        // providers
+        // ── custom providers ──
         const provList = body.querySelector('#csProvList');
         provList.innerHTML = '';
         if (store.providers.length === 0) {
             provList.appendChild(el('div', 'cs-empty', 'No custom providers yet.'));
         }
         store.providers.forEach(p => {
-            const item = el('div', 'cs-item');
+            const card = el('div', 'cs-card');
+            const name = field('Name', p.label, 'Name');
+            const movie = field('Movie template', p.movie, 'https://…/{tmdbId}', true);
+            const tv = field('TV template', p.tv, 'https://…/{tmdbId}/{season}/{episode}', true);
+
+            const actions = el('div', 'cs-card-actions');
+            const toggleWrap = el('label', 'cs-toggle-wrap');
             const cb = el('input', 'cs-toggle');
             cb.type = 'checkbox';
             cb.checked = p.enabled !== false;
-            cb.title = 'Enable / disable';
             cb.onchange = () => toggleProvider(p.id, cb.checked);
-            const meta = el('div', 'cs-meta');
-            meta.appendChild(el('div', 'cs-name', p.label));
-            meta.appendChild(el('div', 'cs-url', p.movie || p.tv || ''));
-            const x = el('button', 'cs-x', '×');
-            x.title = 'Remove';
-            x.onclick = () => { removeProvider(p.id); renderLists(body); };
-            item.append(cb, meta, x);
-            provList.appendChild(item);
+            toggleWrap.append(cb, document.createTextNode('Enabled'));
+
+            const save = el('button', 'cs-mini cs-save', 'Save');
+            save.onclick = () => {
+                const label = name.input.value.trim();
+                const mv = movie.input.value.trim();
+                const tvv = tv.input.value.trim();
+                if (!label) return toast('Give the provider a name.', 'error');
+                if (!mv && !tvv) return toast('Add at least a movie or TV template.', 'error');
+                if (mv && !isHttpUrl(mv.replace(/\{[^}]+\}/g, '1'))) return toast('Movie template is not a valid URL.', 'error');
+                if (tvv && !isHttpUrl(tvv.replace(/\{[^}]+\}/g, '1'))) return toast('TV template is not a valid URL.', 'error');
+                updateProvider(p.id, { label, movie: mv, tv: tvv });
+                toast('Saved.', 'success');
+            };
+            const del = el('button', 'cs-mini cs-del', 'Delete');
+            del.onclick = () => { removeProvider(p.id); renderLists(body); };
+
+            actions.append(toggleWrap, save, del);
+            card.append(name.wrap, movie.wrap, tv.wrap, actions);
+            provList.appendChild(card);
         });
 
-        // per-title overrides
+        // ── per-title pinned sources ──
         const ovList = body.querySelector('#csOvList');
         ovList.innerHTML = '';
         const keys = Object.keys(store.overrides);
@@ -199,15 +289,31 @@
         }
         keys.forEach(k => {
             store.overrides[k].forEach((o, i) => {
-                const item = el('div', 'cs-item');
-                const meta = el('div', 'cs-meta');
-                meta.appendChild(el('div', 'cs-name', (o.label || 'My source') + '  ·  ' + k));
-                meta.appendChild(el('div', 'cs-url', o.url));
-                const x = el('button', 'cs-x', '×');
-                x.title = 'Remove';
-                x.onclick = () => { removeOverride(k, i); renderLists(body); };
-                item.append(meta, x);
-                ovList.appendChild(item);
+                const card = el('div', 'cs-card');
+                const idF = field('IMDB / TMDB id', k, 'tt1234567 or TMDB id');
+                const labelF = field('Label', o.label, 'Label (optional)');
+                const urlF = field('Embed URL', o.url, 'Paste embed URL', true);
+
+                const actions = el('div', 'cs-card-actions');
+                const spacer = el('div', 'cs-toggle-wrap'); // pushes buttons right
+                const save = el('button', 'cs-mini cs-save', 'Save');
+                save.onclick = () => {
+                    const key = idF.input.value.trim();
+                    const label = labelF.input.value.trim();
+                    const url = urlF.input.value.trim();
+                    if (!key) return toast('Enter an IMDB or TMDB id.', 'error');
+                    if (!url) return toast('Paste an embed URL.', 'error');
+                    if (!isHttpUrl(url.replace(/\{[^}]+\}/g, '1'))) return toast('That embed URL is not valid.', 'error');
+                    updateOverride(k, i, { key, label, url });
+                    renderLists(body); // key may have changed, re-render
+                    toast('Saved.', 'success');
+                };
+                const del = el('button', 'cs-mini cs-del', 'Delete');
+                del.onclick = () => { removeOverride(k, i); renderLists(body); };
+
+                actions.append(spacer, save, del);
+                card.append(idF.wrap, labelF.wrap, urlF.wrap, actions);
+                ovList.appendChild(card);
             });
         });
     }
@@ -225,35 +331,32 @@
         modal.setAttribute('aria-modal', 'true');
         modal.hidden = true;
         modal.innerHTML = `
-          <div class="nf-modal nf-settings-modal" style="max-width:640px">
-            <div class="nf-modal-header" style="display:flex;align-items:center;justify-content:space-between">
-              <h3 class="nf-modal-title">Custom sources</h3>
-              <button class="nf-modal-close-btn" type="button" aria-label="Close" id="csClose">×</button>
+          <div class="cs-modal">
+            <div class="cs-head">
+              <h3>Custom sources</h3>
+              <button class="cs-close" type="button" aria-label="Close" id="csClose">×</button>
             </div>
             <div class="cs-body">
               <div>
                 <div class="cs-section-title">Add a provider (applies to everything)</div>
                 <p class="cs-hint">Paste an embed URL template. Use <code>{tmdbId}</code>, <code>{imdbId}</code>, <code>{season}</code>, <code>{episode}</code> as placeholders.</p>
-                <div class="cs-row" style="margin-bottom:8px">
-                  <input class="cs-input" id="csProvLabel" placeholder="Name (e.g. My Player)" style="flex:0 0 160px" />
+                <div class="cs-fields">
+                  <input class="cs-input" id="csProvLabel" placeholder="Name (e.g. My Player)" />
                   <input class="cs-input" id="csProvMovie" placeholder="Movie template — https://…/{tmdbId}" />
-                </div>
-                <div class="cs-row">
                   <input class="cs-input" id="csProvTv" placeholder="TV template (optional) — https://…/{tmdbId}/{season}/{episode}" />
-                  <button class="cs-btn" id="csAddProv">Add</button>
+                  <button class="cs-btn" id="csAddProv">Add provider</button>
                 </div>
                 <div class="cs-list" id="csProvList"></div>
               </div>
               <div>
                 <div class="cs-section-title">Pin a source to one title</div>
-                <p class="cs-hint">Enter the movie's IMDB id (<code>tt1234567</code>) or TMDB id, then paste the exact embed. It'll appear as a source for that title only.</p>
-                <div class="cs-row" style="margin-bottom:8px">
-                  <input class="cs-input" id="csOvId" placeholder="tt1234567 or TMDB id" style="flex:0 0 160px" />
-                  <input class="cs-input" id="csOvLabel" placeholder="Label (optional)" style="flex:0 0 140px" />
-                </div>
-                <div class="cs-row">
+                <p class="cs-hint">Enter the title's IMDB id (<code>tt1234567</code>) or TMDB id, then paste the exact embed. Shows as a source for that title only.</p>
+                <div class="cs-detected" id="csOvDetected"></div>
+                <div class="cs-fields">
+                  <input class="cs-input" id="csOvId" placeholder="tt1234567 or TMDB id" inputmode="text" />
+                  <input class="cs-input" id="csOvLabel" placeholder="Label (optional)" />
                   <input class="cs-input" id="csOvUrl" placeholder="Paste embed URL" />
-                  <button class="cs-btn" id="csAddOv">Pin</button>
+                  <button class="cs-btn" id="csAddOv">Pin source</button>
                 </div>
                 <div class="cs-list" id="csOvList"></div>
               </div>
@@ -264,6 +367,16 @@
         const body = modal;
         modal.querySelector('#csClose').onclick = close;
         modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+
+        // On mobile the on-screen keyboard can cover the focused field. Scroll it
+        // to the middle once the keyboard has had time to animate in.
+        const scroller = modal.querySelector('.cs-body');
+        scroller.addEventListener('focusin', (e) => {
+            const t = e.target;
+            if (t && t.classList && t.classList.contains('cs-input')) {
+                setTimeout(() => { try { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {} }, 280);
+            }
+        });
 
         modal.querySelector('#csAddProv').onclick = () => {
             const label = modal.querySelector('#csProvLabel').value.trim();
@@ -297,11 +410,35 @@
         };
 
         renderLists(body);
+
+        // Paste buttons on the add-form URL fields.
+        attachPaste(modal.querySelector('#csProvMovie'));
+        attachPaste(modal.querySelector('#csProvTv'));
+        attachPaste(modal.querySelector('#csOvUrl'));
     }
 
     function open() {
         if (!modal) build();
+        // Close the profile settings modal if it launched us, so they don't stack.
+        const profile = document.getElementById('profileSettingsModal');
+        if (profile && !profile.hidden) profile.hidden = true;
         renderLists(modal);
+        // If a title is open in the player, auto-fill the pin id with it.
+        const cur = window.NotflixCurrentTitle;
+        const idInput = modal.querySelector('#csOvId');
+        const detected = modal.querySelector('#csOvDetected');
+        if (cur && (cur.imdbId || cur.tmdbId)) {
+            if (idInput && !idInput.value) idInput.value = cur.imdbId || String(cur.tmdbId);
+            if (detected) {
+                detected.textContent = cur.title
+                    ? `Detected: ${cur.title} (${cur.imdbId || 'TMDB ' + cur.tmdbId})`
+                    : `Detected id: ${cur.imdbId || cur.tmdbId}`;
+                detected.classList.add('show');
+            }
+        } else if (detected) {
+            detected.classList.remove('show');
+            detected.textContent = '';
+        }
         modal.hidden = false;
         document.body.style.overflow = 'hidden';
     }

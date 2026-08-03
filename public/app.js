@@ -2136,6 +2136,8 @@ function getRouteFromPath() {
 }
 
 function renderTmdbPlayer({ title, posterPath, releaseDate, imdbId, tmdbId }) {
+    // Expose the open title so the custom-sources panel can auto-fill its id field.
+    window.NotflixCurrentTitle = { type: 'movie', tmdbId: tmdbId || '', imdbId: imdbId || '', title: title || '' };
     const playerMeta = document.getElementById('playerMeta');
     const videoPlayer = document.getElementById('videoPlayer');
     const tmdbContainer = document.getElementById('tmdbPlayerContainer');
@@ -2368,6 +2370,7 @@ function playTmdbEpisode() {
     if (!tmdbTvState.tvId || tmdbTvState.seasonNumber == null || tmdbTvState.episodeNumber == null) {
         return;
     }
+    window.NotflixCurrentTitle = { type: 'tv', tmdbId: tmdbTvState.tvId || '', imdbId: '', title: tmdbTvState.title || '' };
     const embedSources = buildTvEmbedSources(
         tmdbTvState.tvId, tmdbTvState.seasonNumber, tmdbTvState.episodeNumber
     );
