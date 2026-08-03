@@ -1344,7 +1344,11 @@ const STREAM_PROVIDERS = [
 window.STREAM_PROVIDERS = STREAM_PROVIDERS;
 
 function activeStreamProviders() {
-    return STREAM_PROVIDERS.filter(p => p.enabled);
+    const builtin = STREAM_PROVIDERS.filter(p => p.enabled);
+    const custom = (window.NotflixCustomSources && window.NotflixCustomSources.getProviders)
+        ? window.NotflixCustomSources.getProviders()
+        : [];
+    return [...builtin, ...custom];
 }
 
 // Keep CineSRC first, then Videasy/VidLove on TV too (matches desktop priority).
@@ -1358,22 +1362,30 @@ function orderSourcesForTv(sources) {
 
 // Returns [{ url, label, id }] for a movie, primary provider first.
 function buildMovieEmbedSources(tmdbId, imdbId) {
-    return orderSourcesForTv(activeStreamProviders()
+    const pinned = (window.NotflixCustomSources && window.NotflixCustomSources.getOverrides)
+        ? window.NotflixCustomSources.getOverrides({ tmdbId, imdbId })
+        : [];
+    const providers = orderSourcesForTv(activeStreamProviders()
         .map(p => {
             const url = p.movie({ tmdbId, imdbId, self: p });
             return url ? { url, label: p.label, id: p.id } : null;
         })
         .filter(Boolean));
+    return [...pinned, ...providers];
 }
 
 // Returns [{ url, label, id }] for a TV episode, primary provider first.
 function buildTvEmbedSources(tvId, season, episode) {
-    return orderSourcesForTv(activeStreamProviders()
+    const pinned = (window.NotflixCustomSources && window.NotflixCustomSources.getOverrides)
+        ? window.NotflixCustomSources.getOverrides({ tmdbId: tvId, season, episode })
+        : [];
+    const providers = orderSourcesForTv(activeStreamProviders()
         .map(p => {
             const url = p.tv({ tmdbId: tvId, season, episode, self: p });
             return url ? { url, label: p.label, id: p.id } : null;
         })
         .filter(Boolean));
+    return [...pinned, ...providers];
 }
 
 async function fetchOmdbData(imdbId) {
