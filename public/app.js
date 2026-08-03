@@ -1445,6 +1445,20 @@ function releaseEmbedIframe(container) {
 function renderTmdbIframe(embedUrl) {
     const tmdbMessage = document.getElementById('tmdbPlayerMessage');
     const tmdbIframeContainer = document.getElementById('tmdbIframeContainer');
+    const tmdbVideoEl = document.getElementById('videoPlayer');
+    // A pinned/custom source may be a direct stream (.m3u8/.mp4/…) instead of an
+    // embeddable page. Those must play in the native <video>, not an iframe.
+    const isDirectStream = (u) => /\.(m3u8|mp4|webm|mkv|m3u)(\?|#|$)/i.test(u || '');
+    const stopTmdbDirect = () => {
+        if (window.currentHls) { try { window.currentHls.destroy(); } catch (e) { /* ignore */ } window.currentHls = null; }
+        if (tmdbVideoEl) {
+            try { tmdbVideoEl.pause(); } catch (e) { /* ignore */ }
+            tmdbVideoEl.removeAttribute('src');
+            try { tmdbVideoEl.load(); } catch (e) { /* ignore */ }
+            tmdbVideoEl.style.display = 'none';
+        }
+    };
+    stopTmdbDirect();
     const rawList = Array.isArray(embedUrl) ? embedUrl : [embedUrl];
     const meta = rawList.map(normalizeEmbedSource).filter(s => s.url);
     const baseSources = meta.map(s => s.url);
@@ -1545,6 +1559,48 @@ function renderTmdbIframe(embedUrl) {
         }
     };
 
+    const playTmdbDirect = (url) => {
+        // Swap the iframe out and play in the native <video> via hls.js.
+        if (tmdbIframeContainer) { releaseEmbedIframe(tmdbIframeContainer); tmdbIframeContainer.style.display = 'none'; }
+        if (window.currentHls) { try { window.currentHls.destroy(); } catch (e) { /* ignore */ } window.currentHls = null; }
+        if (!tmdbVideoEl) { handleFailure(); return; }
+        try { tmdbVideoEl.pause(); } catch (e) { /* ignore */ }
+        tmdbVideoEl.removeAttribute('src');
+        try { tmdbVideoEl.load(); } catch (e) { /* ignore */ }
+        tmdbVideoEl.style.display = 'block';
+        state.castStreamUrl = url;
+
+        const tryPlay = () => {
+            const p = tmdbVideoEl.play();
+            if (p && p.catch) p.catch(() => { tmdbVideoEl.muted = true; tmdbVideoEl.play().catch(() => {}); });
+            if (tmdbMessage) tmdbMessage.textContent = '';
+        };
+
+        const isHls = /\.m3u8(\?|#|$)/i.test(url) || /m3u8/i.test(url);
+        if (isHls && window.Hls && Hls.isSupported()) {
+            const hls = new Hls({ enableWorker: true, maxBufferLength: 30, maxMaxBufferLength: 600 });
+            hls.loadSource(url);
+            hls.attachMedia(tmdbVideoEl);
+            hls.on(Hls.Events.MANIFEST_PARSED, tryPlay);
+            hls.on(Hls.Events.ERROR, (evt, data) => {
+                if (!data || !data.fatal) return;
+                if (data.type === Hls.ErrorTypes.MEDIA_ERROR) { try { hls.recoverMediaError(); } catch (e) { handleFailure(); } }
+                else { handleFailure(); }
+            });
+            window.currentHls = hls;
+        } else if (isHls && tmdbVideoEl.canPlayType('application/vnd.apple.mpegurl')) {
+            tmdbVideoEl.src = url; // native HLS (Safari/iOS)
+            tmdbVideoEl.addEventListener('loadedmetadata', tryPlay, { once: true });
+            tmdbVideoEl.addEventListener('error', handleFailure, { once: true });
+        } else if (!isHls) {
+            tmdbVideoEl.src = url; // direct MP4/WebM/MKV
+            tmdbVideoEl.addEventListener('loadedmetadata', tryPlay, { once: true });
+            tmdbVideoEl.addEventListener('error', handleFailure, { once: true });
+        } else {
+            handleFailure();
+        }
+    };
+
     const loadSource = (index) => {
         currentIndex = index;
         tmdbActiveSourceIndex = index;
@@ -1552,17 +1608,27 @@ function renderTmdbIframe(embedUrl) {
         _refocusTries = 0;
         const nextUrl = sources[index];
         if (!nextUrl) return;
-        iframe.src = nextUrl;
         tmdbNextSourceFn = currentIndex < sources.length - 1 ? handleFailure : null;
         updateNextBtn();
         renderSourceChips(providerBaseOffset);
+        if (fallbackTimeout) { clearTimeout(fallbackTimeout); fallbackTimeout = null; }
+
+        if (isDirectStream(nextUrl)) {
+            if (tmdbMessage) tmdbMessage.textContent = `Loading source ${index + 1} of ${sources.length}…`;
+            playTmdbDirect(nextUrl);
+            return;
+        }
+
+        // Embed source → iframe. Tear down any native player and restore the iframe
+        // (a previous direct source removes it from the container).
+        stopTmdbDirect();
+        if (tmdbIframeContainer) {
+            tmdbIframeContainer.style.display = '';
+            if (!tmdbIframeContainer.contains(iframe)) tmdbIframeContainer.appendChild(iframe);
+        }
+        iframe.src = nextUrl;
         if (tmdbMessage) tmdbMessage.textContent = `Loading source ${index + 1} of ${sources.length}…`;
-        if (fallbackTimeout) clearTimeout(fallbackTimeout);
         // No load event within 8s → auto-advance (server not responding at all).
-        // 111movies/vidlove can be a little slow to hand off, so give them room.
-        // On a TV the user wants to switch servers themselves (an auto-jump yanks a
-        // server they're still waiting on / interacting with), so DON'T auto-advance
-        // there — they pick another via the chips or the "Try Next Source" button.
         if (!isTvModeActive()) fallbackTimeout = setTimeout(handleFailure, 8000);
     };
     // Let the source chips jump straight to a chosen provider.
