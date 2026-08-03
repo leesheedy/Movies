@@ -137,24 +137,35 @@
         const s = document.createElement('style');
         s.id = 'customSourcesStyles';
         s.textContent = `
-        #customSourcesModal .cs-body{display:flex;flex-direction:column;gap:22px;max-height:70vh;overflow:auto;padding:4px 2px}
+        #customSourcesModal{position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.9);display:flex;align-items:flex-end;justify-content:center}
+        #customSourcesModal[hidden]{display:none}
+        #customSourcesModal *{box-sizing:border-box}
+        #customSourcesModal .cs-modal{background:#141414;width:100%;max-width:640px;max-height:92vh;border-radius:16px 16px 0 0;display:flex;flex-direction:column;box-shadow:0 -8px 40px rgba(0,0,0,.7)}
+        #customSourcesModal .cs-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.1);flex:0 0 auto}
+        #customSourcesModal .cs-head h3{margin:0;font-size:1.15rem;font-weight:700}
+        #customSourcesModal .cs-close{background:rgba(255,255,255,.1);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:1.4rem;line-height:1;cursor:pointer;flex:0 0 auto}
+        #customSourcesModal .cs-body{display:flex;flex-direction:column;gap:28px;overflow:auto;padding:18px;-webkit-overflow-scrolling:touch}
         #customSourcesModal .cs-section-title{font-size:.82rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.7;margin:0 0 8px}
-        #customSourcesModal .cs-hint{font-size:.8rem;line-height:1.4;opacity:.65;margin:0 0 12px}
-        #customSourcesModal .cs-hint code{background:rgba(255,255,255,.1);padding:1px 5px;border-radius:4px;font-size:.78rem}
-        #customSourcesModal .cs-row{display:flex;gap:8px;flex-wrap:wrap}
-        #customSourcesModal .cs-input{flex:1 1 160px;min-width:0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;border-radius:8px;padding:9px 11px;font-size:.86rem}
+        #customSourcesModal .cs-hint{font-size:.82rem;line-height:1.45;opacity:.65;margin:0 0 14px;overflow-wrap:anywhere}
+        #customSourcesModal .cs-hint code{background:rgba(255,255,255,.12);padding:1px 5px;border-radius:4px;font-size:.78rem;overflow-wrap:anywhere}
+        #customSourcesModal .cs-fields{display:flex;flex-direction:column;gap:10px}
+        #customSourcesModal .cs-input{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#fff;border-radius:10px;padding:13px 14px;font-size:16px}
+        #customSourcesModal .cs-input::placeholder{color:rgba(255,255,255,.4)}
         #customSourcesModal .cs-input:focus{outline:none;border-color:#e50914}
-        #customSourcesModal .cs-btn{background:#e50914;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-weight:600;cursor:pointer;font-size:.86rem}
-        #customSourcesModal .cs-btn.ghost{background:rgba(255,255,255,.1)}
-        #customSourcesModal .cs-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-        #customSourcesModal .cs-item{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:9px 12px}
+        #customSourcesModal .cs-btn{width:100%;background:#e50914;color:#fff;border:none;border-radius:10px;padding:14px 16px;font-weight:600;cursor:pointer;font-size:.95rem}
+        #customSourcesModal .cs-list{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+        #customSourcesModal .cs-item{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:11px 13px}
         #customSourcesModal .cs-item .cs-meta{flex:1;min-width:0}
-        #customSourcesModal .cs-item .cs-name{font-weight:600;font-size:.9rem}
+        #customSourcesModal .cs-item .cs-name{font-weight:600;font-size:.9rem;overflow-wrap:anywhere}
         #customSourcesModal .cs-item .cs-url{font-size:.74rem;opacity:.55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        #customSourcesModal .cs-x{background:none;border:none;color:#fff;opacity:.6;cursor:pointer;font-size:1.1rem;padding:2px 6px}
-        #customSourcesModal .cs-x:hover{opacity:1;color:#e50914}
+        #customSourcesModal .cs-x{background:none;border:none;color:#fff;opacity:.65;cursor:pointer;font-size:1.5rem;padding:2px 10px;flex:0 0 auto}
+        #customSourcesModal .cs-x:active{opacity:1;color:#e50914}
         #customSourcesModal .cs-empty{font-size:.82rem;opacity:.45;padding:6px 2px}
-        #customSourcesModal input.cs-toggle{width:16px;height:16px;accent-color:#e50914}
+        #customSourcesModal input.cs-toggle{width:22px;height:22px;accent-color:#e50914;flex:0 0 auto}
+        @media(min-width:560px){
+          #customSourcesModal{align-items:center}
+          #customSourcesModal .cs-modal{border-radius:16px;max-height:86vh}
+        }
         `;
         document.head.appendChild(s);
     }
@@ -225,35 +236,31 @@
         modal.setAttribute('aria-modal', 'true');
         modal.hidden = true;
         modal.innerHTML = `
-          <div class="nf-modal nf-settings-modal" style="max-width:640px">
-            <div class="nf-modal-header" style="display:flex;align-items:center;justify-content:space-between">
-              <h3 class="nf-modal-title">Custom sources</h3>
-              <button class="nf-modal-close-btn" type="button" aria-label="Close" id="csClose">×</button>
+          <div class="cs-modal">
+            <div class="cs-head">
+              <h3>Custom sources</h3>
+              <button class="cs-close" type="button" aria-label="Close" id="csClose">×</button>
             </div>
             <div class="cs-body">
               <div>
                 <div class="cs-section-title">Add a provider (applies to everything)</div>
                 <p class="cs-hint">Paste an embed URL template. Use <code>{tmdbId}</code>, <code>{imdbId}</code>, <code>{season}</code>, <code>{episode}</code> as placeholders.</p>
-                <div class="cs-row" style="margin-bottom:8px">
-                  <input class="cs-input" id="csProvLabel" placeholder="Name (e.g. My Player)" style="flex:0 0 160px" />
+                <div class="cs-fields">
+                  <input class="cs-input" id="csProvLabel" placeholder="Name (e.g. My Player)" />
                   <input class="cs-input" id="csProvMovie" placeholder="Movie template — https://…/{tmdbId}" />
-                </div>
-                <div class="cs-row">
                   <input class="cs-input" id="csProvTv" placeholder="TV template (optional) — https://…/{tmdbId}/{season}/{episode}" />
-                  <button class="cs-btn" id="csAddProv">Add</button>
+                  <button class="cs-btn" id="csAddProv">Add provider</button>
                 </div>
                 <div class="cs-list" id="csProvList"></div>
               </div>
               <div>
                 <div class="cs-section-title">Pin a source to one title</div>
-                <p class="cs-hint">Enter the movie's IMDB id (<code>tt1234567</code>) or TMDB id, then paste the exact embed. It'll appear as a source for that title only.</p>
-                <div class="cs-row" style="margin-bottom:8px">
-                  <input class="cs-input" id="csOvId" placeholder="tt1234567 or TMDB id" style="flex:0 0 160px" />
-                  <input class="cs-input" id="csOvLabel" placeholder="Label (optional)" style="flex:0 0 140px" />
-                </div>
-                <div class="cs-row">
+                <p class="cs-hint">Enter the title's IMDB id (<code>tt1234567</code>) or TMDB id, then paste the exact embed. Shows as a source for that title only.</p>
+                <div class="cs-fields">
+                  <input class="cs-input" id="csOvId" placeholder="tt1234567 or TMDB id" inputmode="text" />
+                  <input class="cs-input" id="csOvLabel" placeholder="Label (optional)" />
                   <input class="cs-input" id="csOvUrl" placeholder="Paste embed URL" />
-                  <button class="cs-btn" id="csAddOv">Pin</button>
+                  <button class="cs-btn" id="csAddOv">Pin source</button>
                 </div>
                 <div class="cs-list" id="csOvList"></div>
               </div>
@@ -301,6 +308,9 @@
 
     function open() {
         if (!modal) build();
+        // Close the profile settings modal if it launched us, so they don't stack.
+        const profile = document.getElementById('profileSettingsModal');
+        if (profile && !profile.hidden) profile.hidden = true;
         renderLists(modal);
         modal.hidden = false;
         document.body.style.overflow = 'hidden';
