@@ -77,6 +77,10 @@
   /* ============================================================
      BILLBOARD
      ============================================================ */
+  // Home hero: feature Spider-Man: Brand New Day (imdb tt22084616 / tmdb 969681)
+  // with its promo clip looping in place of the backdrop. Served from /tt22084616/.
+  const FEATURED_HIGHLIGHT = { tmdbId: 969681, video: '/tt22084616/highlight.mp4' };
+
   let billboardDone = false;
 
   async function initBillboard() {
@@ -100,6 +104,12 @@
         } catch (e) { /* fall through to trending */ }
       }
 
+      // Everyone else: the featured highlight hero with the looping clip.
+      try {
+        const featured = await window.TMDBContentModule.getTitleById('movie', FEATURED_HIGHLIGHT.tmdbId);
+        if (featured) { renderBillboard(section, featured, FEATURED_HIGHLIGHT.video); return; }
+      } catch (e) { /* fall through to trending */ }
+
       const movies = await window.TMDBContentModule.getTrendingMovies();
       if (!movies?.length) return;
       // Only feature a released, playable, English-language title.
@@ -114,7 +124,7 @@
     }
   }
 
-  function renderBillboard(section, item) {
+  function renderBillboard(section, item, videoUrl) {
     const backdrop = item.backdrop_path
       ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : '';
     const title    = item.title || item.name || 'Untitled';
@@ -126,11 +136,13 @@
 
     section.innerHTML = `
       <div class="nf-billboard-media">
-        ${backdrop ? `<img src="${escHtml(backdrop)}" alt="${escHtml(title)}" loading="eager">` : ''}
+        ${videoUrl
+          ? `<video src="${escHtml(videoUrl)}" ${backdrop ? `poster="${escHtml(backdrop)}"` : ''} autoplay muted loop playsinline preload="auto"></video>`
+          : (backdrop ? `<img src="${escHtml(backdrop)}" alt="${escHtml(title)}" loading="eager">` : '')}
       </div>
       <div class="nf-billboard-vignette"></div>
       <div class="nf-billboard-content">
-        <div class="nf-billboard-kicker">${type === 'tv' ? 'Show' : 'Movie'}</div>
+        <div class="nf-billboard-kicker">${videoUrl ? 'New Release' : (type === 'tv' ? 'Show' : 'Movie')}</div>
         <h2 class="nf-billboard-title">${escHtml(title)}</h2>
         <div class="nf-billboard-meta">
           ${score ? `<span class="nf-billboard-match">${escHtml(score)}</span>` : ''}
@@ -152,6 +164,10 @@
         </div>
       </div>
     `;
+
+    // Some mobile browsers need an explicit play() nudge even for muted autoplay.
+    const bbVideo = section.querySelector('.nf-billboard-media video');
+    if (bbVideo) { bbVideo.muted = true; bbVideo.play?.().catch(() => {}); }
 
     section.querySelector('.nf-bb-play-btn')?.addEventListener('click', () => {
       const itemObj = { id, title, media_type: type };
