@@ -128,6 +128,30 @@
         if (store.overrides[key].length === 0) delete store.overrides[key];
         save(store);
     }
+    function updateProvider(id, patch) {
+        const p = store.providers.find(x => x.id === id);
+        if (!p) return;
+        if (patch.label != null) p.label = patch.label;
+        if (patch.movie != null) p.movie = patch.movie;
+        if (patch.tv != null) p.tv = patch.tv;
+        save(store);
+    }
+    // Edit a pinned source in place, moving it if its title id changed.
+    function updateOverride(oldKey, index, { key, label, url }) {
+        if (!store.overrides[oldKey] || !store.overrides[oldKey][index]) return false;
+        const newKey = normKey(key);
+        if (!newKey || !url) return false;
+        if (newKey === oldKey) {
+            store.overrides[oldKey][index] = { label, url };
+        } else {
+            store.overrides[oldKey].splice(index, 1);
+            if (store.overrides[oldKey].length === 0) delete store.overrides[oldKey];
+            if (!store.overrides[newKey]) store.overrides[newKey] = [];
+            store.overrides[newKey].push({ label, url });
+        }
+        save(store);
+        return true;
+    }
 
     // ── settings UI ───────────────────────────────────────────────────────────
     let modal = null;
@@ -137,14 +161,14 @@
         const s = document.createElement('style');
         s.id = 'customSourcesStyles';
         s.textContent = `
-        #customSourcesModal{position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.9);display:flex;align-items:flex-end;justify-content:center}
+        #customSourcesModal{position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.92);display:flex;align-items:stretch;justify-content:center}
         #customSourcesModal[hidden]{display:none}
         #customSourcesModal *{box-sizing:border-box}
-        #customSourcesModal .cs-modal{background:#141414;width:100%;max-width:640px;max-height:92vh;border-radius:16px 16px 0 0;display:flex;flex-direction:column;box-shadow:0 -8px 40px rgba(0,0,0,.7)}
+        #customSourcesModal .cs-modal{background:#141414;width:100%;max-width:640px;height:100%;display:flex;flex-direction:column}
         #customSourcesModal .cs-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.1);flex:0 0 auto}
         #customSourcesModal .cs-head h3{margin:0;font-size:1.15rem;font-weight:700}
-        #customSourcesModal .cs-close{background:rgba(255,255,255,.1);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:1.4rem;line-height:1;cursor:pointer;flex:0 0 auto}
-        #customSourcesModal .cs-body{display:flex;flex-direction:column;gap:28px;overflow:auto;padding:18px;-webkit-overflow-scrolling:touch}
+        #customSourcesModal .cs-close{background:rgba(255,255,255,.1);border:none;color:#fff;width:38px;height:38px;border-radius:50%;font-size:1.5rem;line-height:1;cursor:pointer;flex:0 0 auto}
+        #customSourcesModal .cs-body{flex:1 1 auto;display:flex;flex-direction:column;gap:30px;overflow-y:auto;padding:18px 18px calc(48px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
         #customSourcesModal .cs-section-title{font-size:.82rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.7;margin:0 0 8px}
         #customSourcesModal .cs-hint{font-size:.82rem;line-height:1.45;opacity:.65;margin:0 0 14px;overflow-wrap:anywhere}
         #customSourcesModal .cs-hint code{background:rgba(255,255,255,.12);padding:1px 5px;border-radius:4px;font-size:.78rem;overflow-wrap:anywhere}
@@ -153,18 +177,20 @@
         #customSourcesModal .cs-input::placeholder{color:rgba(255,255,255,.4)}
         #customSourcesModal .cs-input:focus{outline:none;border-color:#e50914}
         #customSourcesModal .cs-btn{width:100%;background:#e50914;color:#fff;border:none;border-radius:10px;padding:14px 16px;font-weight:600;cursor:pointer;font-size:.95rem}
-        #customSourcesModal .cs-list{display:flex;flex-direction:column;gap:8px;margin-top:14px}
-        #customSourcesModal .cs-item{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:11px 13px}
-        #customSourcesModal .cs-item .cs-meta{flex:1;min-width:0}
-        #customSourcesModal .cs-item .cs-name{font-weight:600;font-size:.9rem;overflow-wrap:anywhere}
-        #customSourcesModal .cs-item .cs-url{font-size:.74rem;opacity:.55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        #customSourcesModal .cs-x{background:none;border:none;color:#fff;opacity:.65;cursor:pointer;font-size:1.5rem;padding:2px 10px;flex:0 0 auto}
-        #customSourcesModal .cs-x:active{opacity:1;color:#e50914}
-        #customSourcesModal .cs-empty{font-size:.82rem;opacity:.45;padding:6px 2px}
+        #customSourcesModal .cs-list{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+        #customSourcesModal .cs-card{display:flex;flex-direction:column;gap:9px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:13px}
+        #customSourcesModal .cs-card .cs-input{background:rgba(255,255,255,.06);padding:11px 12px}
+        #customSourcesModal .cs-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.03em;opacity:.5;margin:2px 0 -3px}
+        #customSourcesModal .cs-card-actions{display:flex;align-items:center;gap:8px;margin-top:4px}
+        #customSourcesModal .cs-toggle-wrap{display:flex;align-items:center;gap:8px;margin-right:auto;font-size:.85rem;opacity:.85}
         #customSourcesModal input.cs-toggle{width:22px;height:22px;accent-color:#e50914;flex:0 0 auto}
+        #customSourcesModal .cs-mini{flex:0 0 auto;width:auto;border:none;border-radius:9px;padding:10px 16px;font-weight:600;font-size:.85rem;cursor:pointer}
+        #customSourcesModal .cs-save{background:#e50914;color:#fff}
+        #customSourcesModal .cs-del{background:rgba(229,9,20,.14);color:#ff7a7a;border:1px solid rgba(229,9,20,.4)}
+        #customSourcesModal .cs-empty{font-size:.82rem;opacity:.45;padding:6px 2px}
         @media(min-width:560px){
-          #customSourcesModal{align-items:center}
-          #customSourcesModal .cs-modal{border-radius:16px;max-height:86vh}
+          #customSourcesModal{align-items:center;padding:20px}
+          #customSourcesModal .cs-modal{height:auto;max-height:88vh;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.7)}
         }
         `;
         document.head.appendChild(s);
@@ -177,31 +203,59 @@
         return n;
     }
 
+    // small labelled input for edit cards
+    function field(labelText, value, placeholder) {
+        const wrap = document.createElement('div');
+        if (labelText) wrap.appendChild(el('div', 'cs-label', labelText));
+        const input = el('input', 'cs-input');
+        input.value = value || '';
+        if (placeholder) input.placeholder = placeholder;
+        wrap.appendChild(input);
+        return { wrap, input };
+    }
+
     function renderLists(body) {
-        // providers
+        // ── custom providers ──
         const provList = body.querySelector('#csProvList');
         provList.innerHTML = '';
         if (store.providers.length === 0) {
             provList.appendChild(el('div', 'cs-empty', 'No custom providers yet.'));
         }
         store.providers.forEach(p => {
-            const item = el('div', 'cs-item');
+            const card = el('div', 'cs-card');
+            const name = field('Name', p.label, 'Name');
+            const movie = field('Movie template', p.movie, 'https://…/{tmdbId}');
+            const tv = field('TV template', p.tv, 'https://…/{tmdbId}/{season}/{episode}');
+
+            const actions = el('div', 'cs-card-actions');
+            const toggleWrap = el('label', 'cs-toggle-wrap');
             const cb = el('input', 'cs-toggle');
             cb.type = 'checkbox';
             cb.checked = p.enabled !== false;
-            cb.title = 'Enable / disable';
             cb.onchange = () => toggleProvider(p.id, cb.checked);
-            const meta = el('div', 'cs-meta');
-            meta.appendChild(el('div', 'cs-name', p.label));
-            meta.appendChild(el('div', 'cs-url', p.movie || p.tv || ''));
-            const x = el('button', 'cs-x', '×');
-            x.title = 'Remove';
-            x.onclick = () => { removeProvider(p.id); renderLists(body); };
-            item.append(cb, meta, x);
-            provList.appendChild(item);
+            toggleWrap.append(cb, document.createTextNode('Enabled'));
+
+            const save = el('button', 'cs-mini cs-save', 'Save');
+            save.onclick = () => {
+                const label = name.input.value.trim();
+                const mv = movie.input.value.trim();
+                const tvv = tv.input.value.trim();
+                if (!label) return toast('Give the provider a name.', 'error');
+                if (!mv && !tvv) return toast('Add at least a movie or TV template.', 'error');
+                if (mv && !isHttpUrl(mv.replace(/\{[^}]+\}/g, '1'))) return toast('Movie template is not a valid URL.', 'error');
+                if (tvv && !isHttpUrl(tvv.replace(/\{[^}]+\}/g, '1'))) return toast('TV template is not a valid URL.', 'error');
+                updateProvider(p.id, { label, movie: mv, tv: tvv });
+                toast('Saved.', 'success');
+            };
+            const del = el('button', 'cs-mini cs-del', 'Delete');
+            del.onclick = () => { removeProvider(p.id); renderLists(body); };
+
+            actions.append(toggleWrap, save, del);
+            card.append(name.wrap, movie.wrap, tv.wrap, actions);
+            provList.appendChild(card);
         });
 
-        // per-title overrides
+        // ── per-title pinned sources ──
         const ovList = body.querySelector('#csOvList');
         ovList.innerHTML = '';
         const keys = Object.keys(store.overrides);
@@ -210,15 +264,31 @@
         }
         keys.forEach(k => {
             store.overrides[k].forEach((o, i) => {
-                const item = el('div', 'cs-item');
-                const meta = el('div', 'cs-meta');
-                meta.appendChild(el('div', 'cs-name', (o.label || 'My source') + '  ·  ' + k));
-                meta.appendChild(el('div', 'cs-url', o.url));
-                const x = el('button', 'cs-x', '×');
-                x.title = 'Remove';
-                x.onclick = () => { removeOverride(k, i); renderLists(body); };
-                item.append(meta, x);
-                ovList.appendChild(item);
+                const card = el('div', 'cs-card');
+                const idF = field('IMDB / TMDB id', k, 'tt1234567 or TMDB id');
+                const labelF = field('Label', o.label, 'Label (optional)');
+                const urlF = field('Embed URL', o.url, 'Paste embed URL');
+
+                const actions = el('div', 'cs-card-actions');
+                const spacer = el('div', 'cs-toggle-wrap'); // pushes buttons right
+                const save = el('button', 'cs-mini cs-save', 'Save');
+                save.onclick = () => {
+                    const key = idF.input.value.trim();
+                    const label = labelF.input.value.trim();
+                    const url = urlF.input.value.trim();
+                    if (!key) return toast('Enter an IMDB or TMDB id.', 'error');
+                    if (!url) return toast('Paste an embed URL.', 'error');
+                    if (!isHttpUrl(url.replace(/\{[^}]+\}/g, '1'))) return toast('That embed URL is not valid.', 'error');
+                    updateOverride(k, i, { key, label, url });
+                    renderLists(body); // key may have changed, re-render
+                    toast('Saved.', 'success');
+                };
+                const del = el('button', 'cs-mini cs-del', 'Delete');
+                del.onclick = () => { removeOverride(k, i); renderLists(body); };
+
+                actions.append(spacer, save, del);
+                card.append(idF.wrap, labelF.wrap, urlF.wrap, actions);
+                ovList.appendChild(card);
             });
         });
     }
@@ -271,6 +341,16 @@
         const body = modal;
         modal.querySelector('#csClose').onclick = close;
         modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+
+        // On mobile the on-screen keyboard can cover the focused field. Scroll it
+        // to the middle once the keyboard has had time to animate in.
+        const scroller = modal.querySelector('.cs-body');
+        scroller.addEventListener('focusin', (e) => {
+            const t = e.target;
+            if (t && t.classList && t.classList.contains('cs-input')) {
+                setTimeout(() => { try { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {} }, 280);
+            }
+        });
 
         modal.querySelector('#csAddProv').onclick = () => {
             const label = modal.querySelector('#csProvLabel').value.trim();
