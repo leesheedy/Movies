@@ -746,19 +746,12 @@
     </nav>
 </div>
 
-<!-- ═══════════════════════════════ AD BLOCKER PROMPT ═══════════════════════════════ -->
-<div id="adblockPrompt" class="nf-adblock-banner" hidden>
-    <div class="nf-adblock-inner">
-        <div class="nf-adblock-icon">&#128683;</div>
-        <div class="nf-adblock-text">
-            <strong>We hate ads. So get rid of them.</strong>
-            <span><b>No ad blocker detected.</b> The free players here can show pop-ups &amp; ads we can't kill from our side. <a href="https://ublockorigin.com" target="_blank" rel="noopener" class="nf-adblock-link nf-adblock-install-link">uBlock Origin</a> wipes them out everywhere — free, open-source, one click.</span>
-        </div>
-        <div class="nf-adblock-actions">
-            <a href="https://chromewebstore.google.com/detail/ublock-origin/cjpalhdlnbpafiamejdnhcphjbkeiagm" target="_blank" rel="noopener" class="nf-btn nf-adblock-install-btn nf-adblock-install-link">Install uBlock Origin — Free &#8594;</a>
-            <button onclick="dismissAdblockPrompt()" class="nf-adblock-dismiss-btn" type="button">No thanks, I love ads</button>
-        </div>
-    </div>
+<!-- ═══════════════════════════════ AD BLOCKER PROMPT (anchored under the search bar) ═══════════════════════════════ -->
+<div id="adblockPrompt" class="nf-adblock-popup" hidden role="status">
+    <button class="nf-adblock-popup-close" type="button" aria-label="Dismiss" onclick="dismissAdblockPrompt()">&times;</button>
+    <strong class="nf-adblock-popup-title">Sick of ads?</strong>
+    <p class="nf-adblock-popup-body"><b>No ad blocker detected.</b> The free players here can show pop-ups we can't kill from our side. <a href="https://ublockorigin.com" target="_blank" rel="noopener" class="nf-adblock-link nf-adblock-install-link">uBlock Origin</a> wipes them out — free, open-source, one click.</p>
+    <a href="https://chromewebstore.google.com/detail/ublock-origin/cjpalhdlnbpafiamejdnhcphjbkeiagm" target="_blank" rel="noopener" class="nf-adblock-popup-btn nf-adblock-install-link">Install uBlock Origin — Free &#8594;</a>
 </div>
 
 <!-- ═══════════════════════════════ AD POPUP WARNING ═══════════════════════════════ -->

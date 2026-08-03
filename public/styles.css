@@ -3006,68 +3006,57 @@ html.tv-mode .app-loader-version { font-size: 1rem; left: 28px; bottom: 22px; }
 /* ============================================================
    AD BLOCKER BANNER
    ============================================================ */
-.nf-adblock-banner {
+.nf-adblock-popup {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-  border-top: 2px solid rgba(229,9,20,.6);
-  padding: 16px 24px;
-  animation: slideUpBanner .35s ease;
+  z-index: 1100;
+  width: min(320px, calc(100vw - 24px));
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+  border: 1px solid rgba(229,9,20,.45);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.55);
+  animation: adblockPopupIn .22s ease;
 }
-@keyframes slideUpBanner {
-  from { transform: translateY(100%); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
+@keyframes adblockPopupIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-.nf-adblock-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+/* Caret pointing up at the search bar */
+.nf-adblock-popup::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: var(--nf-adblock-caret-left, 24px);
+  width: 14px; height: 14px;
+  background: #16213e;
+  border-left: 1px solid rgba(229,9,20,.45);
+  border-top: 1px solid rgba(229,9,20,.45);
+  transform: rotate(45deg);
 }
-.nf-adblock-icon { font-size: 1.8rem; flex-shrink: 0; }
-.nf-adblock-text {
-  flex: 1;
-  min-width: 200px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+.nf-adblock-popup-close {
+  position: absolute; top: 6px; right: 6px;
+  background: none; border: none;
+  color: rgba(255,255,255,.5);
+  font-size: 1.3rem; line-height: 1;
+  cursor: pointer; padding: 4px 8px; border-radius: 4px;
+  font-family: inherit;
 }
-.nf-adblock-text strong { font-size: 1rem; color: #fff; }
-.nf-adblock-text span { font-size: .88rem; color: rgba(255,255,255,.7); }
+.nf-adblock-popup-close:hover { color: #fff; }
+.nf-adblock-popup-title { display: block; font-size: 1.05rem; color: #fff; margin-bottom: 6px; padding-right: 20px; }
+.nf-adblock-popup-body { font-size: .85rem; line-height: 1.5; color: rgba(255,255,255,.72); margin: 0 0 12px; }
 .nf-adblock-link { color: var(--nf-red); text-decoration: underline; }
-.nf-adblock-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.nf-adblock-install-btn {
+.nf-adblock-popup-btn {
+  display: inline-block;
   background: var(--nf-red);
   color: #fff;
-  border: none;
   border-radius: 6px;
-  padding: 10px 20px;
-  font-size: .9rem;
+  padding: 9px 16px;
+  font-size: .85rem;
   font-weight: 700;
-  cursor: pointer;
   text-decoration: none;
-  display: inline-block;
-  font-family: inherit;
   transition: background .18s;
 }
-.nf-adblock-install-btn:hover { background: #c40812; }
-.nf-adblock-dismiss-btn {
-  background: transparent;
-  color: rgba(255,255,255,.55);
-  border: 1px solid rgba(255,255,255,.22);
-  border-radius: 6px;
-  padding: 10px 16px;
-  font-size: .9rem;
-  cursor: pointer;
-  font-family: inherit;
-  transition: color .18s, border-color .18s;
-}
-.nf-adblock-dismiss-btn:hover { color: #fff; border-color: rgba(255,255,255,.5); }
+.nf-adblock-popup-btn:hover { background: #c40812; }
 
 /* Ad popup flash banner */
 .nf-adpopup-banner {
@@ -3106,7 +3095,6 @@ html.tv-mode .app-loader-version { font-size: 1rem; left: 28px; bottom: 22px; }
 .nf-adpopup-close:hover { color: #fff; }
 
 @media (max-width: 600px) {
-  .nf-adblock-inner { flex-direction: column; align-items: flex-start; }
   .nf-tv-genre-pills { gap: 8px; }
   .nf-tv-genre-pill { padding: 7px 14px; font-size: .82rem; }
   .nf-select--tv { min-width: 160px; }

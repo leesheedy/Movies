@@ -66,7 +66,7 @@ const profiles = [
     { id: 'issy', name: 'Issy', avatar: 'I', image: '/assets/profile-issy.jpg' },
     { id: 'renee', name: 'Renee', avatar: 'R' },
     // Bec gets a photo avatar and re-brands the app to Love Island while active.
-    { id: 'bec', name: 'Bec', avatar: 'B', image: '/assets/profile-bec.jpg', brandLogo: '/assets/loveisland-logo.png' },
+    { id: 'bec', name: 'Bec & Heath', avatar: 'B', image: '/assets/profile-bec.jpg', brandLogo: '/assets/loveisland-logo.png' },
     { id: 'dom-and-isla', name: 'Dom and Isla', avatar: 'DI', image: '/assets/profile-dom-isla.jpg' }
 ];
 const profileSettings = loadProfileSettings();
@@ -880,6 +880,23 @@ function dismissAdblockPrompt() {
     }
 }
 
+// Anchors the popup under the header search widget, clamped to stay on-screen,
+// with the CSS caret sliding along to keep pointing at the search icon.
+function positionAdblockPopup() {
+    const prompt = document.getElementById('adblockPrompt');
+    const anchor = document.getElementById('nfSearchWidget');
+    if (!prompt || !anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    const popupWidth = prompt.offsetWidth || 320;
+    const margin = 12;
+    let left = rect.left + rect.width / 2 - popupWidth / 2;
+    left = Math.max(margin, Math.min(left, window.innerWidth - popupWidth - margin));
+    const caretLeft = Math.max(16, Math.min(popupWidth - 30, rect.left + rect.width / 2 - left - 7));
+    prompt.style.left = `${left}px`;
+    prompt.style.top = `${rect.bottom + 10}px`;
+    prompt.style.setProperty('--nf-adblock-caret-left', `${caretLeft}px`);
+}
+
 async function maybeShowAdblockPrompt() {
     if (!shouldShowAdblockPrompt()) return;
     // Extensions only exist on desktop — don't nag mobile / TV users.
@@ -892,8 +909,12 @@ async function maybeShowAdblockPrompt() {
     const installUrl = getUblockInstallUrl();
     document.querySelectorAll('.nf-adblock-install-link').forEach(a => { a.href = installUrl; });
     sessionStorage.setItem(ADBLOCK_PROMPT_SESSION_KEY, '1');
+    window.addEventListener('resize', () => { if (!prompt.hidden) positionAdblockPopup(); });
     // Show after a couple of seconds so it doesn't interrupt initial load.
-    setTimeout(() => { prompt.hidden = false; }, 2500);
+    setTimeout(() => {
+        positionAdblockPopup();
+        prompt.hidden = false;
+    }, 2500);
 }
 
 function showAdPopupBanner() {
@@ -5685,6 +5706,7 @@ async function init() {
     // Point every "install uBlock" link (dropdown, prompt, popup banner) at the
     // correct store for this browser.
     try { document.querySelectorAll('.nf-adblock-install-link').forEach(a => { a.href = getUblockInstallUrl(); }); } catch {}
+    maybeShowAdblockPrompt();
     loadTmdbImdbCache();
     initProfileGate();
     initBackNavigationHandlers();
