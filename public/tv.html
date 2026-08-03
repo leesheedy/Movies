@@ -56,9 +56,6 @@
     .iprow { display:flex; gap:10px; flex-wrap:wrap; }
     .iprow input { flex:1; min-width:180px; background:#141414; border:1.5px solid rgba(255,255,255,.2); border-radius:8px; color:#fff; font-size:1.1rem; padding:12px 14px; outline:none; font-family:inherit; }
     .iprow input:focus { border-color:var(--red); }
-    .os-toggle { display:inline-flex; background:#141414; border:1.5px solid rgba(255,255,255,.2); border-radius:8px; overflow:hidden; margin-top:12px; }
-    .os-toggle button { background:none; border:0; color:var(--muted); padding:9px 16px; cursor:pointer; font-weight:700; font-size:.9rem; }
-    .os-toggle button.active { background:var(--red); color:#fff; }
     .ipnote { color:#ff8a8a; font-size:.85rem; margin-top:8px; min-height:1em; }
 
     .btn { display:inline-flex; align-items:center; gap:10px; background:#fff; color:#111; font-weight:800; text-decoration:none; padding:14px 26px; border:0; border-radius:10px; font-size:1.05rem; cursor:pointer; font-family:inherit; }
@@ -74,7 +71,6 @@
     details.manual { margin-top:18px; border-top:1px solid rgba(255,255,255,.08); padding-top:14px; }
     details.manual summary { cursor:pointer; color:var(--muted); font-weight:600; }
     .note { background:rgba(229,9,20,.08); border:1px solid rgba(229,9,20,.25); border-radius:10px; padding:13px 16px; color:#e8c9cb; font-size:.9rem; margin-top:16px; }
-    .ok { background:rgba(70,211,105,.1); border:1px solid rgba(70,211,105,.3); color:#bdf0cd; border-radius:10px; padding:13px 16px; font-size:.92rem; margin-top:14px; display:none; }
     .foot { text-align:center; color:var(--muted); font-size:.9rem; margin-top:40px; }
     @media (max-width:560px){ h1{font-size:1.7rem} .acc-head{padding:18px} .acc-body{padding:0 18px 22px} }
   </style>
@@ -123,36 +119,27 @@
       </div>
 
       <div class="step">
-        <span class="n">2</span><b>On your computer:</b> enter your TV's IP and download your personal installer. It downloads the app, registers your TV, installs &amp; launches Notflix — all in one go.
+        <span class="n">2</span><b>On your computer:</b> enter your TV's IP to get your personal setup commands. Open a terminal (Command Prompt/PowerShell on Windows, Terminal on Mac/Linux) and copy each one across, in order.
         <div class="ipbox">
           <label for="ipInput">Your TV's IP address</label>
           <div class="iprow">
             <input id="ipInput" type="text" inputmode="decimal" placeholder="e.g. 192.168.1.42" autocomplete="off" />
-          </div>
-          <div class="os-toggle" id="osToggle">
-            <button data-os="win" class="active">🪟 Windows</button>
-            <button data-os="unix">🍎 Mac / Linux</button>
+            <button class="btn red" id="genBtn" style="flex-shrink:0;">Generate my commands</button>
           </div>
           <div class="ipnote" id="ipNote"></div>
-          <button class="btn red full" id="genBtn">⬇ Download my one-click installer</button>
-          <div class="ok" id="okMsg"></div>
+          <div id="cmdList" style="margin-top:14px;"></div>
         </div>
       </div>
 
       <div class="step">
-        <span class="n">3</span><b>Run the installer</b> you just downloaded (double-click it on Windows, or <code>bash install-notflix.sh</code> on Mac/Linux). When it asks, type the <b>passphrase</b> from your TV. That's it — Notflix appears on your home screen. 🎉
+        <span class="n">3</span><b>Run each command above</b>, in order, in your terminal. When <code>ares-novacom --getkey</code> asks, type the <b>passphrase</b> from your TV's Developer Mode app. That's it — Notflix appears on your home screen. 🎉
       </div>
 
       <details class="manual">
-        <summary>Prefer to do it manually? (or just grab the app file)</summary>
+        <summary>Just want the app file?</summary>
         <div style="margin-top:12px;">
           <a class="btn" href="/notflix-webos.ipk" download style="font-size:.95rem;padding:11px 20px;">⬇ Download notflix-webos.ipk</a>
-          <p class="muted small" style="margin:14px 0 4px;">Then run (replace <code style="color:#ff9">TV_IP</code>):</p>
-          <div class="cmd"><code>npm install -g @webos-tools/cli</code><button class="copy" data-copy="npm install -g @webos-tools/cli">Copy</button></div>
-          <div class="cmd"><code>ares-setup-device --add notflixtv -i "host=TV_IP" -i "port=9922" -i "username=prisoner"</code><button class="copy" data-copy='ares-setup-device --add notflixtv -i "host=TV_IP" -i "port=9922" -i "username=prisoner"'>Copy</button></div>
-          <div class="cmd"><code>ares-novacom --device notflixtv --getkey</code><button class="copy" data-copy="ares-novacom --device notflixtv --getkey">Copy</button></div>
-          <div class="cmd"><code>ares-install --device notflixtv notflix-webos.ipk</code><button class="copy" data-copy="ares-install --device notflixtv notflix-webos.ipk">Copy</button></div>
-          <div class="cmd"><code>ares-launch --device notflixtv com.notflix.app</code><button class="copy" data-copy="ares-launch --device notflixtv com.notflix.app">Copy</button></div>
+          <p class="muted small" style="margin:14px 0 4px;">Then use the commands above (or run them manually with <code style="color:#ff9">ares-*</code> from the <a href="https://webostv.developer.lge.com/develop/tools/cli-installation" target="_blank" rel="noopener">webOS CLI</a>) to install it on your TV.</p>
         </div>
       </details>
 
@@ -174,147 +161,53 @@
   document.getElementById('acc1').classList.add('open');
 
   /* Copy buttons */
-  document.querySelectorAll('.copy').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var text = btn.getAttribute('data-copy');
-      function ok() { var t = btn.textContent; btn.textContent = '✓'; btn.classList.add('done'); setTimeout(function () { btn.textContent = t; btn.classList.remove('done'); }, 1500); }
-      if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(ok).catch(fb); } else fb();
-      function fb() { var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); ok(); } catch (e) {} document.body.removeChild(ta); }
-    });
+  function copyText(btn, text) {
+    function ok() { var t = btn.textContent; btn.textContent = '✓'; btn.classList.add('done'); setTimeout(function () { btn.textContent = t; btn.classList.remove('done'); }, 1500); }
+    if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(ok).catch(fb); } else fb();
+    function fb() { var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); ok(); } catch (e) {} document.body.removeChild(ta); }
+  }
+  document.querySelectorAll('.copy[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () { copyText(btn, btn.getAttribute('data-copy')); });
   });
 
-  /* OS toggle — default to the user's platform */
-  var os = /Mac|iPhone|iPad|Linux|X11/i.test(navigator.platform || navigator.userAgent) && !/Win/i.test(navigator.platform || '') ? 'unix' : 'win';
-  function setOs(v) {
-    os = v;
-    document.querySelectorAll('#osToggle button').forEach(function (b) { b.classList.toggle('active', b.dataset.os === v); });
-  }
-  document.querySelectorAll('#osToggle button').forEach(function (b) { b.addEventListener('click', function () { setOs(b.dataset.os); }); });
-  setOs(os);
-
-  /* Installer-script generator */
+  /* Personalized command list — copy/paste only, nothing is auto-downloaded or executed */
   function validIp(ip) { return /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.test(ip) && ip.split('.').every(function (n) { return +n >= 0 && +n <= 255; }); }
 
-  function batScript(ip) {
+  function commandsFor(ip) {
     return [
-      '@echo off',
-      'title Install Notflix on LG TV',
-      'echo ============================================',
-      'echo   Installing Notflix on your LG TV',
-      'echo   TV IP: ' + ip,
-      'echo ============================================',
-      'echo.',
-      'echo [1/5] Checking for the webOS CLI...',
-      'where ares-setup-device >nul 2>&1',
-      'if %errorlevel%==0 goto :cliok',
-      'echo       Not found - installing it now (needs Node.js)...',
-      'call npm install -g @webos-tools/cli',
-      'goto :cliready',
-      ':cliok',
-      'echo       Already installed - skipping.',
-      ':cliready',
-      'echo.',
-      'echo [2/5] Registering your TV...',
-      'call ares-setup-device --remove notflixtv >nul 2>&1',
-      'call ares-setup-device --add notflixtv -i "host=' + ip + '" -i "port=9922" -i "username=prisoner"',
-      'echo.',
-      'echo [3/5] Pairing with your TV - this is where you enter the passphrase.',
-      'echo       On the TV: open the Developer Mode app, turn KEY SERVER on,',
-      'echo       and note the 6-character PASSPHRASE.',
-      'echo.',
-      'pause',
-      'call ares-novacom --device notflixtv --getkey',
-      'if errorlevel 1 goto :keyfail',
-      'echo.',
-      'echo [4/5] Downloading the Notflix app...',
-      'curl -L -o "%TEMP%\\notflix-webos.ipk" ' + IPK_URL,
-      'echo.',
-      'echo [5/5] Installing and launching Notflix...',
-      'call ares-install --device notflixtv "%TEMP%\\notflix-webos.ipk"',
-      'if errorlevel 1 goto :installfail',
-      'call ares-launch --device notflixtv com.notflix.app',
-      'echo.',
-      'echo Done! Notflix should now be on your TV home screen.',
-      'pause',
-      'exit /b 0',
-      '',
-      ':keyfail',
-      'echo.',
-      'echo  [X] Could not pair with your TV - nothing was installed.',
-      'echo      - Is the TV on the same network as this PC?',
-      'echo      - Is Developer Mode ON and KEY SERVER ON?',
-      'echo      - Did you type the correct passphrase?',
-      'echo      Fix the above, then run this installer again.',
-      'echo.',
-      'pause',
-      'exit /b 1',
-      '',
-      ':installfail',
-      'echo.',
-      'echo  [X] Install failed - see the message above.',
-      'echo      Make sure the TV is still reachable, then try again.',
-      'echo.',
-      'pause',
-      'exit /b 1'
-    ].join('\r\n');
-  }
-
-  function shScript(ip) {
-    return [
-      '#!/usr/bin/env bash',
-      '# Install Notflix on your LG TV (' + ip + ')',
-      'set -e',
-      'echo "==> [1/5] Checking for the webOS CLI..."',
-      'if command -v ares-setup-device >/dev/null 2>&1; then',
-      '  echo "    Already installed - skipping."',
-      'else',
-      '  echo "    Not found - installing it now (needs Node.js)..."',
-      '  npm install -g @webos-tools/cli',
-      'fi',
-      'echo "==> [2/5] Registering your TV..."',
-      'ares-setup-device --remove notflixtv >/dev/null 2>&1 || true',
+      'npm install -g @webos-tools/cli',
       'ares-setup-device --add notflixtv -i "host=' + ip + '" -i "port=9922" -i "username=prisoner"',
-      'echo "==> [3/5] Pairing with your TV - this is where you enter the passphrase."',
-      'echo "    On the TV: open Developer Mode, turn KEY SERVER on, note the 6-char PASSPHRASE."',
-      'read -n 1 -s -r -p "    Press any key when ready, then enter the passphrase..."',
-      'echo',
-      'if ! ares-novacom --device notflixtv --getkey; then',
-      '  echo "  [X] Could not pair with your TV - nothing was installed."',
-      '  echo "      Same network? Developer Mode + KEY SERVER ON? Correct passphrase?"',
-      '  echo "      Fix the above, then run this installer again."',
-      '  exit 1',
-      'fi',
-      'echo "==> [4/5] Downloading the Notflix app..."',
-      'curl -L -o /tmp/notflix-webos.ipk ' + IPK_URL,
-      'echo "==> [5/5] Installing and launching..."',
-      'ares-install --device notflixtv /tmp/notflix-webos.ipk',
-      'ares-launch --device notflixtv com.notflix.app',
-      'echo "Done! Notflix is on your TV home screen."'
-    ].join('\n');
+      'ares-novacom --device notflixtv --getkey',
+      'curl -L -o notflix-webos.ipk ' + IPK_URL,
+      'ares-install --device notflixtv notflix-webos.ipk',
+      'ares-launch --device notflixtv com.notflix.app'
+    ];
   }
 
-  function download(name, text) {
-    var blob = new Blob([text], { type: 'text/plain' });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1500);
+  function renderCommands(ip) {
+    var list = document.getElementById('cmdList');
+    list.innerHTML = '';
+    commandsFor(ip).forEach(function (cmd) {
+      var row = document.createElement('div');
+      row.className = 'cmd';
+      var code = document.createElement('code');
+      code.textContent = cmd;
+      var btn = document.createElement('button');
+      btn.className = 'copy';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function () { copyText(btn, cmd); });
+      row.appendChild(code); row.appendChild(btn);
+      list.appendChild(row);
+    });
   }
 
   var ipInput = document.getElementById('ipInput');
   var note = document.getElementById('ipNote');
-  var okMsg = document.getElementById('okMsg');
   document.getElementById('genBtn').addEventListener('click', function () {
     var ip = (ipInput.value || '').trim();
     if (!validIp(ip)) { note.textContent = 'Please enter a valid IP like 192.168.1.42 (find it in the Developer Mode app on your TV).'; ipInput.focus(); return; }
     note.textContent = '';
-    if (os === 'win') download('install-notflix.bat', batScript(ip));
-    else download('install-notflix.sh', shScript(ip));
-    okMsg.style.display = 'block';
-    okMsg.innerHTML = '✅ Installer downloaded! ' + (os === 'win'
-      ? 'Double-click <b>install-notflix.bat</b>, then type your TV passphrase when asked.'
-      : 'Run <b>bash install-notflix.sh</b>, then type your TV passphrase when asked.');
+    renderCommands(ip);
   });
   ipInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') document.getElementById('genBtn').click(); });
 </script>
