@@ -1564,6 +1564,7 @@ function renderTmdbIframe(embedUrl) {
 
     const iframe = document.createElement('iframe');
     iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope');
+    iframe.setAttribute('allowfullscreen', 'true');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     // The player embed IS the main content — load it immediately, never lazily.
     iframe.setAttribute('loading', 'eager');
